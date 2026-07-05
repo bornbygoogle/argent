@@ -11,28 +11,34 @@ function inject(url: string): Promise<void> {
   const existing = cache.get(url);
   if (existing) return existing;
 
+  let resolveFn: () => void;
+  let rejectFn: (e: Error) => void;
+
   const p = new Promise<void>((resolve, reject) => {
-    const found = document.querySelector<HTMLScriptElement>(`script[src="${url}"]`);
-    if (found) {
-      found.addEventListener('load', () => resolve());
-      found.addEventListener('error', () => reject(new Error(`google-script-load-failed:${url}`)));
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = url;
-    s.async = true;
-    s.defer = true;
-    // NOTE: do NOT set crossOrigin='anonymous' here. It looks like it should help
-    // (surface real errors instead of an opaque "Script error."), but it breaks
-    // the Google SDKs in practice — Back up / Restore stop working entirely on
-    // desktop (script fails to load and/or the Picker popup can't talk back).
-    // Confirmed regression 2026-07-05. Keep these scripts without crossorigin.
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`google-script-load-failed:${url}`));
-    document.head.appendChild(s);
+    resolveFn = resolve;
+    rejectFn = reject;
   });
 
   cache.set(url, p);
+
+  const found = document.querySelector<HTMLScriptElement>(`script[src="${url}"]`);
+
+  if (found) {
+    found.addEventListener('load', () => resolveFn());
+    found.addEventListener('error', () => rejectFn(new Error(`google-script-load-failed:${url}`)));
+    return p;
+  }
+
+  const s = document.createElement('script');
+  s.src = url;
+  s.async = true;
+  s.defer = true;
+
+  s.onload = () => resolveFn();
+  s.onerror = () => rejectFn(new Error(`google-script-load-failed:${url}`));
+
+  document.head.appendChild(s);
+
   return p;
 }
 
