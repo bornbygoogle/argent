@@ -23,7 +23,10 @@ export function GoogleSync() {
     try {
       await fn();
     } catch (e) {
-      setErr(t('settings.googleErrors.generic'));
+      // Show the real underlying error (e.g. "google-upload-failed (403) …")
+      // instead of a generic banner, so Drive/Picker failures are debuggable.
+      const message = e instanceof Error ? e.message : String(e);
+      setErr(message);
       // eslint-disable-next-line no-console
       console.error('[GoogleSync]', e);
     }

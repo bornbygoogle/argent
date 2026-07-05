@@ -9,14 +9,31 @@ export interface Picked {
   name: string;
 }
 
+// The Picker script's `onload` fires before `window.google.picker` is actually
+// attached — the SDK bootstraps in a follow-up tick/iframe. On desktop this is
+// imperceptible; on mobile the delay can cross a frame boundary and `g?.picker`
+// is still undefined right after loadPicker() resolves, producing
+// `google-picker-unavailable` on the first back up / restore. Poll briefly for
+// it to appear instead of failing instantly.
+async function waitForPicker(timeoutMs = 4000): Promise<NonNullable<Window['google']>> {
+  const start = performance.now();
+  while (performance.now() - start < timeoutMs) {
+    const g = window.google;
+    if (g?.picker) return g;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  const g = window.google;
+  if (g?.picker) return g;
+  throw new Error('google-picker-unavailable');
+}
+
 async function show(
   token: string,
   title: string,
   configure: (builder: PickerBuilder, g: NonNullable<Window['google']>) => void,
 ): Promise<Picked | null> {
   await loadPicker();
-  const g = window.google;
-  if (!g?.picker) throw new Error('google-picker-unavailable');
+  const g = await waitForPicker();
 
   return new Promise<Picked | null>((resolve) => {
     const origin = window.location.origin;

@@ -42,7 +42,20 @@ export async function uploadBackupToFolder(
     headers: { Authorization: `Bearer ${token}` },
     body,
   });
-  if (!res.ok) throw new Error('google-upload-failed');
+  if (!res.ok) {
+    // Surface Google's real status + error body instead of an opaque string.
+    let detail = '';
+    try {
+      detail = JSON.stringify(await res.json());
+    } catch {
+      try {
+        detail = await res.text();
+      } catch {
+        /* ignore */
+      }
+    }
+    throw new Error(`google-upload-failed (${res.status}) ${detail}`);
+  }
   return (await res.json()) as { id: string; name: string };
 }
 
