@@ -19,9 +19,11 @@ async function show(
   if (!g?.picker) throw new Error('google-picker-unavailable');
 
   return new Promise<Picked | null>((resolve) => {
+    const origin = window.location.origin;
     const builder = new g.picker!.PickerBuilder()
       .setOAuthToken(token)
       .setDeveloperKey(GOOGLE_API_KEY)
+      .setOrigin(origin)
       .setTitle(title)
       .setCallback((data: PickerResponseData) => {
         const action = data[g.picker!.Response.ACTION];
