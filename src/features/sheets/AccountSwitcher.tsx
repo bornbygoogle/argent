@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Sheet } from '@/components/ui/Sheet';
@@ -28,21 +29,60 @@ const rowBtn = {
   fontFamily: 'inherit',
 } as const;
 
-/** Pick the active account scope: "All accounts" or a specific account. */
+/** Below this many accounts the sheet scrolls fine on its own; a search field
+ *  would just be noise. Above it, the sticky search keeps every account one
+ *  tap away, so none is ever unreachable — even with dozens. */
+const SEARCH_THRESHOLD = 6;
+
+/** Pick the active account scope: "All accounts" or a specific account.
+ *  Bottom sheet anchored to the phone column; the filter only narrows the
+ *  account list — "All accounts" and "Manage" stay pinned at the ends. */
 export function AccountSwitcher({ open, onClose, scope, onPick }: AccountSwitcherProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const accounts = useAccounts();
   const allTx = useAllTransactions();
+  const [query, setQuery] = useState('');
+
+  // Reset the filter on every close (any path: pick, Manage, scrim, Escape)
+  // so reopening always shows the full list.
+  const close = () => {
+    setQuery('');
+    onClose();
+  };
   const pick = (s: AccountScope) => {
     onPick(s);
-    onClose();
+    close();
   };
   const total = accounts.reduce((acc, a) => acc + accountBalance(a, allTx), 0);
 
+  const q = query.trim().toLowerCase();
+  const showSearch = accounts.length > SEARCH_THRESHOLD;
+  const filtered = q ? accounts.filter((a) => a.name.toLowerCase().includes(q)) : accounts;
+
   return (
-    <Sheet open={open} onClose={onClose} title={t('form.account')}>
+    <Sheet open={open} onClose={close} title={t('form.account')}>
       <div className="col" style={{ paddingBottom: 8 }}>
+        {showSearch && (
+          <input
+            type="search"
+            className="input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('accounts.searchPlaceholder')}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 1,
+              background: 'var(--white)',
+              marginBottom: 6,
+            }}
+          />
+        )}
+
         <button type="button" style={rowBtn} onClick={() => pick('all')}>
           <span
             className="acct-icon"
@@ -57,9 +97,9 @@ export function AccountSwitcher({ open, onClose, scope, onPick }: AccountSwitche
           {scope === 'all' && <Icon name="Check" size={18} color="var(--primary-600)" />}
         </button>
 
-        {accounts.length > 0 && <div className="divider" />}
+        {filtered.length > 0 && <div className="divider" />}
 
-        {accounts.map((a: Account) => (
+        {filtered.map((a: Account) => (
           <button key={a.id} type="button" style={rowBtn} onClick={() => pick(a.id)}>
             <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
             <span className="r-main">
@@ -70,12 +110,18 @@ export function AccountSwitcher({ open, onClose, scope, onPick }: AccountSwitche
           </button>
         ))}
 
+        {q && filtered.length === 0 && (
+          <span className="body-sm muted" style={{ padding: '10px 4px' }}>
+            {t('accounts.noMatch')}
+          </span>
+        )}
+
         <div className="divider" />
         <button
           type="button"
           style={rowBtn}
           onClick={() => {
-            onClose();
+            close();
             navigate('/accounts');
           }}
         >

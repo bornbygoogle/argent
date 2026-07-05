@@ -20,7 +20,6 @@ import { Icon } from '@/components/ui/Icon';
 import { TopBar } from '@/components/ui/TopBar';
 import { AccountChip } from '@/components/ui/AccountChip';
 import { Hero } from '@/components/ui/Hero';
-import { Row } from '@/components/ui/Row';
 import { Banner } from '@/components/ui/Banner';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -102,26 +101,6 @@ export function Dashboard() {
             </div>
           </div>
         </Hero>
-
-        {/* Per-account strip (only at "all" scope) */}
-        {scope === 'all' && accounts.length > 0 && (
-          <div className="card tight">
-            {accounts.map((a) => (
-              <Row
-                key={a.id}
-                icon={<TintedIcon hex={a.color} icon={a.icon} variant="acct" />}
-                title={<span style={{ fontSize: 14 }}>{a.name}</span>}
-                sub={t(`accountType.${a.type}`)}
-                trailing={
-                  <span className="amount-md" style={{ fontSize: 14 }}>
-                    {formatCurrency(accountBalance(a, allTx))}
-                  </span>
-                }
-                onClick={() => setScope(a.id)}
-              />
-            ))}
-          </div>
-        )}
 
         {/* Recurring — to confirm this month */}
         {todoRecurring.length > 0 && (

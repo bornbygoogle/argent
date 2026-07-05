@@ -228,7 +228,9 @@
     "archive": "Archive",
     "unarchive": "Restore",
     "reassignHint": "Movements from \"{{name}}\" will move to:",
-    "needTwo": "Add at least two accounts."
+    "needTwo": "Add at least two accounts.",
+    "searchPlaceholder": "Search an account",
+    "noMatch": "No matching account"
   },
   "confirm": {
     "deleteTitle": "Delete this movement?",

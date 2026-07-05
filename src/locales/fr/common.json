@@ -228,7 +228,9 @@
     "archive": "Archiver",
     "unarchive": "Restaurer",
     "reassignHint": "Les mouvements de « {{name}} » seront transférés vers :",
-    "needTwo": "Ajoutez au moins deux comptes."
+    "needTwo": "Ajoutez au moins deux comptes.",
+    "searchPlaceholder": "Rechercher un compte",
+    "noMatch": "Aucun compte trouvé"
   },
   "confirm": {
     "deleteTitle": "Supprimer ce mouvement ?",
