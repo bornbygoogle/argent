@@ -37,7 +37,7 @@ export async function requestAccessToken(): Promise<string> {
   if (!tokenClient) throw new Error('google-sdk-unavailable');
   return new Promise<string>((resolve, reject) => {
     pending = { resolve, reject };
-    tokenClient!.requestAccessToken();
+    tokenClient!.requestAccessToken({ prompt: '' });  // ← ajoute ça
   });
 }
 
