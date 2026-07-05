@@ -18,17 +18,20 @@ export interface BackupPayload {
   version: number;
   exportedAt: string;
   tables: Record<string, unknown[]>;
+  /** Random per-device id (see lib/google/folderStore.ts). Lets a device skip
+   *  auto-importing its own just-pushed snapshot during cross-device sync. */
+  exportedBy?: string;
 }
 
 /** Snapshot every domain table into a single JSON-serialisable payload. */
-export async function exportBackup(): Promise<BackupPayload> {
+export async function exportBackup(deviceId?: string): Promise<BackupPayload> {
   const tables: Record<string, unknown[]> = {};
   for (const name of TABLES) {
     tables[name] = await (db as unknown as Record<string, { toArray: () => Promise<unknown[]> }>)[
       name
     ].toArray();
   }
-  return { app: 'argent', version: 1, exportedAt: new Date().toISOString(), tables };
+  return { app: 'argent', version: 1, exportedAt: new Date().toISOString(), tables, exportedBy: deviceId };
 }
 
 /** Trigger a browser download of the backup as `argent-backup-YYYY-MM-DD.json`. */

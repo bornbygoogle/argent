@@ -1,6 +1,7 @@
-// Google Identity Services token client wrapper. Returns a short-lived
-// access_token authorised for drive.file. A fresh token is requested per
-// action; the token is never persisted.
+// Google Identity Services token client wrapper. Issues short-lived access
+// tokens authorised for drive.file. The first sign-in requests an explicit
+// consent prompt; subsequent requests are silent and the token is cached
+// in-memory (with expiry) so the ~5s background backup loop doesn't re-prompt.
 
 import { GOOGLE_CLIENT_ID, DRIVE_FILE_SCOPE } from './env';
 import { loadGsi } from './loadScripts';
@@ -8,17 +9,35 @@ import { loadGsi } from './loadScripts';
 let tokenClient: TokenClient | null = null;
 let pending: { resolve: (t: string) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> } | null = null;
 
-// If a token request is in flight and a second one arrives, the SDK only has a
-// single callback channel. Reject the newcomer rather than overwriting `pending`
-// (which would orphan the first promise and force the user to click again).
+// --- In-memory token cache -------------------------------------------------
+let cachedToken: string | null = null;
+let cachedExpiresAt = 0; // epoch ms
+// Refresh a little before the real expiry to avoid 401s on the wire.
+const SKEW_MS = 60_000;
+let silentInflight: Promise<string> | null = null;
+
+/** A cached, non-expired token, or null if none / stale. */
+export function getCachedAccessToken(): string | null {
+  if (cachedToken && Date.now() < cachedExpiresAt - SKEW_MS) return cachedToken;
+  return null;
+}
+
+export function clearCachedAccessToken(): void {
+  cachedToken = null;
+  cachedExpiresAt = 0;
+}
+
+// --- Pending-slot helpers --------------------------------------------------
+// The SDK has a single callback channel. Reject a newcomer rather than
+// overwriting `pending` (which would orphan the first promise).
 function setPending(resolve: (t: string) => void, reject: (e: Error) => void): void {
   if (pending) {
     reject(new Error('google-auth-busy'));
     return;
   }
-  // Guard the silent-flow path: if Google never calls back (e.g. popup swallowed
-  // by the browser, or `prompt:''` no-ops on mobile), don't leave the UI
-  // spinning — clear the slot so the next click can actually proceed.
+  // If Google never calls back (popup swallowed by the browser, or `prompt:''`
+  // no-ops), don't leave the UI spinning — clear the slot so the next call can
+  // actually proceed.
   const timer = setTimeout(() => {
     if (pending) {
       pending.reject(new Error('google-auth-timeout'));
@@ -47,9 +66,13 @@ async function ensureClient(): Promise<void> {
       if (!p) return;
       if (resp.error || !resp.access_token) {
         p.reject(new Error(resp.error || 'google-auth-failed'));
-      } else {
-        p.resolve(resp.access_token);
+        return;
       }
+      // Cache the token + its real expiry so the background loop can reuse it.
+      const secs = Number(resp.expires_in) || 3600;
+      cachedToken = resp.access_token;
+      cachedExpiresAt = Date.now() + secs * 1000;
+      p.resolve(resp.access_token);
     },
     error_callback: (err) => {
       const p = clearPending();
@@ -60,19 +83,15 @@ async function ensureClient(): Promise<void> {
 }
 
 /**
- * Open the Google consent popup and resolve with an access_token. A fresh token
- * is requested per action (drive.file is per-file scoped; never persisted).
- *
- * On the first use we request an explicit consent prompt. `prompt: ''` asks
- * Google to be silent when no consent is needed — but on mobile this can no-op
- * (popup cancelled by the browser / COOP) leaving the callback never fired and
- * forcing the user to click a second time. An explicit prompt the first time
- * guarantees a visible, completable flow.
+ * Request an access token. The first sign-in should pass `{ prompt: 'consent' }`
+ * for one visible popup; the background loop / silent refresh use the default
+ * `{ prompt: '' }` (silent, assumes prior consent).
  */
-export async function requestAccessToken(): Promise<string> {
+export async function requestAccessToken(opts: { prompt?: 'consent' | '' } = {}): Promise<string> {
   await ensureClient();
   if (!tokenClient) throw new Error('google-sdk-unavailable');
   if (pending) throw new Error('google-auth-busy');
+  const prompt = opts.prompt ?? '';
   return new Promise<string>((resolve, reject) => {
     setPending(resolve, reject);
     if (pending === null) {
@@ -80,8 +99,42 @@ export async function requestAccessToken(): Promise<string> {
       reject(new Error('google-auth-busy'));
       return;
     }
-    tokenClient!.requestAccessToken({ prompt: '' });
+    tokenClient!.requestAccessToken({ prompt });
   });
+}
+
+/** Return a valid token, refreshing silently if the cache is empty/stale.
+ *  Never shows a popup (assumes prior consent). De-dupes concurrent calls. */
+export async function getValidAccessToken(): Promise<string> {
+  const hit = getCachedAccessToken();
+  if (hit) return hit;
+  if (silentInflight) return silentInflight;
+  silentInflight = (async () => {
+    try {
+      return await requestAccessToken({ prompt: '' });
+    } finally {
+      silentInflight = null;
+    }
+  })();
+  return silentInflight;
+}
+
+/**
+ * Run a token-scoped Drive op, retrying once with a fresh token on a 401.
+ * Drive helpers take the token as a param, so they're wrapped as `op(token)`.
+ */
+export async function withTokenRefresh<T>(op: (token: string) => Promise<T>): Promise<T> {
+  const token = await getValidAccessToken();
+  try {
+    return await op(token);
+  } catch (e) {
+    if (e instanceof Error && /401/.test(e.message)) {
+      clearCachedAccessToken();
+      const fresh = await getValidAccessToken();
+      return op(fresh);
+    }
+    throw e;
+  }
 }
 
 /** Best-effort revoke of a granted token — used on sign-out. */
