@@ -1,0 +1,93 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="styles.css"></head>
+<body><div class="stage"><div class="screen">
+
+  <div class="topbar">
+    <div class="tb-left"><span class="tb-title">Statistiques</span></div>
+    <div class="tb-right"><button class="icon-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button></div>
+  </div>
+
+  <div class="content" style="padding-bottom:96px;gap:14px">
+    <!-- period toggle -->
+    <div style="display:flex;background:var(--neutral-100);border-radius:var(--radius-md);padding:4px">
+      <button class="btn-sm" style="flex:1;background:var(--white);border-radius:8px;box-shadow:var(--shadow-sm);font-weight:600;color:var(--neutral-900)">Mois</button>
+      <button class="btn-sm" style="flex:1;background:transparent;color:var(--neutral-500)">Semaine</button>
+      <button class="btn-sm" style="flex:1;background:transparent;color:var(--neutral-500)">Année</button>
+    </div>
+
+    <!-- trend -->
+    <div class="card">
+      <div class="row-between">
+        <div><span class="label">Tendance</span><div class="amount-lg" style="margin-top:2px">1 240 €</div></div>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:var(--success-50);color:var(--success-600);font-weight:700;font-size:13px;padding:6px 10px;border-radius:var(--radius-full)">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>18%
+        </span>
+      </div>
+      <svg viewBox="0 0 320 110" width="100%" height="110" style="margin-top:8px" preserveAspectRatio="none">
+        <line x1="0" y1="95" x2="320" y2="95" stroke="#E2E8F0" stroke-width="1"/>
+        <g fill="#C7D2FE">
+          <rect x="4" y="60" width="16" height="35" rx="3"/><rect x="26" y="48" width="16" height="47" rx="3"/>
+          <rect x="48" y="70" width="16" height="25" rx="3"/><rect x="70" y="40" width="16" height="55" rx="3"/>
+          <rect x="92" y="55" width="16" height="40" rx="3"/><rect x="114" y="30" width="16" height="65" rx="3"/>
+          <rect x="136" y="62" width="16" height="33" rx="3"/><rect x="158" y="45" width="16" height="50" rx="3"/>
+          <rect x="180" y="58" width="16" height="37" rx="3"/><rect x="202" y="35" width="16" height="60" rx="3"/>
+          <rect x="224" y="20" width="16" height="75" rx="3"/><rect x="246" y="50" width="16" height="45" rx="3"/>
+        </g>
+        <rect x="268" y="52" width="16" height="43" rx="3" fill="#4F46E5"/>
+        <rect x="290" y="66" width="16" height="29" rx="3" fill="#E2E8F0"/>
+      </svg>
+      <div class="row-between" style="margin-top:4px"><span class="caption">vs 1 512 € en mai</span><span class="caption">272 € économisés</span></div>
+    </div>
+
+    <!-- insight -->
+    <div class="card" style="background:var(--primary-50);border:1px solid var(--primary-100)">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primary-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg>
+        <div><span class="body" style="color:var(--primary-700);font-weight:600">Bon mois !</span><p class="body-sm" style="color:var(--primary-700);margin-top:2px">Vos sorties restaurant ont baissé de 32%. Vous êtes en dessous de votre moyenne habituelle.</p></div>
+      </div>
+    </div>
+
+    <!-- top categories -->
+    <div>
+      <div class="section-head" style="margin-bottom:8px"><span class="label">Top catégories</span></div>
+      <div class="card tight">
+        <div class="row" style="align-items:center">
+          <span class="r-title" style="flex:1;font-size:14px">Courses</span>
+          <div style="flex:1.4;height:8px;background:var(--neutral-100);border-radius:var(--radius-full);overflow:hidden"><div style="width:80%;height:100%;background:#10B981"></div></div>
+          <span class="amount-md" style="font-size:13px;width:60px;text-align:right">496 €</span>
+        </div>
+        <div class="row" style="align-items:center">
+          <span class="r-title" style="flex:1;font-size:14px">Restaurant</span>
+          <div style="flex:1.4;height:8px;background:var(--neutral-100);border-radius:var(--radius-full);overflow:hidden"><div style="width:50%;height:100%;background:#F59E0B"></div></div>
+          <span class="amount-md" style="font-size:13px;width:60px;text-align:right">310 €</span>
+        </div>
+        <div class="row" style="align-items:center">
+          <span class="r-title" style="flex:1;font-size:14px">Transport</span>
+          <div style="flex:1.4;height:8px;background:var(--neutral-100);border-radius:var(--radius-full);overflow:hidden"><div style="width:30%;height:100%;background:#0EA5E9"></div></div>
+          <span class="amount-md" style="font-size:13px;width:60px;text-align:right">186 €</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- top merchants -->
+    <div>
+      <div class="section-head" style="margin-bottom:8px"><span class="label">Top commerçants</span></div>
+      <div class="card tight">
+        <div class="row"><span class="cat sm" style="background:var(--neutral-100);color:var(--neutral-700);font-weight:700;font-size:12px">1</span><div class="r-main"><div class="r-title" style="font-size:14px">Carrefour</div><div class="r-sub">12 visites</div></div><span class="amount-md" style="font-size:14px">−248 €</span></div>
+        <div class="row"><span class="cat sm" style="background:var(--neutral-100);color:var(--neutral-700);font-weight:700;font-size:12px">2</span><div class="r-main"><div class="r-title" style="font-size:14px">Boulangerie Paul</div><div class="r-sub">18 visites</div></div><span class="amount-md" style="font-size:14px">−162 €</span></div>
+        <div class="row"><span class="cat sm" style="background:var(--neutral-100);color:var(--neutral-700);font-weight:700;font-size:12px">3</span><div class="r-main"><div class="r-title" style="font-size:14px">Uber</div><div class="r-sub">9 visites</div></div><span class="amount-md" style="font-size:14px">−94 €</span></div>
+      </div>
+    </div>
+  </div>
+
+  <button class="fab center"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <div class="bottomnav">
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21H3z"/></svg><span class="bn-label">Accueil</span></div>
+    <div class="bn-slot active"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span class="bn-label">Stats</span></div>
+    <div class="bn-slot fab-slot"><span class="bn-spacer"></span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg><span class="bn-label">Calendrier</span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/></svg><span class="bn-label">Réglages</span></div>
+  </div>
+
+</div></div></body></html>

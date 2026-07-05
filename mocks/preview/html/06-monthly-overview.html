@@ -1,0 +1,111 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="styles.css"></head>
+<body><div class="stage"><div class="screen">
+
+  <!-- topbar with month picker -->
+  <div class="topbar">
+    <div class="tb-left"><button class="icon-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="tb-title text-center">Juin 2026</div>
+    <div class="tb-right"><button class="icon-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button></div>
+  </div>
+
+  <div class="content" style="padding-bottom:96px;gap:14px">
+    <!-- account scope -->
+    <div class="seg">
+      <button class="active">Tous</button>
+      <button>Courant</button>
+      <button>Épargne</button>
+      <button>Espèces</button>
+    </div>
+
+    <!-- heat map -->
+    <div class="card">
+      <div class="section-head" style="margin-bottom:12px"><span class="label">Intensité de dépense</span></div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center">
+        <span class="caption" style="color:var(--neutral-400)">L</span><span class="caption" style="color:var(--neutral-400)">M</span><span class="caption" style="color:var(--neutral-400)">M</span><span class="caption" style="color:var(--neutral-400)">J</span><span class="caption" style="color:var(--neutral-400)">V</span><span class="caption" style="color:var(--neutral-400)">S</span><span class="caption" style="color:var(--neutral-400)">D</span>
+
+        <!-- row 1 -->
+        <span class="cal low">1</span><span class="cal mod">2</span><span class="cal empty">3</span><span class="cal low">4</span><span class="cal high">5</span><span class="cal mod">6</span><span class="cal high">7</span>
+        <!-- row 2 -->
+        <span class="cal low">8</span><span class="cal mod">9</span><span class="cal high">10</span><span class="cal over">11</span><span class="cal low">12</span><span class="cal mod">13</span><span class="cal high">14</span>
+        <!-- row 3 -->
+        <span class="cal low">15</span><span class="cal low">16</span><span class="cal mod">17</span><span class="cal high">18</span><span class="cal over">19</span><span class="cal mod">20</span><span class="cal high">21</span>
+        <!-- row 4 -->
+        <span class="cal low">22</span><span class="cal high">23</span><span class="cal over today">24</span><span class="cal future">25</span><span class="cal future">26</span><span class="cal future">27</span><span class="cal future">28</span>
+        <!-- row 5 -->
+        <span class="cal future">29</span><span class="cal future">30</span><span class="cal dim">1</span><span class="cal dim">2</span><span class="cal dim">3</span><span class="cal dim">4</span><span class="cal dim">5</span>
+      </div>
+      <!-- legend -->
+      <div style="display:flex;gap:12px;margin-top:12px;justify-content:center">
+        <span class="caption" style="display:flex;align-items:center;gap:4px"><i style="width:10px;height:10px;border-radius:3px;background:var(--neutral-100);display:inline-block"></i>0</span>
+        <span class="caption" style="display:flex;align-items:center;gap:4px"><i style="width:10px;height:10px;border-radius:3px;background:var(--primary-50);display:inline-block"></i>Faible</span>
+        <span class="caption" style="display:flex;align-items:center;gap:4px"><i style="width:10px;height:10px;border-radius:3px;background:var(--primary-200);display:inline-block"></i>Moy.</span>
+        <span class="caption" style="display:flex;align-items:center;gap:4px"><i style="width:10px;height:10px;border-radius:3px;background:var(--primary-500);display:inline-block"></i>Élevé</span>
+        <span class="caption" style="display:flex;align-items:center;gap:4px"><i style="width:10px;height:10px;border-radius:3px;background:var(--danger-500);display:inline-block"></i>Dépassé</span>
+      </div>
+    </div>
+
+    <!-- budget + avg -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="card">
+        <span class="label">Total du mois</span>
+        <div class="amount-lg" style="margin-top:4px">1 240 €</div>
+        <div class="progress" style="margin-top:8px"><span style="width:69%"></span></div>
+        <span class="caption" style="margin-top:6px;display:block">sur 1 800 €</span>
+        <span class="stat-pill" style="background:var(--success-50);color:var(--success-600);margin-top:8px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14"/></svg>+127 € reportés de mai</span>
+      </div>
+      <div class="card">
+        <span class="label">Moyenne / jour</span>
+        <div class="amount-lg" style="margin-top:4px">51,67 €</div>
+        <span class="caption" style="margin-top:8px;display:block;color:var(--success-600)">▼ 12% vs mai</span>
+      </div>
+    </div>
+
+    <!-- donut -->
+    <div class="card">
+      <div class="section-head" style="margin-bottom:8px"><span class="label">Top catégories</span></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <svg width="120" height="120" viewBox="0 0 120 120" style="flex-shrink:0">
+          <g transform="rotate(-90 60 60)">
+            <circle cx="60" cy="60" r="46" fill="none" stroke="#10B981" stroke-width="16" stroke-dasharray="115.6 289" stroke-dashoffset="0"/>
+            <circle cx="60" cy="60" r="46" fill="none" stroke="#F59E0B" stroke-width="16" stroke-dasharray="72.3 289" stroke-dashoffset="-115.6"/>
+            <circle cx="60" cy="60" r="46" fill="none" stroke="#0EA5E9" stroke-width="16" stroke-dasharray="43.4 289" stroke-dashoffset="-187.9"/>
+            <circle cx="60" cy="60" r="46" fill="none" stroke="#8B5CF6" stroke-width="16" stroke-dasharray="34.7 289" stroke-dashoffset="-231.3"/>
+            <circle cx="60" cy="60" r="46" fill="none" stroke="#64748B" stroke-width="16" stroke-dasharray="23.1 289" stroke-dashoffset="-266"/>
+          </g>
+          <text x="60" y="58" text-anchor="middle" font-size="16" font-weight="700" fill="#0F172A">1 240€</text>
+          <text x="60" y="74" text-anchor="middle" font-size="9" fill="#94A3B8">juin</text>
+        </svg>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div class="row-between"><span style="display:flex;align-items:center;gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:#10B981"></i><span class="body-sm" style="color:var(--neutral-700)">Courses</span></span><span class="amount-md" style="font-size:14px">40%</span></div>
+          <div class="row-between"><span style="display:flex;align-items:center;gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:#F59E0B"></i><span class="body-sm" style="color:var(--neutral-700)">Restaurant</span></span><span class="amount-md" style="font-size:14px">25%</span></div>
+          <div class="row-between"><span style="display:flex;align-items:center;gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:#0EA5E9"></i><span class="body-sm" style="color:var(--neutral-700)">Transport</span></span><span class="amount-md" style="font-size:14px">15%</span></div>
+          <div class="row-between"><span style="display:flex;align-items:center;gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:#8B5CF6"></i><span class="body-sm" style="color:var(--neutral-700)">Loisirs</span></span><span class="amount-md" style="font-size:14px">12%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .cal{height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+    .cal.empty{background:var(--neutral-50);border:1px solid var(--neutral-100);color:var(--neutral-400)}
+    .cal.future{background:var(--neutral-50);color:var(--neutral-300)}
+    .cal.dim{background:transparent;color:var(--neutral-300)}
+    .cal.low{background:var(--primary-50);color:var(--primary-700)}
+    .cal.mod{background:var(--primary-200);color:var(--primary-700)}
+    .cal.high{background:var(--primary-500);color:#fff}
+    .cal.over{background:var(--danger-500);color:#fff}
+    .cal.today{outline:2px solid var(--neutral-900);outline-offset:1px}
+  </style>
+
+  <button class="fab center"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <div class="bottomnav">
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21H3z"/></svg><span class="bn-label">Accueil</span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span class="bn-label">Stats</span></div>
+    <div class="bn-slot fab-slot"><span class="bn-spacer"></span></div>
+    <div class="bn-slot active"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg><span class="bn-label">Calendrier</span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83"/></svg><span class="bn-label">Réglages</span></div>
+  </div>
+
+</div></div></body></html>

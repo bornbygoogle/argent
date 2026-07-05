@@ -1,0 +1,64 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="styles.css"></head>
+<body><div class="stage"><div class="screen">
+
+  <div class="topbar">
+    <div class="tb-left"><button class="icon-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="tb-title">Récurrents</div>
+    <div class="tb-right"><button class="btn btn-secondary btn-sm">+ Nouveau</button></div>
+  </div>
+
+  <div class="content" style="padding-bottom:24px">
+    <!-- summary -->
+    <div class="card tight row-between">
+      <div><span class="caption">À confirmer ce mois</span><div class="amount-md" style="color:var(--warning-600)">4 · 1 038,49 €</div></div>
+      <div style="width:1px;align-self:stretch;background:var(--neutral-100)"></div>
+      <div style="text-align:right"><span class="caption">Déjà confirmés</span><div class="amount-md" style="color:var(--success-600)">2 · 340 €</div></div>
+    </div>
+
+    <!-- segmented -->
+    <div class="seg">
+      <button class="active">À confirmer</button>
+      <button>Tous</button>
+      <button>Historique</button>
+    </div>
+
+    <!-- group: Courant -->
+    <div class="section-head"><span class="label">Compte courant</span></div>
+    <div class="card tight">
+      <div class="recur">
+        <span class="cat" style="background:rgba(239,68,68,.15);color:#EF4444"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21H3z"/><path d="M9 21V12h6v9"/></svg></span>
+        <div class="r-main"><div class="r-title">Loyer</div><div class="r-sub">Mensuel · échéance 1er</div></div>
+        <span class="amount-md amt-out">−850 €</span>
+        <button class="confirm-btn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>Pris</button>
+      </div>
+      <div class="recur">
+        <span class="cat" style="background:rgba(139,92,246,.15);color:#8B5CF6"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 0 6H5zM3 12h13a3 3 0 0 1 0 6H3z"/></svg></span>
+        <div class="r-main"><div class="r-title">Netflix</div><div class="r-sub">Mensuel · 13,49 € → <span style="color:var(--primary-600);font-weight:600">modifié</span></div></div>
+        <span class="amount-md amt-out">−13,49 €</span>
+        <button class="confirm-btn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>Pris</button>
+      </div>
+      <div class="recur">
+        <span class="cat" style="background:rgba(16,185,129,.15);color:#10B981"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+        <div class="r-main"><div class="r-title">Salaire</div><div class="r-sub">Mensuel · clôture le mois</div></div>
+        <span class="amount-md amt-in">+2 150 €</span>
+        <button class="confirm-btn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>Pris</button>
+      </div>
+    </div>
+
+    <!-- group: Espèces -->
+    <div class="section-head"><span class="label">Espèces</span></div>
+    <div class="card tight">
+      <div class="recur">
+        <span class="cat" style="background:rgba(245,158,11,.15);color:#F59E0B"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/></svg></span>
+        <div class="r-main"><div class="r-title">Forfait mobile</div><div class="r-sub">Mensuel · 9,99 €</div></div>
+        <span class="amount-md amt-out">−9,99 €</span>
+        <button class="confirm-btn done"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>Fait</button>
+      </div>
+    </div>
+
+    <span class="caption" style="text-align:center;display:block;margin-top:4px">Le montant modifié s'applique à partir de maintenant sans modifier l'historique.</span>
+  </div>
+
+</div></div></body></html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+    <meta name="theme-color" content="#4F46E5" />
+    <meta name="description" content="Gérez vos dépenses, hors-ligne." />
+    <title>Argent</title>
+    <script>
+      // Apply theme + locale before first paint to avoid flash (FOUC).
+      (function () {
+        try {
+          var raw = localStorage.getItem('argent.settings');
+          var s = raw ? JSON.parse(raw).state : {};
+          var theme = s.theme || 'system';
+          var sys = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var dark = theme === 'dark' || (theme === 'system' && sys);
+          document.documentElement.classList.toggle('dark', dark);
+          var loc = s.locale;
+          if (loc) document.documentElement.setAttribute('lang', loc);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

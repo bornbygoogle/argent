@@ -1,0 +1,61 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="styles.css"></head>
+<body><div class="stage"><div class="screen">
+
+  <div class="topbar">
+    <div class="tb-left"><span class="caption">Bonjour, Alex</span></div>
+    <div class="tb-right"><button class="icon-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button></div>
+  </div>
+
+  <!-- OFFLINE BANNER -->
+  <div style="padding:0 16px;margin-top:-4px">
+    <div class="banner warn">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22M16.7 13.1A6 6 0 0 1 8 8M5.6 5.6A10 10 0 0 0 12 22a10 10 0 0 0 9.4-6.6M12 2a10 10 0 0 1 7.4 3.3M2 2l20 20"/><path d="M1 1l22 22"/></svg>
+      <span style="flex:1">Hors-ligne — vos saisies sont enregistrées et synchronisées plus tard.</span>
+    </div>
+  </div>
+
+  <div class="content" style="padding-top:10px;padding-bottom:96px">
+    <div class="hero">
+      <div class="row-between"><span class="label" style="color:rgba(255,255,255,.8)">Dépensé aujourd'hui</span></div>
+      <div class="amount-lg" style="color:#fff;margin-top:6px">42,80 €</div>
+      <div class="progress" style="background:rgba(255,255,255,.25);margin-top:14px"><span style="width:86%;background:#fff"></span></div>
+    </div>
+    <div class="card"><div class="row-between"><span class="h3">Budget de juin</span><span class="amount-md">1 240 €</span></div><div class="progress" style="margin-top:12px"><span style="width:69%"></span></div></div>
+    <div class="card tight">
+      <div class="row">
+        <span class="cat" style="background:rgba(16,185,129,.15);color:#10B981"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></span>
+        <div class="r-main"><div class="r-title">Carrefour</div><div class="r-sub">Courses · 18:42</div></div>
+        <span class="r-amt">−28,90 €</span>
+      </div>
+      <div class="row">
+        <span class="cat" style="background:rgba(245,158,11,.15);color:#F59E0B"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v9M21 11v9M5 11h14M7 11a5 5 0 0 1 10 0"/></svg></span>
+        <div class="r-main"><div class="r-title">Boulangerie Paul</div><div class="r-sub">Restaurant · 12:15</div></div>
+        <span class="r-amt">−9,40 €</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAB with pending sync badge -->
+  <button class="fab center" style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%)">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+    <span class="badge" style="position:absolute;top:-4px;right:-4px">3</span>
+  </button>
+
+  <div class="bottomnav">
+    <div class="bn-slot active"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21H3z"/></svg><span class="bn-label">Accueil</span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/></svg><span class="bn-label">Stats</span></div>
+    <div class="bn-slot fab-slot"><span class="bn-spacer"></span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/></svg><span class="bn-label">Calendrier</span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/></svg><span class="bn-label">Réglages</span></div>
+  </div>
+
+  <!-- sync toast -->
+  <div style="position:absolute;left:16px;right:16px;bottom:92px;background:var(--neutral-900);color:#fff;border-radius:var(--radius-md);padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-lg);z-index:50">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--warning-500)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6"/></svg>
+    <span style="flex:1;font-size:13px">3 dépenses en attente de synchro…</span>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+</div></div></body></html>

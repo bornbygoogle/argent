@@ -1,0 +1,57 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="styles.css"></head>
+<body><div class="stage"><div class="screen">
+
+  <!-- dimmed dashboard behind -->
+  <div class="topbar"><div class="tb-left"><span class="caption">Bonjour, Alex</span></div></div>
+  <div class="content" style="filter:blur(2px);opacity:.5">
+    <div class="hero"><span class="label" style="color:rgba(255,255,255,.8)">Dépensé aujourd'hui</span><div class="amount-lg" style="color:#fff;margin-top:6px">42,80 €</div></div>
+    <div class="card"><div class="row-between"><span class="h3">Budget de juin</span><span class="amount-md">1 240 €</span></div><div class="progress" style="margin-top:12px"><span style="width:69%"></span></div></div>
+  </div>
+
+  <!-- scrim -->
+  <div class="scrim"></div>
+
+  <!-- install sheet -->
+  <div class="sheet">
+    <div class="handle"></div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+      <div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,var(--primary-600),var(--primary-500));box-shadow:var(--shadow-fab);display:flex;align-items:center;justify-content:center;color:#fff;margin-bottom:14px">
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <h2 class="h2">Installer dépense</h2>
+      <p class="body-sm" style="margin-top:6px;max-width:280px">Ajoutez l'appli à votre écran d'accueil pour un accès instantané.</p>
+    </div>
+
+    <!-- benefits -->
+    <div style="margin-top:20px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="cat sm" style="background:var(--success-50);color:var(--success-600)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg></span>
+        <div><div class="h3" style="font-size:14px">Fonctionne hors-ligne</div><div class="caption">Saisissez vos dépenses sans connexion</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="cat sm" style="background:var(--primary-50);color:var(--primary-600)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span>
+        <div><div class="h3" style="font-size:14px">Accès en 1 geste</div><div class="caption">Icône sur votre écran d'accueil</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="cat sm" style="background:var(--neutral-100);color:var(--neutral-600)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+        <div><div class="h3" style="font-size:14px">100% privé</div><div class="caption">Vos données restent sur votre appareil</div></div>
+      </div>
+    </div>
+
+    <!-- actions -->
+    <div style="margin-top:24px;display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-primary btn-block">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Installer
+      </button>
+      <div class="row-between">
+        <button class="btn btn-ghost" style="height:40px">Plus tard</button>
+        <button class="btn btn-ghost" style="height:40px;color:var(--neutral-500)">Ne plus afficher</button>
+      </div>
+    </div>
+  </div>
+
+</div></div></body></html>

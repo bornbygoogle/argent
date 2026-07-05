@@ -1,0 +1,60 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="styles.css"></head>
+<body><div class="stage"><div class="screen">
+
+  <!-- dimmed background -->
+  <div class="topbar"><div class="tb-left"><span class="caption">Bonjour, Alex</span></div></div>
+  <div class="content" style="filter:blur(2px);opacity:.45">
+    <div class="hero"><span class="label" style="color:rgba(255,255,255,.8)">Solde total</span><div class="amount-lg" style="color:#fff;margin-top:6px">3 842,50 €</div></div>
+    <div class="card"><div class="row-between"><span class="h3">Compte courant</span><span class="amount-md">2 190,30 €</span></div></div>
+  </div>
+
+  <div class="scrim"></div>
+
+  <!-- transfer sheet -->
+  <div class="sheet" style="padding:20px 16px 28px">
+    <div class="handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <h2 class="h2" style="font-size:18px">Virement</h2>
+      <button class="icon-btn"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+
+    <!-- from -->
+    <span class="label">De</span>
+    <button class="card tight" style="width:100%;display:flex;align-items:center;gap:12px;margin-top:6px;margin-bottom:8px">
+      <span class="acct-icon" style="background:rgba(79,70,229,.12);color:#4F46E5"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span>
+      <div style="flex:1;text-align:left"><div class="r-title" style="font-size:14px">Compte courant</div><div class="r-sub">Dispo 2 190,30 €</div></div>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--neutral-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+
+    <!-- swap -->
+    <div style="display:flex;justify-content:center;margin:-4px 0">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-50);color:var(--primary-600);display:flex;align-items:center;justify-content:center;border:3px solid var(--neutral-50)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      </div>
+    </div>
+
+    <!-- to -->
+    <span class="label">Vers</span>
+    <button class="card tight" style="width:100%;display:flex;align-items:center;gap:12px;margin-top:6px;margin-bottom:14px">
+      <span class="acct-icon" style="background:rgba(16,185,129,.12);color:#10B981"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+      <div style="flex:1;text-align:left"><div class="r-title" style="font-size:14px">Épargne</div><div class="r-sub">Solde 1 540,00 €</div></div>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--neutral-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+
+    <!-- amount -->
+    <div class="text-center" style="margin-bottom:4px">
+      <span class="label">Montant</span>
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;margin-top:2px">
+        <span class="amount" style="font-size:34px">200,00</span><span class="h2 muted">€</span>
+      </div>
+      <div class="chip-row" style="justify-content:center;margin-top:8px"><span class="chip">+50</span><span class="chip">+100</span><span class="chip">+200</span><span class="chip">Tout</span></div>
+    </div>
+
+    <div class="caption text-center" style="margin:6px 0 14px">Mouvement interne — ni revenu ni dépense.</div>
+
+    <button class="btn btn-primary btn-block">Effectuer le virement</button>
+  </div>
+
+</div></div></body></html>

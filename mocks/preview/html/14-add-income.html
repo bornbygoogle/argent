@@ -1,0 +1,78 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="styles.css"></head>
+<body><div class="stage"><div class="screen" style="background:#fff">
+
+  <div class="topbar">
+    <div class="tb-left"><button class="btn btn-ghost btn-sm">Annuler</button></div>
+    <div class="tb-title text-center" style="font-size:16px">Nouvelle rentrée</div>
+    <div class="tb-right"><button class="btn btn-primary btn-sm">OK</button></div>
+  </div>
+
+  <div class="content" style="padding:8px 16px 0;gap:8px">
+
+    <!-- account picker -->
+    <div class="card tight row-between" style="padding:8px 12px">
+      <span class="body-sm" style="font-weight:600;color:var(--neutral-700)">Compte</span>
+      <button class="acct-chip" style="height:32px;border-color:var(--neutral-200)">
+        <span class="acct-dot" style="background:#4F46E5"></span>
+        <span style="font-size:13px;font-weight:600">Courant</span>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--neutral-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </div>
+
+    <!-- amount (income = green) -->
+    <div class="text-center" style="padding-top:2px">
+      <span class="label">Montant reçu</span>
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;margin-top:4px">
+        <span class="amount" style="color:var(--success-600)">2 150,00</span><span class="h2 muted">€</span>
+      </div>
+    </div>
+
+    <!-- income type -->
+    <div>
+      <span class="label" style="display:block;margin-bottom:6px">Type</span>
+      <div class="chip-row">
+        <span class="chip active" style="background:var(--success-50);color:var(--success-700);outline:1px solid var(--success-500)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Salaire</span>
+        <span class="chip">Remboursement</span>
+        <span class="chip">Cadeau</span>
+        <span class="chip">Freelance</span>
+        <span class="chip">Vente</span>
+        <span class="chip">Autre</span>
+      </div>
+    </div>
+
+    <!-- salary rollover notice -->
+    <div class="card" style="background:var(--primary-50);border:1px solid var(--primary-100);padding:12px 14px">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--primary-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M3 12a9 9 0 1 0 9-9M21 3v6h-6M21 3l-9 9"/></svg>
+        <div><span class="body-sm" style="color:var(--primary-700);font-weight:600">Salaire = clôture du mois</span><p class="caption" style="color:var(--primary-700);margin-top:2px">Enregistrer ce salaire va clôturer juin et reporter le solde restant sur juillet.</p></div>
+      </div>
+    </div>
+
+    <div class="card tight" style="padding:4px 0">
+      <div class="row" style="padding:9px 16px">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--neutral-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+        <input class="input" style="flex:1;height:32px;background:transparent;border:none" value="Salaire mensuel" />
+      </div>
+      <div class="divider"></div>
+      <div class="row" style="padding:9px 16px">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--neutral-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+        <span style="flex:1;font-size:15px">Aujourd'hui, 24 juin</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- numpad -->
+  <div style="padding:10px 16px 28px;margin-top:auto">
+    <div class="numpad">
+      <button class="key">1</button><button class="key">2</button><button class="key">3</button>
+      <button class="key">4</button><button class="key">5</button><button class="key">6</button>
+      <button class="key">7</button><button class="key">8</button><button class="key">9</button>
+      <button class="key" style="background:transparent;color:var(--neutral-400)">.</button>
+      <button class="key">0</button>
+      <button class="key" style="background:transparent"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--neutral-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H8l-7 7 7 7h13"/><path d="M18 9l-6 6M12 9l6 6"/></svg></button>
+    </div>
+  </div>
+
+</div></div></body></html>

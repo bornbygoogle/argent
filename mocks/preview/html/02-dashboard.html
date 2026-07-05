@@ -1,0 +1,111 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="styles.css"></head>
+<body><div class="stage"><div class="screen">
+
+  <!-- topbar with account selector -->
+  <div class="topbar">
+    <div class="tb-left">
+      <button class="acct-chip">
+        <span class="acct-dot" style="background:linear-gradient(90deg,#4F46E5,#10B981,#F59E0B)"></span>
+        <span class="acct-name">Tous les comptes</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--neutral-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </div>
+    <div class="tb-right">
+      <button class="icon-btn"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+    </div>
+  </div>
+
+  <div class="content" style="padding-bottom:96px;gap:14px">
+
+    <!-- aggregate balance hero -->
+    <div class="hero">
+      <span class="label" style="color:rgba(255,255,255,.8)">Solde total · 3 comptes</span>
+      <div class="amount" style="color:#fff;font-size:36px;margin-top:4px">3 842,50 €</div>
+      <div style="display:flex;gap:16px;margin-top:14px">
+        <div><div class="caption" style="color:rgba(255,255,255,.8)">Revenus (mois)</div><div class="amount-md" style="color:#fff">+2 150 €</div></div>
+        <div style="width:1px;background:rgba(255,255,255,.25)"></div>
+        <div><div class="caption" style="color:rgba(255,255,255,.8)">Dépenses (mois)</div><div class="amount-md" style="color:#fff">−1 240 €</div></div>
+      </div>
+    </div>
+
+    <!-- per-account strip -->
+    <div class="card tight">
+      <div class="row">
+        <span class="acct-icon" style="background:rgba(79,70,229,.12);color:#4F46E5"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span>
+        <div class="r-main"><div class="r-title" style="font-size:14px">Compte courant</div><div class="r-sub">2 récurrents à confirmer</div></div>
+        <span class="amount-md" style="font-size:14px">2 190,30 €</span>
+      </div>
+      <div class="row">
+        <span class="acct-icon" style="background:rgba(16,185,129,.12);color:#10B981"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+        <div class="r-main"><div class="r-title" style="font-size:14px">Épargne</div><div class="r-sub">—</div></div>
+        <span class="amount-md" style="font-size:14px">1 540,00 €</span>
+      </div>
+      <div class="row">
+        <span class="acct-icon" style="background:rgba(245,158,11,.12);color:#F59E0B"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg></span>
+        <div class="r-main"><div class="r-title" style="font-size:14px">Espèces</div><div class="r-sub">—</div></div>
+        <span class="amount-md" style="font-size:14px">112,20 €</span>
+      </div>
+    </div>
+
+    <!-- recurring to confirm -->
+    <div>
+      <div class="section-head" style="margin-bottom:4px">
+        <span class="h3">À confirmer</span>
+        <span class="stat-pill" style="background:var(--warning-50);color:var(--warning-700)">2 échéances</span>
+      </div>
+      <div class="card tight">
+        <div class="recur">
+          <span class="cat" style="background:rgba(239,68,68,.15);color:#EF4444"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21H3z"/><path d="M9 21V12h6v9"/></svg></span>
+          <div class="r-main"><div class="r-title">Loyer</div><div class="r-sub">Récurrent · Courant</div></div>
+          <span class="amount-md amt-out">−850 €</span>
+          <button class="confirm-btn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>Pris</button>
+        </div>
+        <div class="recur">
+          <span class="cat" style="background:rgba(139,92,246,.15);color:#8B5CF6"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 0 6H5zM3 12h13a3 3 0 0 1 0 6H3z"/></svg></span>
+          <div class="r-main"><div class="r-title">Netflix</div><div class="r-sub">Récurrent · Courant</div></div>
+          <span class="amount-md amt-out">−13,49 €</span>
+          <button class="confirm-btn done"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>Fait</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- recent -->
+    <div>
+      <div class="section-head" style="margin-bottom:4px">
+        <span class="h3">Mouvements récents</span>
+        <a class="body-sm" style="color:var(--primary-600);font-weight:600;text-decoration:none">Tout voir</a>
+      </div>
+      <div class="card tight">
+        <div class="row">
+          <span class="cat" style="background:rgba(16,185,129,.15);color:#10B981"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></span>
+          <div class="r-main"><div class="r-title">Carrefour <span class="dir out" style="margin-left:4px">Dépense</span></div><div class="r-sub">Courant · 18:42</div></div>
+          <span class="r-amt amt-out">−28,90 €</span>
+        </div>
+        <div class="row">
+          <span class="cat" style="background:rgba(16,185,129,.15);color:#10B981"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+          <div class="r-main"><div class="r-title">Salaire juin <span class="dir in" style="margin-left:4px">Revenu</span></div><div class="r-sub">Courant · 01/06</div></div>
+          <span class="r-amt amt-in">+2 150 €</span>
+        </div>
+        <div class="row">
+          <span class="cat" style="background:rgba(79,70,229,.12);color:#4F46E5"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>
+          <div class="r-main"><div class="r-title">Virement → Épargne <span class="dir trf" style="margin-left:4px">Virement</span></div><div class="r-sub">Courant → Épargne</div></div>
+          <span class="r-amt amt-trf">−200 €</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <button class="fab center"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+
+  <div class="bottomnav">
+    <div class="bn-slot active"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21H3z"/><path d="M9 21V12h6v9"/></svg><span class="bn-label">Accueil</span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span class="bn-label">Stats</span></div>
+    <div class="bn-slot fab-slot"><span class="bn-spacer"></span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg><span class="bn-label">Calendrier</span></div>
+    <div class="bn-slot"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82"/></svg><span class="bn-label">Réglages</span></div>
+  </div>
+
+</div></div></body></html>
