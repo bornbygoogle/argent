@@ -55,6 +55,7 @@ declare global {
   interface PickerBuilder {
     setOAuthToken: (token: string) => PickerBuilder;
     setDeveloperKey: (key: string) => PickerBuilder;
+    setOrigin: (origin: string) => PickerBuilder;
     addView: (view: unknown) => PickerBuilder;
     setCallback: (cb: (data: PickerResponseData) => void) => PickerBuilder;
     setTitle: (title: string) => PickerBuilder;
