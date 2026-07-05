@@ -9,22 +9,67 @@ import { loadGsi } from './loadScripts';
 let tokenClient: TokenClient | null = null;
 let pending: { resolve: (t: string) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> } | null = null;
 
-// --- In-memory token cache -------------------------------------------------
+// --- Token cache (in-memory + localStorage) --------------------------------
+// The in-memory cache dies on reload. We ALSO persist the token + expiry to
+// localStorage so a page refresh can re-activate the session WITHOUT any GIS
+// call — no popup, no 12s slot occupation, no Drive op before user action.
+// GIS tokens are short-lived (≤1h); after that the user re-signs-in (silent
+// first via the GIS cookie, consent popup as fallback).
+const LS_TOKEN = 'argent.google.token';
+const LS_EXPIRES = 'argent.google.tokenExpiresAt';
 let cachedToken: string | null = null;
 let cachedExpiresAt = 0; // epoch ms
 // Refresh a little before the real expiry to avoid 401s on the wire.
 const SKEW_MS = 60_000;
 let silentInflight: Promise<string> | null = null;
 
+function persistToken(token: string, expiresAt: number): void {
+  cachedToken = token;
+  cachedExpiresAt = expiresAt;
+  try {
+    localStorage.setItem(LS_TOKEN, token);
+    localStorage.setItem(LS_EXPIRES, String(expiresAt));
+  } catch {
+    /* ignore quota / private-mode errors */
+  }
+}
+
+function forgetToken(): void {
+  cachedToken = null;
+  cachedExpiresAt = 0;
+  try {
+    localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_EXPIRES);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** A cached, non-expired token, or null if none / stale. */
 export function getCachedAccessToken(): string | null {
+  // Hot path: in-memory hit.
   if (cachedToken && Date.now() < cachedExpiresAt - SKEW_MS) return cachedToken;
+  // Cold path (after a refresh): hydrate from localStorage once, then check.
+  if (!cachedToken) {
+    try {
+      const t = localStorage.getItem(LS_TOKEN);
+      const exp = Number(localStorage.getItem(LS_EXPIRES) ?? '0');
+      if (t && exp && Date.now() < exp - SKEW_MS) {
+        cachedToken = t;
+        cachedExpiresAt = exp;
+        return t;
+      }
+      // Stale or absent on disk → drop it so we don't keep re-reading garbage.
+      if (t) forgetToken();
+    } catch {
+      /* ignore */
+    }
+  }
   return null;
 }
 
 export function clearCachedAccessToken(): void {
-  cachedToken = null;
-  cachedExpiresAt = 0;
+  forgetToken();
 }
 
 // --- Pending-slot helpers --------------------------------------------------
@@ -69,9 +114,11 @@ async function ensureClient(): Promise<void> {
         return;
       }
       // Cache the token + its real expiry so the background loop can reuse it.
+      // Persist to localStorage too, so a page refresh can re-activate the
+      // session with NO GIS call (no popup, no slot occupied) while the token
+      // is still live.
       const secs = Number(resp.expires_in) || 3600;
-      cachedToken = resp.access_token;
-      cachedExpiresAt = Date.now() + secs * 1000;
+      persistToken(resp.access_token, Date.now() + secs * 1000);
       p.resolve(resp.access_token);
     },
     error_callback: (err) => {
@@ -91,6 +138,11 @@ export async function requestAccessToken(opts: { prompt?: 'consent' | '' } = {})
   await ensureClient();
   if (!tokenClient) throw new Error('google-sdk-unavailable');
   if (pending) throw new Error('google-auth-busy');
+  // If this is a silent refresh (no consent popup) and it's about to actually
+  // hit the SDK, drop any stale persisted token first — we don't want to keep
+  // re-hydrating a token the GIS cookie can no longer back. (A 'consent'
+  // request is a deliberate re-auth and will replace it via persistToken.)
+  if (!opts.prompt) forgetToken();
   const prompt = opts.prompt ?? '';
   return new Promise<string>((resolve, reject) => {
     setPending(resolve, reject);

@@ -14,6 +14,7 @@ import {
   getValidAccessToken,
   getCachedAccessToken,
   clearCachedAccessToken,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 } from '@/lib/google/auth';
 import { getOrCreateDeviceId } from '@/lib/google/folderStore';
 
@@ -97,36 +98,39 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
     });
   }, [configured]);
 
-  // Silent re-sign-in on load: a returning user (persisted email) gets quietly
-  // re-activated with NO popup. If Google still grants a token from its GIS
-  // cookie (`prompt:''`), `active` flips true and auto-backup/pull resume as if
-  // they'd never left. If the cookie is gone (long absence, Brave blocked it)
-  // we stay `signed-out` silently — no "google auth error" toast. The user then
-  // clicks "Se connecter" once for a fresh consent popup.
-  // Runs once on mount; deliberately NOT re-runs on email change.
+  // Silent re-activation on load: if a still-valid access token was persisted
+  // in the previous tab/visit (cachedExpiresAt not yet reached), flip `active`
+  // to true WITHOUT any GIS call. This is the crux of fixing "must re-login on
+  // every refresh": as long as the GIS token (lives ≤1h) hasn't expired, the
+  // session survives a reload — no popup, no 12s slot occupation, no Drive op
+  // fired before the user opened the feature (the background loop's pull-only-
+  // on-status-flip still gates real network work). If no valid token persists
+  // (long absence, Brave blocked the cookie, first ever load) `active` stays
+  // false and the user clicks "Se connecter" once — silent-first inside signIn
+  // reconnects without a popup when the GIS cookie allows it.
   useEffect(() => {
     if (!configured) return;
-    if (!email) return; // never connected before — wait for an explicit signIn
-    let cancelled = false;
-    (async () => {
-      try {
-        await getValidAccessToken();
-        if (!cancelled) setActive(true);
-      } catch {
-        // Silent refresh not possible right now — stay signed-out, no error UI.
-        // The cached token (if any) is already gone; next signIn re-consents.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // `email` is just a *hint* — having it doesn't prove the session is alive
+    // (the persisted token is the proof). But requiring it avoids flipping
+    // active for a user who wiped state. The token is the real gate.
+    if (email && getCachedAccessToken() && !active) setActive(true);
+  }, [configured, email, active]);
 
   const signIn = useCallback(async () => {
     setBusy(true);
     try {
-      const token = await requestAccessToken({ prompt: 'consent' });
+      // Returning user: try a SILENT token first (no popup). If Google still
+      // grants one from its GIS cookie, we're reconnected invisibly. Only if
+      // that fails do we fall back to an explicit consent popup. This keeps
+      // the GIS slot free until the user actually clicks "Se connecter" — so
+      // automatic page loads never tie up the single callback channel for 12s
+      // (which previously broke concurrent Restore / manual sign-in attempts).
+      let token: string;
+      try {
+        token = await requestAccessToken({ prompt: '' });
+      } catch {
+        token = await requestAccessToken({ prompt: 'consent' });
+      }
       if (!email) {
         const user = await fetchDriveUser(token);
         if (user.email) {
