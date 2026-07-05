@@ -22,6 +22,11 @@ function inject(url: string): Promise<void> {
     s.src = url;
     s.async = true;
     s.defer = true;
+    // NOTE: do NOT set crossOrigin='anonymous' here. It looks like it should help
+    // (surface real errors instead of an opaque "Script error."), but it breaks
+    // the Google SDKs in practice — Back up / Restore stop working entirely on
+    // desktop (script fails to load and/or the Picker popup can't talk back).
+    // Confirmed regression 2026-07-05. Keep these scripts without crossorigin.
     s.onload = () => resolve();
     s.onerror = () => reject(new Error(`google-script-load-failed:${url}`));
     document.head.appendChild(s);

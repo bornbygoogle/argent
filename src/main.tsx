@@ -16,7 +16,25 @@ function showFatal(label: string, detail: unknown) {
 <pre style="font-size:11px;line-height:1.4">${err.stack ?? ''}</pre></div>`;
   if (el) el.innerHTML = html;
 }
-window.addEventListener('error', (e) => showFatal('Uncaught error', e.error ?? e.message));
+// Cross-origin script errors (e.g. from Google's gsi/picker SDKs loaded from
+// accounts.google.com / apis.google.com) arrive as an opaque "Script error."
+// with no Error object, filename, or line number. They are almost always SDK
+// noise or feature-level failures already handled by the caller's try/catch —
+// do NOT let them replace the whole page with a red screen. Log them so they
+// can be diagnosed without bricking the app.
+function isOpaqueCrossOriginError(e: ErrorEvent): boolean {
+  const msg = e.error?.message ?? e.message ?? '';
+  return msg === 'Script error.' && (!e.error || !e.error.stack) && !e.filename && !e.lineno;
+}
+
+window.addEventListener('error', (e) => {
+  if (isOpaqueCrossOriginError(e)) {
+    // eslint-disable-next-line no-console
+    console.error('[opaque cross-origin error]', e.error ?? e.message, e);
+    return;
+  }
+  showFatal('Uncaught error', e.error ?? e.message);
+});
 window.addEventListener('unhandledrejection', (e) =>
   showFatal('Unhandled promise rejection', e.reason),
 );
