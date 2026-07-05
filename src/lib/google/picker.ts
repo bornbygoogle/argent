@@ -26,6 +26,7 @@ async function show(
       .setOrigin(origin)
       .setTitle(title)
       .setCallback((data: PickerResponseData) => {
+        console.log('[PICKER CALLBACK] Données reçues :', data); // AJOUTE ÇA
         const action = data[g.picker!.Response.ACTION];
         if (action === g.picker!.Action.PICKED) {
           const doc = data.docs?.[0];
