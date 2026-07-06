@@ -31,7 +31,7 @@ type EditTarget = 'new' | Account;
 export function Accounts() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { update } = useSettings();
+  const { settings, update } = useSettings();
   const accounts = useAccountsIncludingArchived();
   const allTx = useAllTransactions();
   const [editing, setEditing] = useState<EditTarget | null>(null);
@@ -136,7 +136,18 @@ export function Accounts() {
           onClose={() => setDeleting(null)}
           onDeleted={(deletedId) => {
             setDeleting(null);
-            if (deletedId) update({ lastUsedAccountId: null });
+            if (deletedId)
+              update({
+                lastUsedAccountId: null,
+                defaultExpenseAccountId:
+                  settings.defaultExpenseAccountId === deletedId
+                    ? null
+                    : settings.defaultExpenseAccountId,
+                defaultIncomeAccountId:
+                  settings.defaultIncomeAccountId === deletedId
+                    ? null
+                    : settings.defaultIncomeAccountId,
+              });
           }}
         />
       )}

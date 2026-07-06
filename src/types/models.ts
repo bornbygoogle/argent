@@ -150,6 +150,10 @@ export interface SettingsState {
     lastShown: number | null; // epoch ms
   };
   lastUsedAccountId: string | null;
+  /** Account preset for every NEW expense. null = fall back to current logic. */
+  defaultExpenseAccountId: string | null;
+  /** Account preset for every NEW income. null = fall back to current logic. */
+  defaultIncomeAccountId: string | null;
 }
 
 /** A month string 'YYYY-MM'. */

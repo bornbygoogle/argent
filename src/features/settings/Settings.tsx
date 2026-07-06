@@ -11,7 +11,7 @@ import { TintedIcon } from '@/components/ui/TintedIcon';
 import { Sheet } from '@/components/ui/Sheet';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
-import { useRecurrings } from '@/hooks/selectors';
+import { useRecurrings, useAccounts } from '@/hooks/selectors';
 import { isConfirmedIn } from '@/lib/recurring';
 import { currentMonth } from '@/lib/date';
 import {
@@ -165,6 +165,14 @@ export function Settings() {
   const addExists = allCurrencies.includes(trimmedCode);
   const canAdd = addValid && !addExists;
 
+  // ---- Default account pickers (expense / income) ----
+  const accounts = useAccounts();
+  const [defaultExpenseOpen, setDefaultExpenseOpen] = useState(false);
+  const [defaultIncomeOpen, setDefaultIncomeOpen] = useState(false);
+  const accountName = (id: string | null) => accounts.find((a) => a.id === id)?.name ?? null;
+  const defaultExpenseLabel = accountName(settings.defaultExpenseAccountId);
+  const defaultIncomeLabel = accountName(settings.defaultIncomeAccountId);
+
   const handleAddCurrency = () => {
     if (!canAdd) return;
     const code = trimmedCode;
@@ -191,6 +199,22 @@ export function Settings() {
               title={t('settings.currency')}
               value={activeCurrencyLabel}
               onClick={() => setCurrencyOpen(true)}
+            />
+            <NavRow
+              icon="ArrowDownRight"
+              tint="#EF4444"
+              title={t('settings.defaultExpenseAccount')}
+              sub={t('settings.defaultExpenseAccountHint')}
+              value={defaultExpenseLabel ?? t('settings.defaultAccountNone')}
+              onClick={() => setDefaultExpenseOpen(true)}
+            />
+            <NavRow
+              icon="ArrowUpRight"
+              tint="#10B981"
+              title={t('settings.defaultIncomeAccount')}
+              sub={t('settings.defaultIncomeAccountHint')}
+              value={defaultIncomeLabel ?? t('settings.defaultAccountNone')}
+              onClick={() => setDefaultIncomeOpen(true)}
             />
             <div className="row" style={{ flexWrap: 'wrap' }}>
               <TintedIcon hex="#4F46E5" icon="Moon" variant="acct" />
@@ -457,6 +481,113 @@ export function Settings() {
               </span>
             )}
           </div>
+        </div>
+      </Sheet>
+
+      {/* Default account pickers — a "none" option clears the preset. */}
+      <Sheet
+        open={defaultExpenseOpen}
+        onClose={() => setDefaultExpenseOpen(false)}
+        title={t('settings.defaultExpenseAccount')}
+      >
+        <div className="col" style={{ paddingBottom: 8 }}>
+          {accounts.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              className="row"
+              style={rowBtn}
+              onClick={() => {
+                update({ defaultExpenseAccountId: a.id });
+                setDefaultExpenseOpen(false);
+              }}
+            >
+              <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
+              <span className="r-main">
+                <span className="r-title">{a.name}</span>
+                <span className="r-sub">{t(`accountType.${a.type}`)}</span>
+              </span>
+              {settings.defaultExpenseAccountId === a.id && (
+                <Icon name="Check" size={18} color="var(--primary-600)" />
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="row"
+            style={rowBtn}
+            onClick={() => {
+              update({ defaultExpenseAccountId: null });
+              setDefaultExpenseOpen(false);
+            }}
+          >
+            <span
+              className="acct-icon"
+              style={{ background: 'var(--neutral-100)', color: 'var(--neutral-500)' }}
+            >
+              <Icon name="CircleDashed" size={18} />
+            </span>
+            <span className="r-main">
+              <span className="r-title">{t('settings.defaultAccountNone')}</span>
+              <span className="r-sub">{t('settings.defaultAccountNoneHint')}</span>
+            </span>
+            {!settings.defaultExpenseAccountId && (
+              <Icon name="Check" size={18} color="var(--primary-600)" />
+            )}
+          </button>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={defaultIncomeOpen}
+        onClose={() => setDefaultIncomeOpen(false)}
+        title={t('settings.defaultIncomeAccount')}
+      >
+        <div className="col" style={{ paddingBottom: 8 }}>
+          {accounts.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              className="row"
+              style={rowBtn}
+              onClick={() => {
+                update({ defaultIncomeAccountId: a.id });
+                setDefaultIncomeOpen(false);
+              }}
+            >
+              <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
+              <span className="r-main">
+                <span className="r-title">{a.name}</span>
+                <span className="r-sub">{t(`accountType.${a.type}`)}</span>
+              </span>
+              {settings.defaultIncomeAccountId === a.id && (
+                <Icon name="Check" size={18} color="var(--primary-600)" />
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="row"
+            style={rowBtn}
+            onClick={() => {
+              update({ defaultIncomeAccountId: null });
+              setDefaultIncomeOpen(false);
+            }}
+          >
+            <span
+              className="acct-icon"
+              style={{ background: 'var(--neutral-100)', color: 'var(--neutral-500)' }}
+            >
+              <Icon name="CircleDashed" size={18} />
+            </span>
+            <span className="r-main">
+              <span className="r-title">{t('settings.defaultAccountNone')}</span>
+              <span className="r-sub">{t('settings.defaultAccountNoneHint')}</span>
+            </span>
+            {!settings.defaultIncomeAccountId && (
+              <Icon name="Check" size={18} color="var(--primary-600)" />
+            )}
+          </button>
         </div>
       </Sheet>
     </>

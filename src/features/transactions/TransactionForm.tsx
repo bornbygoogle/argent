@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
@@ -46,16 +46,43 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
 
   const defaultAccount = useMemo(() => {
     if (transaction) return transaction.accountId;
+    // Kind-specific default account (Settings) takes priority when defined —
+    // it's an explicit user preference, so it beats the scope filter and the
+    // last-used heuristic.
+    const specific = isExpense
+      ? settings.defaultExpenseAccountId
+      : settings.defaultIncomeAccountId;
+    if (specific && accounts.some((a) => a.id === specific)) return specific;
     if (scope !== 'all') return scope;
     if (settings.lastUsedAccountId && accounts.some((a) => a.id === settings.lastUsedAccountId))
       return settings.lastUsedAccountId;
     return accounts[0]?.id ?? '';
-  }, [transaction, scope, settings.lastUsedAccountId, accounts]);
+  }, [
+    transaction,
+    isExpense,
+    settings.defaultExpenseAccountId,
+    settings.defaultIncomeAccountId,
+    scope,
+    settings.lastUsedAccountId,
+    accounts,
+  ]);
 
   const [amountStr, setAmountStr] = useState(transaction ? String(transaction.amount) : '');
   const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? '');
   const [incomeType, setIncomeType] = useState(transaction?.incomeType ?? 'Autre');
+  // For a NEW transaction, keep accountId in sync with the derived default
+  // (accounts/settings load asynchronously after mount). A manual pick sets
+  // `touchedRef` so we never overwrite the user's choice.
+  const touchedRef = useRef(false);
   const [accountId, setAccountId] = useState(defaultAccount);
+  useEffect(() => {
+    if (isEdit || touchedRef.current) return;
+    setAccountId(defaultAccount);
+  }, [isEdit, defaultAccount]);
+  const pickAccount = (id: string) => {
+    touchedRef.current = true;
+    setAccountId(id);
+  };
   const [date, setDate] = useState(transaction?.date ?? todayISO());
   const [note, setNote] = useState(transaction?.note ?? '');
 
@@ -280,7 +307,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
               key={a.id}
               type="button"
               onClick={() => {
-                setAccountId(a.id);
+                pickAccount(a.id);
                 setAcctOpen(false);
               }}
               className="row"

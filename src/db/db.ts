@@ -25,6 +25,8 @@ export const DEFAULT_SETTINGS: SettingsRecord['state'] = {
   installPromptDismissed: null,
   engagement: { expensesAdded: 0, sessions: 0, lastShown: null },
   lastUsedAccountId: null,
+  defaultExpenseAccountId: null,
+  defaultIncomeAccountId: null,
 };
 
 export class AppDB extends Dexie {
