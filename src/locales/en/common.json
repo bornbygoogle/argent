@@ -376,6 +376,10 @@
     "b3Sub": "Everything stays on your device.",
     "install": "Install",
     "later": "Later",
-    "never": "Don't show again"
+    "never": "Don't show again",
+    "manual": "Install manually",
+    "manualBody": "Your browser doesn't offer a direct install. To install {{app}}:",
+    "manualChrome": "Menu ⋮ → \"Install app\"",
+    "manualIos": "Tap Share → \"Add to Home Screen\""
   }
 }

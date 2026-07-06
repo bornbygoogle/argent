@@ -4,6 +4,7 @@ import '@/i18n';
 import App from '@/App';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import '@/index.css';
+import { registerSW } from 'virtual:pwa-register';
 
 // Dev aid: surface any module-eval / uncaught async error into the page
 // instead of leaving a blank screen. Safe to keep; only fires on error.
@@ -46,3 +47,8 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 );
+
+// Register the PWA service worker so beforeinstallprompt can fire and the app
+// becomes installable + offline-capable in production. Dev is skipped by
+// vite-plugin-pwa by default (no SW is emitted there).
+registerSW({ immediate: true });

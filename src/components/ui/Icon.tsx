@@ -15,6 +15,7 @@ import {
   // misc
   Copy, Sun, Moon, MonitorSmartphone, Smartphone, Languages, Database, Shield,
   ShieldCheck, Lightbulb, WifiOff, Info, CircleDashed, AlertCircle, CheckCircle2,
+  Share,
   type LucideProps,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -40,6 +41,7 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   // misc
   Copy, Sun, Moon, MonitorSmartphone, Smartphone, Languages, Database, Shield,
   ShieldCheck, Lightbulb, WifiOff, Info, CircleDashed, AlertCircle, CheckCircle2,
+  Share,
 };
 
 interface IconProps extends LucideProps {

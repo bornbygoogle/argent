@@ -1,7 +1,8 @@
 // Google Identity Services token client wrapper. Issues short-lived access
 // tokens authorised for drive.file. The first sign-in requests an explicit
 // consent prompt; subsequent requests are silent and the token is cached
-// in-memory (with expiry) so the ~5s background backup loop doesn't re-prompt.
+// (in-memory + localStorage, with expiry) so the ~5s background backup loop
+// doesn't re-prompt and a page refresh is re-activated with NO GIS call.
 
 import { GOOGLE_CLIENT_ID, DRIVE_FILE_SCOPE } from './env';
 import { loadGsi } from './loadScripts';
@@ -14,7 +15,7 @@ let pending: { resolve: (t: string) => void; reject: (e: Error) => void; timer: 
 // localStorage so a page refresh can re-activate the session WITHOUT any GIS
 // call — no popup, no 12s slot occupation, no Drive op before user action.
 // GIS tokens are short-lived (≤1h); after that the user re-signs-in (silent
-// first via the GIS cookie, consent popup as fallback).
+// first via the GIS cookie inside signIn, consent popup as fallback).
 const LS_TOKEN = 'argent.google.token';
 const LS_EXPIRES = 'argent.google.tokenExpiresAt';
 let cachedToken: string | null = null;
@@ -138,10 +139,9 @@ export async function requestAccessToken(opts: { prompt?: 'consent' | '' } = {})
   await ensureClient();
   if (!tokenClient) throw new Error('google-sdk-unavailable');
   if (pending) throw new Error('google-auth-busy');
-  // If this is a silent refresh (no consent popup) and it's about to actually
-  // hit the SDK, drop any stale persisted token first — we don't want to keep
-  // re-hydrating a token the GIS cookie can no longer back. (A 'consent'
-  // request is a deliberate re-auth and will replace it via persistToken.)
+  // Silent refresh about to hit the SDK: drop any stale persisted token so we
+  // don't keep re-hydrating one the GIS cookie can no longer back. A 'consent'
+  // request is a deliberate re-auth and will replace it via persistToken.
   if (!opts.prompt) forgetToken();
   const prompt = opts.prompt ?? '';
   return new Promise<string>((resolve, reject) => {
