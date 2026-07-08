@@ -165,7 +165,9 @@
       "noBackups": "No backup has been found on your Drive yet.",
       "signOut": "Sign out",
       "signOutBtn": "Sign out",
-      "notConfigured": "Google backup is not configured on this device."
+      "notConfigured": "Google backup is not configured on this device.",
+      "reconnectBanner": "Backup paused — reconnect Google.",
+      "reconnectBtn": "Reconnect"
     },
     "googleErrors": {
       "generic": "Google operation failed — please retry."

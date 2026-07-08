@@ -16,6 +16,7 @@ import { currentMonth } from '@/lib/date';
 import { formatCurrency, formatSignedCurrency } from '@/lib/format';
 import { isConfirmedIn, confirmRecurring } from '@/lib/recurring';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Icon } from '@/components/ui/Icon';
 import { TopBar } from '@/components/ui/TopBar';
 import { AccountChip } from '@/components/ui/AccountChip';
@@ -41,8 +42,10 @@ export function Dashboard() {
   const month = currentMonth();
   const todoRecurring = recurrings.filter((r) => !isConfirmedIn(r, month)).slice(0, 4);
   const online = useOnlineStatus();
+  const { needsReconnect, signIn, busy: googleBusy } = useGoogleAuth();
 
   const [scopeOpen, setScopeOpen] = useState(false);
+  const [reconnectDismissed, setReconnectDismissed] = useState(false);
 
   const activeAccount = scope === 'all' ? undefined : accountMap.get(scope);
   const balance = activeAccount ? accountBalance(activeAccount, allTx) : totalBalance(accounts, allTx);
@@ -73,6 +76,26 @@ export function Dashboard() {
         {!online && (
           <Banner tone="warn" icon="WifiOff">
             {t('dashboard.offline')}
+          </Banner>
+        )}
+
+        {needsReconnect && !reconnectDismissed && (
+          <Banner
+            tone="warn"
+            icon="CloudOff"
+            onDismiss={() => setReconnectDismissed(true)}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {t('settings.google.reconnectBanner')}
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => void signIn()}
+                disabled={googleBusy}
+              >
+                {t('settings.google.reconnectBtn')}
+              </button>
+            </span>
           </Banner>
         )}
 

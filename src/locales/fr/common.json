@@ -165,7 +165,9 @@
       "noBackups": "Aucune sauvegarde n'a encore été trouvée sur votre Drive.",
       "signOut": "Se déconnecter",
       "signOutBtn": "Déconnexion",
-      "notConfigured": "La sauvegarde Google n'est pas configurée sur cet appareil."
+      "notConfigured": "La sauvegarde Google n'est pas configurée sur cet appareil.",
+      "reconnectBanner": "Sauvegarde en pause — reconnectez Google.",
+      "reconnectBtn": "Reconnecter"
     },
     "googleErrors": {
       "generic": "Échec de l'opération Google — réessayez."
