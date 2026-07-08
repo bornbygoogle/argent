@@ -95,7 +95,7 @@ export function Budget() {
   }, [monthExpenses]);
 
   const save = async () => {
-    if (!accountId || busy) return;
+    if (!accountId || busy || !hydrated) return;
     setBusy(true);
     try {
       const categoryLimits = categories.map((c) => ({
@@ -127,7 +127,7 @@ export function Budget() {
         }
         title={t('screens.budget')}
         right={
-          <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy || !hydrated}>
             {t('common.save')}
           </button>
         }
@@ -264,7 +264,7 @@ export function Budget() {
           background: 'linear-gradient(transparent,#fff 30%)',
         }}
       >
-        <button type="button" className="btn btn-primary btn-block" onClick={save} disabled={busy}>
+        <button type="button" className="btn btn-primary btn-block" onClick={save} disabled={busy || !hydrated}>
           {t('budget.save')}
         </button>
       </div>
