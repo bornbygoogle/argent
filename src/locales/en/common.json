@@ -298,6 +298,12 @@
     "income": "Income",
     "cadenceLabel": "Frequency",
     "labelPlaceholder": "e.g. Rent, Salary…",
+    "confirmTitle": "Confirm this recurring?",
+    "confirmBody": "A {{amount}} transaction will be recorded on {{account}}.",
+    "unconfirmTitle": "Undo this confirmation?",
+    "unconfirmBody": "The matching transaction will be removed.",
+    "confirmedToast": "Transaction recorded",
+    "unconfirmedToast": "Confirmation undone",
     "cadence": {
       "mensuel": "Monthly",
       "hebdo": "Weekly",

@@ -6,6 +6,8 @@ import { Icon } from '@/components/ui/Icon';
 import { Segmented } from '@/components/ui/Segmented';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Sheet } from '@/components/ui/Sheet';
+import { Button } from '@/components/ui/Button';
 import { RecurringFormSheet } from './RecurringFormSheet';
 import {
   useRecurrings,
@@ -19,6 +21,7 @@ import {
 } from '@/lib/recurring';
 import { currentMonth } from '@/lib/date';
 import { formatCurrency, formatSignedCurrency, formatMonth } from '@/lib/format';
+import { useToast } from '@/store/ToastContext';
 import type { Account, Cadence, Recurring as RecurringT } from '@/types/models';
 
 type Mode = 'todo' | 'all' | 'history';
@@ -28,6 +31,7 @@ const cadenceLabel = (t: (k: string) => string, c: Cadence): string => t(`recurr
 export function Recurring() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const toast = useToast();
   const recurrings = useRecurrings();
   const accounts = useAccounts();
   const accountMap = useAccountMap();
@@ -35,6 +39,7 @@ export function Recurring() {
   const [mode, setMode] = useState<Mode>('todo');
   const [editing, setEditing] = useState<'new' | RecurringT | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{ r: RecurringT; on: boolean } | null>(null);
 
   const order = useMemo(() => {
     const idx = new Map(accounts.map((a, i) => [a.id, i]));
@@ -168,7 +173,7 @@ export function Recurring() {
                         <button
                           type="button"
                           className={`confirm-btn${confirmed ? ' done' : ''}`}
-                          onClick={() => toggle(r)}
+                          onClick={() => setPendingConfirm({ r, on: !isConfirmedIn(r, month) })}
                           disabled={pending === r.id}
                         >
                           <Icon name="Check" size={14} strokeWidth={2.5} />
@@ -208,6 +213,45 @@ export function Recurring() {
       {editing !== null && (
         <RecurringFormSheet target={editing} onClose={() => setEditing(null)} />
       )}
+
+      <Sheet open={!!pendingConfirm} onClose={() => setPendingConfirm(null)}>
+        <div className="text-center" style={{ paddingBottom: 8 }}>
+          <h2 className="h3" style={{ marginBottom: 4 }}>
+            {pendingConfirm?.on
+              ? t('recurring.confirmTitle')
+              : t('recurring.unconfirmTitle')}
+          </h2>
+          <p className="body-sm" style={{ marginBottom: 20 }}>
+            {pendingConfirm?.on
+              ? t('recurring.confirmBody', {
+                  amount: formatSignedCurrency(
+                    pendingConfirm.r.direction === 'income'
+                      ? pendingConfirm.r.amount
+                      : -pendingConfirm.r.amount,
+                  ),
+                  account: accountMap.get(pendingConfirm.r.accountId)?.name ?? '',
+                })
+              : t('recurring.unconfirmBody')}
+          </p>
+          <div className="col gap-2">
+            <Button
+              full
+              onClick={async () => {
+                if (!pendingConfirm) return;
+                const { r, on } = pendingConfirm;
+                setPendingConfirm(null);
+                await toggle(r);
+                toast.success(on ? t('recurring.confirmedToast') : t('recurring.unconfirmedToast'));
+              }}
+            >
+              {t('common.confirm')}
+            </Button>
+            <Button variant="secondary" full onClick={() => setPendingConfirm(null)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </div>
+      </Sheet>
     </>
   );
 }
