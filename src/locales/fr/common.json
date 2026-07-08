@@ -238,8 +238,11 @@
     "filterAll": "Tous",
     "filterExpenses": "Dépenses",
     "filterIncome": "Revenus",
+    "filterTransfers": "Virements",
     "empty": "Rien à afficher",
-    "emptyHint": "Les mouvements apparaîtront ici une fois ajoutés."
+    "emptyHint": "Les mouvements apparaîtront ici une fois ajoutés.",
+    "emptyFilter": "Aucun résultat pour ce filtre",
+    "emptyFilterHint": "Changez de filtre pour voir d'autres mouvements."
   },
   "transfer": {
     "from": "De",

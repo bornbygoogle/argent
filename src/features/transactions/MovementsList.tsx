@@ -14,7 +14,7 @@ import { formatCurrency, formatDayHeader } from '@/lib/format';
 import { isExpense, isIncome, isTransfer, signedAmount } from '@/lib/calc';
 import type { AccountScope, Transaction } from '@/types/models';
 
-type Filter = 'all' | 'expense' | 'income';
+type Filter = 'all' | 'expense' | 'income' | 'transfer';
 
 interface DayGroup {
   date: string;
@@ -36,6 +36,7 @@ export function MovementsList() {
     const filtered = allTx.filter((tx) => {
       if (filter === 'expense') return isExpense(tx);
       if (filter === 'income') return isIncome(tx);
+      if (filter === 'transfer') return isTransfer(tx);
       return true;
     });
     const sorted = [...filtered].sort((a, b) =>
@@ -58,6 +59,7 @@ export function MovementsList() {
   const activeAccount = scope === 'all' ? undefined : accountMap.get(scope);
   const totalCount = groups.reduce((s, g) => s + g.rows.length, 0);
   const totalNet = groups.reduce((s, g) => s + g.net, 0);
+  const hasAnyMovements = allTx.length > 0;
 
   return (
     <>
@@ -85,12 +87,17 @@ export function MovementsList() {
               { value: 'all', label: t('movements.filterAll') },
               { value: 'expense', label: t('movements.filterExpenses') },
               { value: 'income', label: t('movements.filterIncome') },
+              { value: 'transfer', label: t('movements.filterTransfers') },
             ]}
           />
         </div>
 
         {groups.length === 0 ? (
-          <EmptyState icon="Receipt" title={t('movements.empty')} hint={t('movements.emptyHint')} />
+          hasAnyMovements ? (
+            <EmptyState icon="Filter" title={t('movements.emptyFilter')} hint={t('movements.emptyFilterHint')} />
+          ) : (
+            <EmptyState icon="Receipt" title={t('movements.empty')} hint={t('movements.emptyHint')} />
+          )
         ) : (
           <>
             {/* Running total */}

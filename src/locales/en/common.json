@@ -238,8 +238,11 @@
     "filterAll": "All",
     "filterExpenses": "Expenses",
     "filterIncome": "Income",
+    "filterTransfers": "Transfers",
     "empty": "Nothing here yet",
-    "emptyHint": "Movements will show up here once you add some."
+    "emptyHint": "Movements will show up here once you add some.",
+    "emptyFilter": "No results for this filter",
+    "emptyFilterHint": "Switch filter to see other movements."
   },
   "transfer": {
     "from": "From",
