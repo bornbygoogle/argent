@@ -10,7 +10,9 @@
 // so the Settings UI can notify the user. Mounted inside <GoogleAuthProvider>.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useToast } from '@/store/ToastContext';
 import { db } from '@/db/db';
 import { exportBackup, importBackup, parseBackupFile } from '@/lib/data';
 import {
@@ -48,6 +50,8 @@ export function requestBackupNow(): Promise<void> {
 
 export function GoogleAutoBackup() {
   const { status, getValidAccessToken, reportBackupDone, reportBackupError } = useGoogleAuth();
+  const { t } = useTranslation();
+  const toast = useToast();
 
   // Heartbeat: a string that changes whenever tracked tables' membership shifts.
   // Folding the newest transaction date also catches in-place edits that keep
@@ -83,7 +87,7 @@ export function GoogleAutoBackup() {
   // flush a change that arrived during the (closed-gate) pull window.
   const [gateNonce, setGateNonce] = useState(0);
 
-  const pushOnce = useCallback(async (): Promise<void> => {
+  const pushOnce = useCallback(async (manual = false): Promise<void> => {
     // Never push before the initial pull has resolved.
     if (!readyToPush.current) return;
     if (running.current) return;
@@ -98,6 +102,7 @@ export function GoogleAutoBackup() {
       const at = new Date().toISOString();
       await setGoogleMeta({ lastBackupAt: at });
       reportBackupDone(at);
+      if (manual) toast.success(t('settings.google.toastBackedUp'));
 
       // Best-effort prune: keep only the KEEP_LAST newest backups.
       try {
@@ -117,6 +122,7 @@ export function GoogleAutoBackup() {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       reportBackupError(message);
+      toast.error(t('settings.google.toastBackupFailed'));
       // eslint-disable-next-line no-console
       console.error('[google] backup failed:', message);
       // Network failure: re-arm so the next change retries.
@@ -126,11 +132,11 @@ export function GoogleAutoBackup() {
       running.current = false;
       setBackingUp(false);
     }
-  }, [getValidAccessToken, reportBackupDone, reportBackupError]);
+  }, [getValidAccessToken, reportBackupDone, reportBackupError, toast, t]);
 
   // Register the manual-trigger handler so requestBackupNow() runs immediately.
   useEffect(() => {
-    backupNowHandler = () => pushOnce();
+    backupNowHandler = () => pushOnce(true);
     return () => {
       backupNowHandler = null;
     };
@@ -161,13 +167,16 @@ export function GoogleAutoBackup() {
         lastPulledAt: new Date().toISOString(),
         lastBackupAt: newest.modifiedTime,
       });
-      // Tell the UI "your data was just pulled from Drive", then reload.
+      // Tell the UI "your data was just pulled from Drive".
       markRestoredJustNow();
-      location.reload();
+      // Dexie's useLiveQuery re-emits after importBackup rewrites the tables, so
+      // the UI refreshes without a full page reload (spec §5.3). No location.reload().
+      toast.info(t('settings.google.toastPulled'));
     } catch (e) {
       // Auto-pull is best-effort: never disrupt the user on failure.
       // eslint-disable-next-line no-console
       console.warn('[google] auto-pull skipped:', e);
+      toast.error(t('settings.google.toastPullFailed'));
     } finally {
       running.current = false;
       // Open the push gate only after the pull has resolved (success, skip, or
@@ -179,7 +188,7 @@ export function GoogleAutoBackup() {
       // local state equals the baseline.)
       setGateNonce((n) => n + 1);
     }
-  }, [getValidAccessToken]);
+  }, [getValidAccessToken, toast, t]);
 
   // PUSH: debounced on every heartbeat change while signed in — but ONLY after
   // the initial pull has resolved (readyToPush). Until then, no upload happens,
@@ -203,7 +212,7 @@ export function GoogleAutoBackup() {
     lastSeen.current = heartbeat;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      void pushOnce();
+      void pushOnce(false);
     }, PUSH_DEBOUNCE_MS);
     return () => {
       if (timer.current) clearTimeout(timer.current);

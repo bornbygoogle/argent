@@ -173,7 +173,11 @@
         "syncing": "Syncing…",
         "paused": "Reconnect required",
         "error": "Backup error"
-      }
+      },
+      "toastBackedUp": "Backed up to Drive",
+      "toastPulled": "Synced from Drive",
+      "toastBackupFailed": "Google backup failed",
+      "toastPullFailed": "Sync from Drive failed"
     },
     "googleErrors": {
       "generic": "Google operation failed — please retry."
