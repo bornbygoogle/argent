@@ -22,7 +22,7 @@ import {
   updateTransaction,
 } from '@/lib/transactions';
 import { categoryLabel, incomeTypeLabel } from '@/lib/labels';
-import { getLocale } from '@/lib/format';
+import { getLocale, formatSignedCurrency } from '@/lib/format';
 import { todayISO } from '@/lib/date';
 import type { Transaction, TransactionKind } from '@/types/models';
 
@@ -349,6 +349,13 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
           <p className="body-sm" style={{ marginBottom: 20 }}>
             {t('confirm.deleteHint')}
           </p>
+          {transaction && (
+            <p className="body-sm" style={{ fontWeight: 600, marginBottom: 20 }}>
+              {t('confirm.deleteAmount', {
+                amount: formatSignedCurrency(isExpense ? -transaction.amount : transaction.amount),
+              })}
+            </p>
+          )}
           <div className="col gap-2">
             <Button variant="danger" full onClick={handleDelete}>
               {t('confirm.delete')}

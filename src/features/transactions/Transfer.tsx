@@ -14,7 +14,7 @@ import { useSettings } from '@/store/SettingsContext';
 import { useToast } from '@/store/ToastContext';
 import { addTransfer, deleteTransfer, updateTransfer } from '@/lib/transactions';
 import { todayISO } from '@/lib/date';
-import { getLocale } from '@/lib/format';
+import { getLocale, formatCurrency } from '@/lib/format';
 
 type Picker = 'from' | 'to' | null;
 
@@ -261,6 +261,12 @@ export function Transfer() {
           <p className="body-sm" style={{ marginBottom: 20 }}>
             {t('confirm.deleteHint')}
           </p>
+          {outLeg && (
+            <p className="body-sm" style={{ fontWeight: 600, marginBottom: 20 }}>
+              {t('confirm.deleteAmount', { amount: formatCurrency(outLeg.amount) })}
+              {fromAccount && toAccount ? ` · ${fromAccount.name} → ${toAccount.name}` : ''}
+            </p>
+          )}
           <div className="col gap-2">
             <Button variant="danger" full onClick={handleDelete}>
               {t('common.delete')}
