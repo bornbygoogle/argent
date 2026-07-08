@@ -167,7 +167,13 @@
       "signOutBtn": "Sign out",
       "notConfigured": "Google backup is not configured on this device.",
       "reconnectBanner": "Backup paused — reconnect Google.",
-      "reconnectBtn": "Reconnect"
+      "reconnectBtn": "Reconnect",
+      "pill": {
+        "synced": "Synced",
+        "syncing": "Syncing…",
+        "paused": "Reconnect required",
+        "error": "Backup error"
+      }
     },
     "googleErrors": {
       "generic": "Google operation failed — please retry."

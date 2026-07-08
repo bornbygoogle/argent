@@ -24,6 +24,7 @@ import { Hero } from '@/components/ui/Hero';
 import { Banner } from '@/components/ui/Banner';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SyncPill } from '@/components/ui/SyncPill';
 import { MovementRow } from '@/features/transactions/MovementRow';
 import { AccountSwitcher } from '@/features/sheets/AccountSwitcher';
 import { InstallPrompt } from '@/features/install/InstallPrompt';
@@ -65,11 +66,7 @@ export function Dashboard() {
             onClick={() => setScopeOpen(true)}
           />
         }
-        right={
-          <button type="button" className="icon-btn" aria-label="notifications">
-            <Icon name="Bell" size={22} />
-          </button>
-        }
+        right={<SyncPill />}
       />
 
       <div className="content" style={{ paddingBottom: 96, gap: 14 }}>

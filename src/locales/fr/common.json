@@ -167,7 +167,13 @@
       "signOutBtn": "Déconnexion",
       "notConfigured": "La sauvegarde Google n'est pas configurée sur cet appareil.",
       "reconnectBanner": "Sauvegarde en pause — reconnectez Google.",
-      "reconnectBtn": "Reconnecter"
+      "reconnectBtn": "Reconnecter",
+      "pill": {
+        "synced": "Synchronisé",
+        "syncing": "Synchronisation…",
+        "paused": "Reconnexion requise",
+        "error": "Erreur de sauvegarde"
+      }
     },
     "googleErrors": {
       "generic": "Échec de l'opération Google — réessayez."
