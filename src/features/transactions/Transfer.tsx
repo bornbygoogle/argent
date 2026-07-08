@@ -161,10 +161,10 @@ export function Transfer() {
             <button
               type="button"
               onClick={swap}
-              aria-label="swap"
+              aria-label={t('transfer.swap')}
               style={{
-                width: 36,
-                height: 36,
+                width: 44,
+                height: 44,
                 borderRadius: '50%',
                 border: '3px solid var(--neutral-50)',
                 background: 'var(--primary-50)',

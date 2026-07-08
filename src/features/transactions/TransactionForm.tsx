@@ -188,7 +188,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
           <button
             type="button"
             className="acct-chip"
-            style={{ height: 32 }}
+            style={{ minHeight: 44 }}
             onClick={() => setAcctOpen(true)}
           >
             <span className="acct-dot" style={{ background: selectedAccount?.color ?? '#4F46E5' }} />

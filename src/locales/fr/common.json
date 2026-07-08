@@ -247,7 +247,8 @@
   "transfer": {
     "from": "De",
     "to": "Vers",
-    "sameAccount": "Choisissez deux comptes différents"
+    "sameAccount": "Choisissez deux comptes différents",
+    "swap": "Inverser les comptes"
   },
   "accounts": {
     "add": "Nouveau compte",

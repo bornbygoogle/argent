@@ -247,7 +247,8 @@
   "transfer": {
     "from": "From",
     "to": "To",
-    "sameAccount": "Pick two different accounts"
+    "sameAccount": "Pick two different accounts",
+    "swap": "Swap accounts"
   },
   "accounts": {
     "add": "New account",
