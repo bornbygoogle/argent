@@ -4,6 +4,7 @@ import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { GoogleAuthProvider } from '@/store/GoogleAuthContext';
 import { ToastProvider } from '@/store/ToastContext';
 import { GoogleAutoBackup } from '@/components/GoogleAutoBackup';
+import { ToastContainer } from '@/components/ui/Toast';
 import { OnboardingGuard } from '@/routes/OnboardingGuard';
 import { RootLayout } from '@/routes/RootLayout';
 import { Onboarding } from '@/features/onboarding/Onboarding';
@@ -73,6 +74,7 @@ export default function App() {
               <div className="stage">
                 <div className="screen">
                   <AppRoutes />
+                  <ToastContainer />
                 </div>
               </div>
             </AccountScopeProvider>
