@@ -144,11 +144,8 @@ export function InstallPrompt() {
               </div>
             </div>
           )}
-          <div className="row-between">
-            <button type="button" className="btn btn-ghost" style={{ height: 44 }} onClick={() => setOpen(false)}>
-              {t('install.later')}
-            </button>
-            {confirmNever ? (
+          {confirmNever ? (
+            <div className="col gap-2">
               <button
                 type="button"
                 className="btn btn-block"
@@ -157,7 +154,20 @@ export function InstallPrompt() {
               >
                 {t('install.neverConfirm')}
               </button>
-            ) : (
+              <button
+                type="button"
+                className="btn btn-ghost btn-block"
+                style={{ height: 44 }}
+                onClick={() => setConfirmNever(false)}
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          ) : (
+            <div className="row-between">
+              <button type="button" className="btn btn-ghost" style={{ height: 44 }} onClick={() => setOpen(false)}>
+                {t('install.later')}
+              </button>
               <button
                 type="button"
                 className="btn btn-ghost"
@@ -166,8 +176,8 @@ export function InstallPrompt() {
               >
                 {t('install.never')}
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </Sheet>
