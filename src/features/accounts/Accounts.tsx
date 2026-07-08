@@ -381,6 +381,11 @@ function DeleteAccountSheet({
         </div>
 
         <div className="col gap-2">
+          {others.length === 0 && (
+            <p className="body-sm" style={{ color: 'var(--warning-600)', marginBottom: 12, textAlign: 'center' }}>
+              {t('accounts.needTwo')}
+            </p>
+          )}
           <Button variant="danger" full onClick={confirm} disabled={!target || busy}>
             {t('accounts.delete')}
           </Button>
