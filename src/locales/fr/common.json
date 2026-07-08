@@ -414,6 +414,7 @@
     "install": "Installer",
     "later": "Plus tard",
     "never": "Ne plus afficher",
+    "neverConfirm": "Ne plus jamais proposer l'installation ?",
     "manual": "Installer manuellement",
     "manualBody": "Votre navigateur ne propose pas d'installation directe. Pour installer {{app}} :",
     "manualChrome": "Menu ⋮ → « Installer l'application »",

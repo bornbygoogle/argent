@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
 import { useSettings } from '@/store/SettingsContext';
@@ -26,9 +27,12 @@ function isStandalone(): boolean {
 export function InstallPrompt() {
   const { t } = useTranslation();
   const { settings, update } = useSettings();
+  const location = useLocation();
+  const onEntryRoute = ['/add', '/income', '/transfer'].some((p) => location.pathname.startsWith(p));
   const expenseCount = useLiveQuery(() => db.transactions.where('kind').equals('expense').count(), []) ?? 0;
   const [open, setOpen] = useState(false);
   const [canInstall, setCanInstall] = useState(false);
+  const [confirmNever, setConfirmNever] = useState(false);
   const deferred = useRef<BeforeInstallPromptEvent | null>(null);
   const shown = useRef(false);
   // iOS Safari never fires beforeinstallprompt — detect it once to show the
@@ -54,11 +58,17 @@ export function InstallPrompt() {
     if (shown.current) return;
     if (settings.installPromptDismissed === 'permanent') return;
     if (isStandalone()) return;
+    if (onEntryRoute) return;
     if (expenseCount >= 3) {
       shown.current = true;
       setOpen(true);
     }
-  }, [expenseCount, settings.installPromptDismissed]);
+  }, [expenseCount, settings.installPromptDismissed, onEntryRoute]);
+
+  const handleNever = () => {
+    update({ installPromptDismissed: 'permanent' });
+    setOpen(false);
+  };
 
   const install = async () => {
     const ev = deferred.current;
@@ -135,20 +145,28 @@ export function InstallPrompt() {
             </div>
           )}
           <div className="row-between">
-            <button type="button" className="btn btn-ghost" style={{ height: 40 }} onClick={() => setOpen(false)}>
+            <button type="button" className="btn btn-ghost" style={{ height: 44 }} onClick={() => setOpen(false)}>
               {t('install.later')}
             </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ height: 40, color: 'var(--neutral-500)' }}
-              onClick={() => {
-                update({ installPromptDismissed: 'permanent' });
-                setOpen(false);
-              }}
-            >
-              {t('install.never')}
-            </button>
+            {confirmNever ? (
+              <button
+                type="button"
+                className="btn btn-block"
+                style={{ height: 44, color: 'var(--danger-600)', background: 'var(--danger-50)' }}
+                onClick={handleNever}
+              >
+                {t('install.neverConfirm')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ height: 44, color: 'var(--neutral-400)' }}
+                onClick={() => setConfirmNever(true)}
+              >
+                {t('install.never')}
+              </button>
+            )}
           </div>
         </div>
       </div>
