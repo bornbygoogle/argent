@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { GoogleAuthProvider } from '@/store/GoogleAuthContext';
+import { ToastProvider } from '@/store/ToastContext';
 import { GoogleAutoBackup } from '@/components/GoogleAutoBackup';
 import { OnboardingGuard } from '@/routes/OnboardingGuard';
 import { RootLayout } from '@/routes/RootLayout';
@@ -64,16 +65,18 @@ export default function App() {
     <SettingsProvider>
       <GoogleAuthProvider>
         <BrowserRouter>
-          <AccountScopeProvider>
-            {/* Background Drive sync: auto-backup every ~5s + cross-device pull.
-                Renders nothing; lives here so it can read db + the google context. */}
-            <GoogleAutoBackup />
-            <div className="stage">
-              <div className="screen">
-                <AppRoutes />
+          <ToastProvider>
+            <AccountScopeProvider>
+              {/* Background Drive sync: auto-backup every ~5s + cross-device pull.
+                  Renders nothing; lives here so it can read db + the google context. */}
+              <GoogleAutoBackup />
+              <div className="stage">
+                <div className="screen">
+                  <AppRoutes />
+                </div>
               </div>
-            </div>
-          </AccountScopeProvider>
+            </AccountScopeProvider>
+          </ToastProvider>
         </BrowserRouter>
       </GoogleAuthProvider>
     </SettingsProvider>
