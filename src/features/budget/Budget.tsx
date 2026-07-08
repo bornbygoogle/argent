@@ -11,12 +11,12 @@ import { AccountChip } from '@/components/ui/AccountChip';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import { AccountSwitcher } from '@/features/sheets/AccountSwitcher';
 import { useAccountScope } from '@/store/AccountScopeContext';
-import { useCategories, useBudget, useMonthExpenses, useAccountMap } from '@/hooks/selectors';
+import { useCategories, useMonthExpenses, useAccountMap } from '@/hooks/selectors';
 import { categoryLabel } from '@/lib/labels';
 import { byCategory } from '@/lib/calc';
 import { currentMonth } from '@/lib/date';
 import { formatCurrency } from '@/lib/format';
-import { upsertBudget } from '@/lib/budget';
+import { getBudget, upsertBudget } from '@/lib/budget';
 import type { Category, WarningThreshold } from '@/types/models';
 
 const cleanNum = (s: string) => s.replace(/[^0-9.,]/g, '');
@@ -29,7 +29,6 @@ export function Budget() {
   const accountMap = useAccountMap();
   const scopeAccount = scope === 'all' ? accounts[0] : accountMap.get(scope);
   const accountId = scopeAccount?.id;
-  const budget = useBudget(accountId);
   const categories = useCategories();
   const monthExpenses = useMonthExpenses(currentMonth(), scope);
   const [scopeOpen, setScopeOpen] = useState(false);
@@ -43,20 +42,44 @@ export function Budget() {
   const [hydrated, setHydrated] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Reset hydration whenever the scoped account changes, so the form re-hydrates
+  // from the newly-loaded budget instead of keeping the previous account's values.
+  useEffect(() => {
+    setHydrated(false);
+  }, [accountId]);
+
+  // Hydrate from the *loaded* budget for the current account. We fetch
+  // imperatively (rather than trusting `useBudget`'s live-query value) because
+  // `useLiveQuery` does not reset its return value to a "loading" state when
+  // `accountId` changes — it keeps returning the PREVIOUS account's resolved
+  // value (dexie-react-hooks caches the last emission in a ref that's only
+  // overwritten once the new subscription's async query resolves), and that
+  // resolved value is `undefined` both while genuinely loading and when an
+  // account has no budget, so it can't be used as a "settled" guard either.
+  // A direct `getBudget(accountId)` call, gated on `cancelled` so a fast
+  // scope switch can't let a late-resolving fetch for the OLD account
+  // overwrite the form after the user has already switched again, sidesteps
+  // both problems entirely.
   useEffect(() => {
     if (hydrated || !accountId) return;
-    const b = budget ?? undefined;
-    setMonthlyStr(b ? String(b.monthlyBudget) : '0');
-    const lm: Record<string, string> = {};
-    for (const c of categories) {
-      const found = b?.categoryLimits.find((x) => x.categoryId === c.id);
-      lm[c.id] = found?.limit != null ? String(found.limit) : '';
-    }
-    setLimits(lm);
-    setThreshold(b?.warningThreshold.value ?? 80);
-    setRollover(b?.rolloverEnabled ?? true);
-    setHydrated(true);
-  }, [budget, categories, accountId, hydrated]);
+    let cancelled = false;
+    void getBudget(accountId).then((b) => {
+      if (cancelled) return;
+      setMonthlyStr(b ? String(b.monthlyBudget) : '0');
+      const lm: Record<string, string> = {};
+      for (const c of categories) {
+        const found = b?.categoryLimits.find((x) => x.categoryId === c.id);
+        lm[c.id] = found?.limit != null ? String(found.limit) : '';
+      }
+      setLimits(lm);
+      setThreshold(b?.warningThreshold.value ?? 80);
+      setRollover(b?.rolloverEnabled ?? true);
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [categories, accountId, hydrated]);
 
   const monthly = parseNum(monthlyStr);
   const allocated = useMemo(
@@ -72,7 +95,7 @@ export function Budget() {
   }, [monthExpenses]);
 
   const save = async () => {
-    if (!accountId || busy) return;
+    if (!accountId || busy || !hydrated) return;
     setBusy(true);
     try {
       const categoryLimits = categories.map((c) => ({
@@ -104,7 +127,7 @@ export function Budget() {
         }
         title={t('screens.budget')}
         right={
-          <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy || !hydrated}>
             {t('common.save')}
           </button>
         }
@@ -241,7 +264,7 @@ export function Budget() {
           background: 'linear-gradient(transparent,#fff 30%)',
         }}
       >
-        <button type="button" className="btn btn-primary btn-block" onClick={save} disabled={busy}>
+        <button type="button" className="btn btn-primary btn-block" onClick={save} disabled={busy || !hydrated}>
           {t('budget.save')}
         </button>
       </div>

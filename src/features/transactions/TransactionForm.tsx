@@ -15,13 +15,14 @@ import {
 } from '@/hooks/selectors';
 import { useAccountScope } from '@/store/AccountScopeContext';
 import { useSettings } from '@/store/SettingsContext';
+import { useToast } from '@/store/ToastContext';
 import {
   addTransaction,
   deleteTransaction,
   updateTransaction,
 } from '@/lib/transactions';
 import { categoryLabel, incomeTypeLabel } from '@/lib/labels';
-import { getLocale } from '@/lib/format';
+import { getLocale, formatSignedCurrency } from '@/lib/format';
 import { todayISO } from '@/lib/date';
 import type { Transaction, TransactionKind } from '@/types/models';
 
@@ -37,6 +38,8 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   const navigate = useNavigate();
   const { scope } = useAccountScope();
   const { settings, update } = useSettings();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
   const accounts = useAccounts();
   const categories = useCategories();
   const incomeTypes = useIncomeTypes();
@@ -104,7 +107,8 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   };
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!canSave || saving) return;
+    setSaving(true);
     const payload = {
       amount,
       accountId,
@@ -113,13 +117,19 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
       note,
       date,
     };
-    if (transaction) {
-      await updateTransaction(transaction.id, payload);
-    } else {
-      await addTransaction(kind, payload);
-      update({ lastUsedAccountId: accountId });
+    try {
+      if (transaction) {
+        await updateTransaction(transaction.id, payload);
+      } else {
+        await addTransaction(kind, payload);
+        update({ lastUsedAccountId: accountId });
+      }
+      toast.success(t('form.saved'));
+      navigate(-1);
+    } catch {
+      setSaving(false);
+      toast.error(t('form.saveError'));
     }
-    navigate(-1);
   };
 
   const handleDelete = async () => {
@@ -161,7 +171,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
               type="button"
               className="btn btn-primary btn-sm"
               onClick={handleSave}
-              disabled={!canSave}
+              disabled={!canSave || saving}
             >
               {t('common.ok')}
             </button>
@@ -178,7 +188,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
           <button
             type="button"
             className="acct-chip"
-            style={{ height: 32 }}
+            style={{ minHeight: 44 }}
             onClick={() => setAcctOpen(true)}
           >
             <span className="acct-dot" style={{ background: selectedAccount?.color ?? '#4F46E5' }} />
@@ -339,6 +349,13 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
           <p className="body-sm" style={{ marginBottom: 20 }}>
             {t('confirm.deleteHint')}
           </p>
+          {transaction && (
+            <p className="body-sm" style={{ fontWeight: 600, marginBottom: 20 }}>
+              {t('confirm.deleteAmount', {
+                amount: formatSignedCurrency(isExpense ? -transaction.amount : transaction.amount),
+              })}
+            </p>
+          )}
           <div className="col gap-2">
             <Button variant="danger" full onClick={handleDelete}>
               {t('confirm.delete')}

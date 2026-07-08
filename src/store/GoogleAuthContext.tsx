@@ -54,6 +54,10 @@ export interface UseGoogleAuth {
   restoredJustNow: boolean;
   /** Acknowledge the "restored" notice (hides it). */
   clearRestoredJustNow: () => void;
+  /** True when silent + auto-popup reconnect both failed; drives the reconnect banner/pill. */
+  needsReconnect: boolean;
+  /** Set/clear the reconnect-required flag (used by useSilentReconnect + signIn success). */
+  setNeedsReconnect: (v: boolean) => void;
 }
 
 const GoogleAuthContext = createContext<UseGoogleAuth | null>(null);
@@ -88,6 +92,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       return false;
     }
   });
+  const [needsReconnect, setNeedsReconnect] = useState(false);
 
   // Ensure the device id exists before any push/pull happens.
   useEffect(() => {
@@ -144,6 +149,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       }
       // Mark the session active only after a real token is in hand.
       setActive(true);
+      setNeedsReconnect(false);
     } finally {
       setBusy(false);
     }
@@ -160,6 +166,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
     }
     setEmail(null);
     setActive(false);
+    setNeedsReconnect(false);
   }, []);
 
   const reportBackupDone = useCallback((at: string) => {
@@ -200,6 +207,8 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       reportBackupError,
       restoredJustNow,
       clearRestoredJustNow,
+      needsReconnect,
+      setNeedsReconnect,
     }),
     [
       configured,
@@ -213,6 +222,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       reportBackupError,
       restoredJustNow,
       clearRestoredJustNow,
+      needsReconnect,
     ],
   );
 
@@ -226,6 +236,15 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
     };
   }, [setBackingUp]);
 
+  // Register the "restored just now" setter so a same-session background pull
+  // can flip the live flag without it being part of the memoised context value.
+  useEffect(() => {
+    restoredSetterRef.current = setRestoredJustNow;
+    return () => {
+      restoredSetterRef.current = null;
+    };
+  }, []);
+
   return <GoogleAuthContext.Provider value={value}>{children}</GoogleAuthContext.Provider>;
 }
 
@@ -233,18 +252,28 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
 // part of the memoised context value (avoids re-rendering all consumers on toggle).
 const backingUpSetterRef: { current: ((v: boolean) => void) | null } = { current: null };
 
+// Internal: lets markRestoredJustNow update the live "restored" flag without it
+// being part of the memoised context value (mirrors backingUpSetterRef).
+const restoredSetterRef: { current: ((v: boolean) => void) | null } = { current: null };
+
 /** Toggle the in-flight backup flag (used by the background loop). */
 export function setBackingUp(v: boolean): void {
   backingUpSetterRef.current?.(v);
 }
 
-/** Set the "restored just now" flag before a restore-induced reload. */
+/**
+ * Flag + surface a just-completed restore (sessionStorage for the next mount,
+ * live state for the current one).
+ */
 export function markRestoredJustNow(): void {
   try {
     sessionStorage.setItem(SS_RESTORED_FLAG, '1');
   } catch {
     /* ignore */
   }
+  // Update live state too, so the Settings "restored" banner appears without a
+  // page reload (the post-restore reload was removed in Task 7).
+  restoredSetterRef.current?.(true);
 }
 
 export function useGoogleAuth(): UseGoogleAuth {

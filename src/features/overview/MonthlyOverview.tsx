@@ -38,6 +38,7 @@ export function MonthlyOverview() {
   const categoryMap = useCategoryMap();
   const scoped = useScopedTransactions(scope);
   const [month, setMonth] = useState<string>(currentMonth());
+  const atCurrentMonth = month >= currentMonth();
 
   const scopeAccount = scope === 'all' ? accounts[0] : accounts.find((a) => a.id === scope);
   const budget = useBudget(scopeAccount?.id);
@@ -109,13 +110,20 @@ export function MonthlyOverview() {
     <>
       <TopBar
         left={
-          <button type="button" className="icon-btn" onClick={() => setMonth(prevMonth(month))} aria-label={t('common.back')}>
+          <button type="button" className="icon-btn" onClick={() => setMonth(prevMonth(month))} aria-label={t('overview.prevMonth')}>
             <Icon name="ChevronLeft" size={22} />
           </button>
         }
         title={<span className="tb-title text-center" style={{ textTransform: 'capitalize' }}>{formatMonth(month)}</span>}
         right={
-          <button type="button" className="icon-btn" onClick={() => setMonth(nextMonth(month))} aria-label={t('common.continue')}>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => { if (!atCurrentMonth) setMonth(nextMonth(month)); }}
+            aria-label={t('overview.nextMonth')}
+            disabled={atCurrentMonth}
+            style={{ opacity: atCurrentMonth ? 0.4 : 1 }}
+          >
             <Icon name="ChevronRight" size={22} />
           </button>
         }

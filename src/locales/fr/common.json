@@ -34,6 +34,11 @@
     "amount": "Montant",
     "skip": "Passer"
   },
+  "numpad": {
+    "backspace": "Effacer",
+    "clear": "Tout effacer",
+    "decimal": "Virgule"
+  },
   "theme": {
     "label": "Thème",
     "light": "Clair",
@@ -165,7 +170,19 @@
       "noBackups": "Aucune sauvegarde n'a encore été trouvée sur votre Drive.",
       "signOut": "Se déconnecter",
       "signOutBtn": "Déconnexion",
-      "notConfigured": "La sauvegarde Google n'est pas configurée sur cet appareil."
+      "notConfigured": "La sauvegarde Google n'est pas configurée sur cet appareil.",
+      "reconnectBanner": "Sauvegarde en pause — reconnectez Google.",
+      "reconnectBtn": "Reconnecter",
+      "pill": {
+        "synced": "Synchronisé",
+        "syncing": "Synchronisation…",
+        "paused": "Reconnexion requise",
+        "error": "Erreur de sauvegarde"
+      },
+      "toastBackedUp": "Sauvegardé sur Drive",
+      "toastPulled": "Données synchronisées depuis Drive",
+      "toastBackupFailed": "Échec de la sauvegarde Google",
+      "toastPullFailed": "Échec de la synchronisation depuis Drive"
     },
     "googleErrors": {
       "generic": "Échec de l'opération Google — réessayez."
@@ -213,19 +230,25 @@
     "notePlaceholder": "Ajouter une note…",
     "selectCategory": "Choisir une catégorie",
     "selectIncomeType": "Choisir un type",
-    "selectAccount": "Choisir un compte"
+    "selectAccount": "Choisir un compte",
+    "saved": "Enregistré",
+    "saveError": "L'enregistrement a échoué"
   },
   "movements": {
     "filterAll": "Tous",
     "filterExpenses": "Dépenses",
     "filterIncome": "Revenus",
+    "filterTransfers": "Virements",
     "empty": "Rien à afficher",
-    "emptyHint": "Les mouvements apparaîtront ici une fois ajoutés."
+    "emptyHint": "Les mouvements apparaîtront ici une fois ajoutés.",
+    "emptyFilter": "Aucun résultat pour ce filtre",
+    "emptyFilterHint": "Changez de filtre pour voir d'autres mouvements."
   },
   "transfer": {
     "from": "De",
     "to": "Vers",
-    "sameAccount": "Choisissez deux comptes différents"
+    "sameAccount": "Choisissez deux comptes différents",
+    "swap": "Inverser les comptes"
   },
   "accounts": {
     "add": "Nouveau compte",
@@ -246,7 +269,8 @@
     "deleteTitle": "Supprimer ce mouvement ?",
     "deleteTransferTitle": "Supprimer ce virement ?",
     "deleteHint": "Cette action est définitive.",
-    "delete": "Supprimer"
+    "delete": "Supprimer",
+    "deleteAmount": "Montant : {{amount}}"
   },
   "category": {
     "courses": "Courses",
@@ -279,6 +303,12 @@
     "income": "Revenu",
     "cadenceLabel": "Fréquence",
     "labelPlaceholder": "ex. Loyer, Salaire…",
+    "confirmTitle": "Confirmer ce récurrent ?",
+    "confirmBody": "Une opération de {{amount}} sera enregistrée sur {{account}}.",
+    "unconfirmTitle": "Annuler cette confirmation ?",
+    "unconfirmBody": "L'opération correspondante sera supprimée.",
+    "confirmedToast": "Opération enregistrée",
+    "unconfirmedToast": "Confirmation annulée",
     "cadence": {
       "mensuel": "Mensuel",
       "hebdo": "Hebdomadaire",
@@ -359,6 +389,8 @@
     }
   },
   "overview": {
+    "prevMonth": "Mois précédent",
+    "nextMonth": "Mois suivant",
     "intensity": "Intensité des dépenses",
     "low": "Faible",
     "mod": "Moyen",
@@ -383,6 +415,7 @@
     "install": "Installer",
     "later": "Plus tard",
     "never": "Ne plus afficher",
+    "neverConfirm": "Ne plus jamais proposer l'installation ?",
     "manual": "Installer manuellement",
     "manualBody": "Votre navigateur ne propose pas d'installation directe. Pour installer {{app}} :",
     "manualChrome": "Menu ⋮ → « Installer l'application »",

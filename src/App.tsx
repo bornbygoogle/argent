@@ -2,7 +2,9 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { GoogleAuthProvider } from '@/store/GoogleAuthContext';
+import { ToastProvider } from '@/store/ToastContext';
 import { GoogleAutoBackup } from '@/components/GoogleAutoBackup';
+import { ToastContainer } from '@/components/ui/Toast';
 import { OnboardingGuard } from '@/routes/OnboardingGuard';
 import { RootLayout } from '@/routes/RootLayout';
 import { Onboarding } from '@/features/onboarding/Onboarding';
@@ -21,6 +23,7 @@ import { MovementsList } from '@/features/transactions/MovementsList';
 import { Transfer } from '@/features/transactions/Transfer';
 import { Accounts } from '@/features/accounts/Accounts';
 import { useCurrency } from '@/lib/currency';
+import { useSilentReconnect } from '@/hooks/useSilentReconnect';
 
 function AppRoutes() {
   // Re-render the whole route tree when the active currency changes so every
@@ -58,22 +61,31 @@ function AppRoutes() {
   );
 }
 
+function SilentReconnect() {
+  useSilentReconnect();
+  return null;
+}
+
 export default function App() {
   // Single phone-column shell for every route (tab roots + pushed + onboarding).
   return (
     <SettingsProvider>
       <GoogleAuthProvider>
         <BrowserRouter>
-          <AccountScopeProvider>
-            {/* Background Drive sync: auto-backup every ~5s + cross-device pull.
-                Renders nothing; lives here so it can read db + the google context. */}
-            <GoogleAutoBackup />
-            <div className="stage">
-              <div className="screen">
-                <AppRoutes />
+          <ToastProvider>
+            <AccountScopeProvider>
+              {/* Background Drive sync: auto-backup every ~5s + cross-device pull.
+                  Renders nothing; lives here so it can read db + the google context. */}
+              <GoogleAutoBackup />
+              <SilentReconnect />
+              <div className="stage">
+                <div className="screen">
+                  <AppRoutes />
+                  <ToastContainer />
+                </div>
               </div>
-            </div>
-          </AccountScopeProvider>
+            </AccountScopeProvider>
+          </ToastProvider>
         </BrowserRouter>
       </GoogleAuthProvider>
     </SettingsProvider>

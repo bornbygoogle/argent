@@ -145,7 +145,7 @@ export function Statistics() {
                       borderRadius: 'var(--radius-full)',
                     }}
                   >
-                    <Icon name={good ? 'ArrowUp' : 'ArrowDownRight'} size={14} strokeWidth={2.5} />
+                    <Icon name={curTotal > prevTotal ? 'ArrowUpRight' : 'ArrowDownRight'} size={14} strokeWidth={2.5} />
                     {Math.round(pct * 100)}%
                   </span>
                 )}

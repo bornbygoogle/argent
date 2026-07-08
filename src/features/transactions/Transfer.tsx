@@ -11,9 +11,10 @@ import { AccountPickerSheet } from '@/features/sheets/AccountPickerSheet';
 import { useAccounts, useTransfer } from '@/hooks/selectors';
 import { useAccountScope } from '@/store/AccountScopeContext';
 import { useSettings } from '@/store/SettingsContext';
+import { useToast } from '@/store/ToastContext';
 import { addTransfer, deleteTransfer, updateTransfer } from '@/lib/transactions';
 import { todayISO } from '@/lib/date';
-import { getLocale } from '@/lib/format';
+import { getLocale, formatCurrency } from '@/lib/format';
 
 type Picker = 'from' | 'to' | null;
 
@@ -23,6 +24,8 @@ export function Transfer() {
   const { groupId } = useParams<{ groupId: string }>();
   const { scope } = useAccountScope();
   const { settings, update } = useSettings();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
   const accounts = useAccounts();
   const legs = useTransfer(groupId);
   const locale = getLocale();
@@ -74,15 +77,22 @@ export function Transfer() {
   };
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!canSave || saving) return;
+    setSaving(true);
     const payload = { fromAccountId: fromId, toAccountId: toId, amount, date, note };
-    if (groupId) {
-      await updateTransfer(groupId, payload);
-    } else {
-      await addTransfer(payload);
-      update({ lastUsedAccountId: fromId });
+    try {
+      if (groupId) {
+        await updateTransfer(groupId, payload);
+      } else {
+        await addTransfer(payload);
+        update({ lastUsedAccountId: fromId });
+      }
+      toast.success(t('form.saved'));
+      navigate(-1);
+    } catch {
+      setSaving(false);
+      toast.error(t('form.saveError'));
     }
-    navigate(-1);
   };
 
   const handleDelete = async () => {
@@ -120,7 +130,7 @@ export function Transfer() {
                 <Icon name="Trash2" size={20} />
               </button>
             )}
-            <button type="button" className="btn btn-primary btn-sm" onClick={handleSave} disabled={!canSave}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={handleSave} disabled={!canSave || saving}>
               {t('common.ok')}
             </button>
           </div>
@@ -151,10 +161,10 @@ export function Transfer() {
             <button
               type="button"
               onClick={swap}
-              aria-label="swap"
+              aria-label={t('transfer.swap')}
               style={{
-                width: 36,
-                height: 36,
+                width: 44,
+                height: 44,
                 borderRadius: '50%',
                 border: '3px solid var(--neutral-50)',
                 background: 'var(--primary-50)',
@@ -251,6 +261,12 @@ export function Transfer() {
           <p className="body-sm" style={{ marginBottom: 20 }}>
             {t('confirm.deleteHint')}
           </p>
+          {outLeg && (
+            <p className="body-sm" style={{ fontWeight: 600, marginBottom: 20 }}>
+              {t('confirm.deleteAmount', { amount: formatCurrency(outLeg.amount) })}
+              {fromAccount && toAccount ? ` · ${fromAccount.name} → ${toAccount.name}` : ''}
+            </p>
+          )}
           <div className="col gap-2">
             <Button variant="danger" full onClick={handleDelete}>
               {t('common.delete')}

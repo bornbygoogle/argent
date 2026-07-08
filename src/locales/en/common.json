@@ -34,6 +34,11 @@
     "amount": "Amount",
     "skip": "Skip"
   },
+  "numpad": {
+    "backspace": "Backspace",
+    "clear": "Clear all",
+    "decimal": "Decimal point"
+  },
   "theme": {
     "label": "Theme",
     "light": "Light",
@@ -165,7 +170,19 @@
       "noBackups": "No backup has been found on your Drive yet.",
       "signOut": "Sign out",
       "signOutBtn": "Sign out",
-      "notConfigured": "Google backup is not configured on this device."
+      "notConfigured": "Google backup is not configured on this device.",
+      "reconnectBanner": "Backup paused — reconnect Google.",
+      "reconnectBtn": "Reconnect",
+      "pill": {
+        "synced": "Synced",
+        "syncing": "Syncing…",
+        "paused": "Reconnect required",
+        "error": "Backup error"
+      },
+      "toastBackedUp": "Backed up to Drive",
+      "toastPulled": "Synced from Drive",
+      "toastBackupFailed": "Google backup failed",
+      "toastPullFailed": "Sync from Drive failed"
     },
     "googleErrors": {
       "generic": "Google operation failed — please retry."
@@ -213,19 +230,25 @@
     "notePlaceholder": "Add a note…",
     "selectCategory": "Select a category",
     "selectIncomeType": "Select a type",
-    "selectAccount": "Select an account"
+    "selectAccount": "Select an account",
+    "saved": "Saved",
+    "saveError": "Could not save"
   },
   "movements": {
     "filterAll": "All",
     "filterExpenses": "Expenses",
     "filterIncome": "Income",
+    "filterTransfers": "Transfers",
     "empty": "Nothing here yet",
-    "emptyHint": "Movements will show up here once you add some."
+    "emptyHint": "Movements will show up here once you add some.",
+    "emptyFilter": "No results for this filter",
+    "emptyFilterHint": "Switch filter to see other movements."
   },
   "transfer": {
     "from": "From",
     "to": "To",
-    "sameAccount": "Pick two different accounts"
+    "sameAccount": "Pick two different accounts",
+    "swap": "Swap accounts"
   },
   "accounts": {
     "add": "New account",
@@ -246,7 +269,8 @@
     "deleteTitle": "Delete this movement?",
     "deleteTransferTitle": "Delete this transfer?",
     "deleteHint": "This can't be undone.",
-    "delete": "Delete"
+    "delete": "Delete",
+    "deleteAmount": "Amount: {{amount}}"
   },
   "category": {
     "courses": "Groceries",
@@ -279,6 +303,12 @@
     "income": "Income",
     "cadenceLabel": "Frequency",
     "labelPlaceholder": "e.g. Rent, Salary…",
+    "confirmTitle": "Confirm this recurring?",
+    "confirmBody": "A {{amount}} transaction will be recorded on {{account}}.",
+    "unconfirmTitle": "Undo this confirmation?",
+    "unconfirmBody": "The matching transaction will be removed.",
+    "confirmedToast": "Transaction recorded",
+    "unconfirmedToast": "Confirmation undone",
     "cadence": {
       "mensuel": "Monthly",
       "hebdo": "Weekly",
@@ -359,6 +389,8 @@
     }
   },
   "overview": {
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
     "intensity": "Spending intensity",
     "low": "Low",
     "mod": "Moderate",
@@ -383,6 +415,7 @@
     "install": "Install",
     "later": "Later",
     "never": "Don't show again",
+    "neverConfirm": "Never suggest installing again?",
     "manual": "Install manually",
     "manualBody": "Your browser doesn't offer a direct install. To install {{app}}:",
     "manualChrome": "Menu ⋮ → \"Install app\"",

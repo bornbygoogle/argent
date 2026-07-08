@@ -16,6 +16,7 @@ import { currentMonth } from '@/lib/date';
 import { formatCurrency, formatSignedCurrency } from '@/lib/format';
 import { isConfirmedIn, confirmRecurring } from '@/lib/recurring';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Icon } from '@/components/ui/Icon';
 import { TopBar } from '@/components/ui/TopBar';
 import { AccountChip } from '@/components/ui/AccountChip';
@@ -23,13 +24,19 @@ import { Hero } from '@/components/ui/Hero';
 import { Banner } from '@/components/ui/Banner';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SyncPill } from '@/components/ui/SyncPill';
+import { Sheet } from '@/components/ui/Sheet';
+import { Button } from '@/components/ui/Button';
 import { MovementRow } from '@/features/transactions/MovementRow';
 import { AccountSwitcher } from '@/features/sheets/AccountSwitcher';
 import { InstallPrompt } from '@/features/install/InstallPrompt';
+import { useToast } from '@/store/ToastContext';
+import type { Recurring } from '@/types/models';
 
 export function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const toast = useToast();
   const { scope, setScope } = useAccountScope();
   const accounts = useAccounts();
   const accountMap = useAccountMap();
@@ -41,8 +48,11 @@ export function Dashboard() {
   const month = currentMonth();
   const todoRecurring = recurrings.filter((r) => !isConfirmedIn(r, month)).slice(0, 4);
   const online = useOnlineStatus();
+  const { needsReconnect, signIn, busy: googleBusy } = useGoogleAuth();
 
   const [scopeOpen, setScopeOpen] = useState(false);
+  const [reconnectDismissed, setReconnectDismissed] = useState(false);
+  const [pendingRecur, setPendingRecur] = useState<Recurring | null>(null);
 
   const activeAccount = scope === 'all' ? undefined : accountMap.get(scope);
   const balance = activeAccount ? accountBalance(activeAccount, allTx) : totalBalance(accounts, allTx);
@@ -62,17 +72,33 @@ export function Dashboard() {
             onClick={() => setScopeOpen(true)}
           />
         }
-        right={
-          <button type="button" className="icon-btn" aria-label="notifications">
-            <Icon name="Bell" size={22} />
-          </button>
-        }
+        right={<SyncPill />}
       />
 
       <div className="content" style={{ paddingBottom: 96, gap: 14 }}>
         {!online && (
           <Banner tone="warn" icon="WifiOff">
             {t('dashboard.offline')}
+          </Banner>
+        )}
+
+        {needsReconnect && !reconnectDismissed && (
+          <Banner
+            tone="warn"
+            icon="CloudOff"
+            onDismiss={() => setReconnectDismissed(true)}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {t('settings.google.reconnectBanner')}
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => void signIn()}
+                disabled={googleBusy}
+              >
+                {t('settings.google.reconnectBtn')}
+              </button>
+            </span>
           </Banner>
         )}
 
@@ -138,7 +164,7 @@ export function Dashboard() {
                     <button
                       type="button"
                       className="confirm-btn"
-                      onClick={() => confirmRecurring(r, month)}
+                      onClick={() => setPendingRecur(r)}
                     >
                       <Icon name="Check" size={14} strokeWidth={2.5} />
                       {t('recurring.confirmBtn')}
@@ -199,6 +225,40 @@ export function Dashboard() {
 
       <AccountSwitcher open={scopeOpen} onClose={() => setScopeOpen(false)} scope={scope} onPick={setScope} />
       <InstallPrompt />
+
+      <Sheet open={!!pendingRecur} onClose={() => setPendingRecur(null)}>
+        <div className="text-center" style={{ paddingBottom: 8 }}>
+          <h2 className="h3" style={{ marginBottom: 4 }}>
+            {t('recurring.confirmTitle')}
+          </h2>
+          <p className="body-sm" style={{ marginBottom: 20 }}>
+            {pendingRecur &&
+              t('recurring.confirmBody', {
+                amount: formatSignedCurrency(
+                  pendingRecur.direction === 'income' ? pendingRecur.amount : -pendingRecur.amount,
+                ),
+                account: accountMap.get(pendingRecur.accountId)?.name ?? '',
+              })}
+          </p>
+          <div className="col gap-2">
+            <Button
+              full
+              onClick={async () => {
+                if (!pendingRecur) return;
+                const row = pendingRecur;
+                setPendingRecur(null);
+                await confirmRecurring(row, month);
+                toast.success(t('recurring.confirmedToast'));
+              }}
+            >
+              {t('common.confirm')}
+            </Button>
+            <Button variant="secondary" full onClick={() => setPendingRecur(null)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </div>
+      </Sheet>
     </>
   );
 }

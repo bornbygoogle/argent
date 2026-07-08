@@ -11,7 +11,8 @@ import {
   // arrows / actions
   ArrowLeft, ArrowRight, ArrowUp, ArrowDownRight, ArrowUpRight, ArrowLeftRight,
   Archive, ArchiveRestore, Search, Trash2, Pencil, Type, Delete, Download, Upload,
-  CloudUpload, CloudDownload, Cloud, RefreshCw, Repeat, Lock, LogOut, GripVertical, LayoutGrid,
+  CloudUpload, CloudDownload, Cloud, CloudOff, RefreshCw, Repeat, Lock, LogOut, GripVertical, LayoutGrid,
+  Filter,
   // misc
   Copy, Sun, Moon, MonitorSmartphone, Smartphone, Languages, Database, Shield,
   ShieldCheck, Lightbulb, WifiOff, Info, CircleDashed, AlertCircle, CheckCircle2,
@@ -37,7 +38,8 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   // arrows / actions
   ArrowLeft, ArrowRight, ArrowUp, ArrowDownRight, ArrowUpRight, ArrowLeftRight,
   Archive, ArchiveRestore, Search, Trash2, Pencil, Type, Delete, Download, Upload,
-  CloudUpload, CloudDownload, Cloud, RefreshCw, Repeat, Lock, LogOut, GripVertical, LayoutGrid,
+  CloudUpload, CloudDownload, Cloud, CloudOff, RefreshCw, Repeat, Lock, LogOut, GripVertical, LayoutGrid,
+  Filter,
   // misc
   Copy, Sun, Moon, MonitorSmartphone, Smartphone, Languages, Database, Shield,
   ShieldCheck, Lightbulb, WifiOff, Info, CircleDashed, AlertCircle, CheckCircle2,
