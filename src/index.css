@@ -243,7 +243,11 @@ h1,h2,h3,h4{font-weight:600}
 /* recurring row + confirm */
 .recur{display:flex;align-items:center;gap:12px;padding:12px 0}
 .recur+.recur{border-top:1px solid var(--neutral-100)}
-.confirm-btn{height:36px;padding:0 14px;border-radius:var(--radius-md);background:var(--primary-600);color:#fff;font-size:13px;font-weight:600;border:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font)}
+.recur .r-main{flex:1;min-width:0}
+.recur .r-title{font-size:15px;font-weight:600;color:var(--neutral-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recur .r-sub{font-size:12px;color:var(--neutral-400);margin-top:2px}
+.recur>.amount-md{flex:none;min-width:84px;text-align:right;white-space:nowrap}
+.confirm-btn{flex:none;height:36px;padding:0 14px;border-radius:var(--radius-md);background:var(--primary-600);color:#fff;font-size:13px;font-weight:600;border:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font)}
 .confirm-btn.done{background:var(--success-50);color:var(--success-600)}
 
 /* quick-action tiles */
