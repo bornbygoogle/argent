@@ -388,6 +388,8 @@
     }
   },
   "overview": {
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
     "intensity": "Spending intensity",
     "low": "Low",
     "mod": "Moderate",
