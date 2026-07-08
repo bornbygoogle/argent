@@ -54,6 +54,10 @@ export interface UseGoogleAuth {
   restoredJustNow: boolean;
   /** Acknowledge the "restored" notice (hides it). */
   clearRestoredJustNow: () => void;
+  /** True when silent + auto-popup reconnect both failed; drives the reconnect banner/pill. */
+  needsReconnect: boolean;
+  /** Set/clear the reconnect-required flag (used by useSilentReconnect + signIn success). */
+  setNeedsReconnect: (v: boolean) => void;
 }
 
 const GoogleAuthContext = createContext<UseGoogleAuth | null>(null);
@@ -88,6 +92,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       return false;
     }
   });
+  const [needsReconnect, setNeedsReconnect] = useState(false);
 
   // Ensure the device id exists before any push/pull happens.
   useEffect(() => {
@@ -144,6 +149,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       }
       // Mark the session active only after a real token is in hand.
       setActive(true);
+      setNeedsReconnect(false);
     } finally {
       setBusy(false);
     }
@@ -160,6 +166,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
     }
     setEmail(null);
     setActive(false);
+    setNeedsReconnect(false);
   }, []);
 
   const reportBackupDone = useCallback((at: string) => {
@@ -200,6 +207,8 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       reportBackupError,
       restoredJustNow,
       clearRestoredJustNow,
+      needsReconnect,
+      setNeedsReconnect,
     }),
     [
       configured,
@@ -213,6 +222,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       reportBackupError,
       restoredJustNow,
       clearRestoredJustNow,
+      needsReconnect,
     ],
   );
 
