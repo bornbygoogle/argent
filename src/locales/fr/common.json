@@ -34,6 +34,11 @@
     "amount": "Montant",
     "skip": "Passer"
   },
+  "numpad": {
+    "backspace": "Effacer",
+    "clear": "Tout effacer",
+    "decimal": "Virgule"
+  },
   "theme": {
     "label": "Thème",
     "light": "Clair",

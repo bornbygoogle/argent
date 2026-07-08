@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getLocale } from '@/lib/format';
 import type { Locale } from '@/types/models';
 import { Icon } from './Icon';
@@ -51,21 +53,69 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
 
 /** Calculator-style numeric keypad built on the validated mock `.numpad` classes. */
 export function Numpad({ value, onChange, locale = getLocale() }: NumpadProps) {
+  const { t } = useTranslation();
   const decLabel = locale === 'fr' ? ',' : '.';
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cleared = useRef(false);
+
+  const press = (k: string) => {
+    const next = applyKey(value, k);
+    if (next === value && k !== 'back') {
+      // Limit hit (max decimals / width / duplicate point) — signal it.
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(15);
+      return;
+    }
+    onChange(next);
+  };
+
+  const startHold = () => {
+    cleared.current = false;
+    holdTimer.current = setTimeout(() => {
+      cleared.current = true;
+      onChange(''); // long-press backspace = clear all
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(25);
+    }, 450);
+  };
+  const endHold = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
+
   return (
     <div className="numpad">
       {KEYS.map((k) => {
         const isBack = k === 'back';
         const isGhost = k === '.' || isBack;
+        const label = isBack ? t('numpad.backspace') : k === '.' ? t('numpad.decimal') : k;
+        if (isBack) {
+          return (
+            <button
+              key={k}
+              type="button"
+              className="key ghost"
+              aria-label={label}
+              onPointerDown={startHold}
+              onPointerUp={endHold}
+              onPointerLeave={endHold}
+              onClick={() => {
+                // Suppress the click that follows a long-press clear.
+                if (cleared.current) { cleared.current = false; return; }
+                press('back');
+              }}
+            >
+              <Icon name="Delete" size={26} strokeWidth={2} />
+            </button>
+          );
+        }
         return (
           <button
             key={k}
             type="button"
             className={['key', isGhost ? 'ghost' : ''].join(' ').trim()}
-            aria-label={isBack ? 'Backspace' : k === '.' ? 'Decimal' : k}
-            onClick={() => onChange(applyKey(value, k))}
+            aria-label={label}
+            onClick={() => press(k)}
           >
-            {isBack ? <Icon name="Delete" size={26} strokeWidth={2} /> : k === '.' ? decLabel : k}
+            {k === '.' ? decLabel : k}
           </button>
         );
       })}
