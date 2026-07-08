@@ -225,7 +225,9 @@
     "notePlaceholder": "Ajouter une note…",
     "selectCategory": "Choisir une catégorie",
     "selectIncomeType": "Choisir un type",
-    "selectAccount": "Choisir un compte"
+    "selectAccount": "Choisir un compte",
+    "saved": "Enregistré",
+    "saveError": "L'enregistrement a échoué"
   },
   "movements": {
     "filterAll": "Tous",

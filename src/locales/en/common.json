@@ -225,7 +225,9 @@
     "notePlaceholder": "Add a note…",
     "selectCategory": "Select a category",
     "selectIncomeType": "Select a type",
-    "selectAccount": "Select an account"
+    "selectAccount": "Select an account",
+    "saved": "Saved",
+    "saveError": "Could not save"
   },
   "movements": {
     "filterAll": "All",

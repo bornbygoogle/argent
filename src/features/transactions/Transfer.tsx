@@ -11,6 +11,7 @@ import { AccountPickerSheet } from '@/features/sheets/AccountPickerSheet';
 import { useAccounts, useTransfer } from '@/hooks/selectors';
 import { useAccountScope } from '@/store/AccountScopeContext';
 import { useSettings } from '@/store/SettingsContext';
+import { useToast } from '@/store/ToastContext';
 import { addTransfer, deleteTransfer, updateTransfer } from '@/lib/transactions';
 import { todayISO } from '@/lib/date';
 import { getLocale } from '@/lib/format';
@@ -23,6 +24,8 @@ export function Transfer() {
   const { groupId } = useParams<{ groupId: string }>();
   const { scope } = useAccountScope();
   const { settings, update } = useSettings();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
   const accounts = useAccounts();
   const legs = useTransfer(groupId);
   const locale = getLocale();
@@ -74,15 +77,22 @@ export function Transfer() {
   };
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!canSave || saving) return;
+    setSaving(true);
     const payload = { fromAccountId: fromId, toAccountId: toId, amount, date, note };
-    if (groupId) {
-      await updateTransfer(groupId, payload);
-    } else {
-      await addTransfer(payload);
-      update({ lastUsedAccountId: fromId });
+    try {
+      if (groupId) {
+        await updateTransfer(groupId, payload);
+      } else {
+        await addTransfer(payload);
+        update({ lastUsedAccountId: fromId });
+      }
+      toast.success(t('form.saved'));
+      navigate(-1);
+    } catch {
+      setSaving(false);
+      toast.error(t('form.saveError'));
     }
-    navigate(-1);
   };
 
   const handleDelete = async () => {
@@ -120,7 +130,7 @@ export function Transfer() {
                 <Icon name="Trash2" size={20} />
               </button>
             )}
-            <button type="button" className="btn btn-primary btn-sm" onClick={handleSave} disabled={!canSave}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={handleSave} disabled={!canSave || saving}>
               {t('common.ok')}
             </button>
           </div>

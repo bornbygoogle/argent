@@ -15,6 +15,7 @@ import {
 } from '@/hooks/selectors';
 import { useAccountScope } from '@/store/AccountScopeContext';
 import { useSettings } from '@/store/SettingsContext';
+import { useToast } from '@/store/ToastContext';
 import {
   addTransaction,
   deleteTransaction,
@@ -37,6 +38,8 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   const navigate = useNavigate();
   const { scope } = useAccountScope();
   const { settings, update } = useSettings();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
   const accounts = useAccounts();
   const categories = useCategories();
   const incomeTypes = useIncomeTypes();
@@ -104,7 +107,8 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   };
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!canSave || saving) return;
+    setSaving(true);
     const payload = {
       amount,
       accountId,
@@ -113,13 +117,19 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
       note,
       date,
     };
-    if (transaction) {
-      await updateTransaction(transaction.id, payload);
-    } else {
-      await addTransaction(kind, payload);
-      update({ lastUsedAccountId: accountId });
+    try {
+      if (transaction) {
+        await updateTransaction(transaction.id, payload);
+      } else {
+        await addTransaction(kind, payload);
+        update({ lastUsedAccountId: accountId });
+      }
+      toast.success(t('form.saved'));
+      navigate(-1);
+    } catch {
+      setSaving(false);
+      toast.error(t('form.saveError'));
     }
-    navigate(-1);
   };
 
   const handleDelete = async () => {
@@ -161,7 +171,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
               type="button"
               className="btn btn-primary btn-sm"
               onClick={handleSave}
-              disabled={!canSave}
+              disabled={!canSave || saving}
             >
               {t('common.ok')}
             </button>
