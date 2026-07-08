@@ -25,13 +25,18 @@ import { Banner } from '@/components/ui/Banner';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SyncPill } from '@/components/ui/SyncPill';
+import { Sheet } from '@/components/ui/Sheet';
+import { Button } from '@/components/ui/Button';
 import { MovementRow } from '@/features/transactions/MovementRow';
 import { AccountSwitcher } from '@/features/sheets/AccountSwitcher';
 import { InstallPrompt } from '@/features/install/InstallPrompt';
+import { useToast } from '@/store/ToastContext';
+import type { Recurring } from '@/types/models';
 
 export function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const toast = useToast();
   const { scope, setScope } = useAccountScope();
   const accounts = useAccounts();
   const accountMap = useAccountMap();
@@ -47,6 +52,7 @@ export function Dashboard() {
 
   const [scopeOpen, setScopeOpen] = useState(false);
   const [reconnectDismissed, setReconnectDismissed] = useState(false);
+  const [pendingRecur, setPendingRecur] = useState<Recurring | null>(null);
 
   const activeAccount = scope === 'all' ? undefined : accountMap.get(scope);
   const balance = activeAccount ? accountBalance(activeAccount, allTx) : totalBalance(accounts, allTx);
@@ -158,7 +164,7 @@ export function Dashboard() {
                     <button
                       type="button"
                       className="confirm-btn"
-                      onClick={() => confirmRecurring(r, month)}
+                      onClick={() => setPendingRecur(r)}
                     >
                       <Icon name="Check" size={14} strokeWidth={2.5} />
                       {t('recurring.confirmBtn')}
@@ -219,6 +225,40 @@ export function Dashboard() {
 
       <AccountSwitcher open={scopeOpen} onClose={() => setScopeOpen(false)} scope={scope} onPick={setScope} />
       <InstallPrompt />
+
+      <Sheet open={!!pendingRecur} onClose={() => setPendingRecur(null)}>
+        <div className="text-center" style={{ paddingBottom: 8 }}>
+          <h2 className="h3" style={{ marginBottom: 4 }}>
+            {t('recurring.confirmTitle')}
+          </h2>
+          <p className="body-sm" style={{ marginBottom: 20 }}>
+            {pendingRecur &&
+              t('recurring.confirmBody', {
+                amount: formatSignedCurrency(
+                  pendingRecur.direction === 'income' ? pendingRecur.amount : -pendingRecur.amount,
+                ),
+                account: accountMap.get(pendingRecur.accountId)?.name ?? '',
+              })}
+          </p>
+          <div className="col gap-2">
+            <Button
+              full
+              onClick={async () => {
+                if (!pendingRecur) return;
+                const row = pendingRecur;
+                setPendingRecur(null);
+                await confirmRecurring(row, month);
+                toast.success(t('recurring.confirmedToast'));
+              }}
+            >
+              {t('common.confirm')}
+            </Button>
+            <Button variant="secondary" full onClick={() => setPendingRecur(null)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </div>
+      </Sheet>
     </>
   );
 }
