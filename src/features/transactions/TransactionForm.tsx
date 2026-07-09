@@ -23,7 +23,7 @@ import {
 } from '@/lib/transactions';
 import { categoryLabel, incomeTypeLabel } from '@/lib/labels';
 import { getLocale, formatSignedCurrency } from '@/lib/format';
-import { todayISO } from '@/lib/date';
+import { todayISO, addDaysISO } from '@/lib/date';
 import type { Transaction, TransactionKind } from '@/types/models';
 
 interface TransactionFormProps {
@@ -105,6 +105,17 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
     const next = parseAmount(amountStr) + n;
     setAmountStr(String(Math.round(next * 100) / 100));
   };
+
+  // Quick-date presets so a past date (yesterday, 2 days ago) is one tap away —
+  // the native picker stays available for any other date.
+  const datePresets = useMemo(
+    () => [
+      { iso: todayISO(), label: t('form.dateToday') },
+      { iso: addDaysISO(-1), label: t('form.dateYesterday') },
+      { iso: addDaysISO(-2), label: t('form.dateBeforeYesterday') },
+    ],
+    [t],
+  );
 
   const handleSave = async () => {
     if (!canSave || saving) return;
@@ -288,6 +299,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
             <input
               type="date"
               value={date}
+              max={todayISO()}
               onChange={(e) => setDate(e.target.value)}
               style={{
                 background: 'transparent',
@@ -301,6 +313,22 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
               }}
             />
           </label>
+          <div className="chip-row" style={{ padding: '0 16px 8px' }}>
+            {datePresets.map((p) => {
+              const active = date === p.iso;
+              return (
+                <button
+                  key={p.iso}
+                  type="button"
+                  className={active ? 'chip active' : 'chip'}
+                  aria-pressed={active}
+                  onClick={() => setDate(p.iso)}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -37,6 +37,16 @@ export function currentMonth(): string {
   return monthOf(todayISO());
 }
 
+/** Today shifted by `offset` days (negative = past), as 'YYYY-MM-DD' (local). */
+export function addDaysISO(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /** Number of days in a given 'YYYY-MM'. */
 export function daysInMonth(month: string): number {
   const [y, m] = month.split('-').map(Number);

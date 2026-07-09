@@ -90,10 +90,8 @@ export function AccountSwitcher({ open, onClose, scope, onPick }: AccountSwitche
           >
             <Icon name="Wallet" size={18} strokeWidth={2} />
           </span>
-          <span className="r-main">
-            <span className="r-title">{t('scope.all')}</span>
-            <span className="r-sub tnum">{formatCurrency(total)}</span>
-          </span>
+          <span className="acct-name">{t('scope.all')}</span>
+          <span className="acct-amount tnum">{formatCurrency(total)}</span>
           {scope === 'all' && <Icon name="Check" size={18} color="var(--primary-600)" />}
         </button>
 
@@ -102,10 +100,8 @@ export function AccountSwitcher({ open, onClose, scope, onPick }: AccountSwitche
         {filtered.map((a: Account) => (
           <button key={a.id} type="button" style={rowBtn} onClick={() => pick(a.id)}>
             <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
-            <span className="r-main">
-              <span className="r-title">{a.name}</span>
-              <span className="r-sub tnum">{formatCurrency(accountBalance(a, allTx))}</span>
-            </span>
+            <span className="acct-name">{a.name}</span>
+            <span className="acct-amount tnum">{formatCurrency(accountBalance(a, allTx))}</span>
             {scope === a.id && <Icon name="Check" size={18} color="var(--primary-600)" />}
           </button>
         ))}
@@ -128,9 +124,7 @@ export function AccountSwitcher({ open, onClose, scope, onPick }: AccountSwitche
           <span className="acct-icon" style={{ background: 'var(--neutral-100)', color: 'var(--neutral-500)' }}>
             <Icon name="Pencil" size={16} strokeWidth={2} />
           </span>
-          <span className="r-main">
-            <span className="r-title">{t('common.manage')}</span>
-          </span>
+          <span className="acct-name">{t('common.manage')}</span>
           <Icon name="ChevronRight" size={16} color="var(--neutral-300)" />
         </button>
       </div>
