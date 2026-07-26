@@ -177,7 +177,8 @@
         "synced": "Synchronisé",
         "syncing": "Synchronisation…",
         "paused": "Reconnexion requise",
-        "error": "Erreur de sauvegarde"
+        "error": "Erreur de sauvegarde",
+        "offline": "Hors ligne — sauvegarde en attente"
       },
       "toastBackedUp": "Sauvegardé sur Drive",
       "toastPulled": "Données synchronisées depuis Drive",

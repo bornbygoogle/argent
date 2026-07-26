@@ -3,34 +3,38 @@ import { useTranslation } from 'react-i18next';
 import { Icon } from '@/components/ui/Icon';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
-type PillState = 'synced' | 'syncing' | 'paused' | 'error';
+type PillState = 'synced' | 'syncing' | 'paused' | 'error' | 'offline';
 
 const VISUAL: Record<PillState, { icon: string; color: string; spin?: boolean }> = {
   synced: { icon: 'Cloud', color: 'var(--success-600)' },
   syncing: { icon: 'RefreshCw', color: 'var(--primary-600)', spin: true },
   paused: { icon: 'CloudOff', color: 'var(--warning-600)' },
   error: { icon: 'AlertCircle', color: 'var(--danger-600)' },
+  offline: { icon: 'CloudOff', color: 'var(--neutral-500)' },
 };
 
 /** Discrete Google-sync status pill for the Dashboard TopBar (replaces the dead bell). */
 export function SyncPill() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { configured, status, syncStatus, needsReconnect, signIn } = useGoogleAuth();
+  const { configured, status, syncStatus, needsReconnect, offline, signIn } = useGoogleAuth();
 
   // Hidden when Google is not configured or the user is not signed in / not reconnecting.
   if (!configured) return null;
   if (status !== 'signed-in' && !needsReconnect) return null;
 
   let state: PillState;
-  if (needsReconnect) state = 'paused';
+  // `offline` outranks `paused`: a network blip must never be presented as a
+  // broken connection the user has to fix. There is nothing to fix.
+  if (offline) state = 'offline';
+  else if (needsReconnect) state = 'paused';
   else if (syncStatus.backingUp) state = 'syncing';
   else if (syncStatus.lastError) state = 'error';
   else state = 'synced';
 
   const v = VISUAL[state];
   const onClick = () => {
-    if (state === 'paused') void signIn();
+    if (state === 'paused') signIn();
     else navigate('/settings');
   };
 

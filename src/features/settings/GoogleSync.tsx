@@ -51,10 +51,9 @@ export function GoogleSync() {
     }
   };
 
-  const handleSignIn = () =>
-    run(async () => {
-      await signIn(); // establishes session + email
-    });
+  // Full-page redirect to /api/auth/start — this frame is going away, so there
+  // is nothing to await and no error this can surface.
+  const handleSignIn = () => signIn();
 
   const handleBackupNow = () =>
     run(async () => {

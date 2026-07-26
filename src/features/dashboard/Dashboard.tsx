@@ -93,7 +93,7 @@ export function Dashboard() {
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                onClick={() => void signIn()}
+                onClick={() => signIn()}
                 disabled={googleBusy}
               >
                 {t('settings.google.reconnectBtn')}

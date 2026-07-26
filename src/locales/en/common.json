@@ -177,7 +177,8 @@
         "synced": "Synced",
         "syncing": "Syncing…",
         "paused": "Reconnect required",
-        "error": "Backup error"
+        "error": "Backup error",
+        "offline": "Offline — backup queued"
       },
       "toastBackedUp": "Backed up to Drive",
       "toastPulled": "Synced from Drive",
