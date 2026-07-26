@@ -2,11 +2,13 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
+import { devApi } from './vite-dev-api';
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
+    devApi(mode),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
@@ -42,6 +44,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // registerType:'autoUpdate' gives Workbox a default navigateFallback of
+        // index.html that applies to NAVIGATIONS. /api/auth/start and /callback
+        // ARE navigations, so without this denylist the service worker serves
+        // cached HTML and sign-in silently never reaches the server — exactly in
+        // the installed-PWA case that matters most.
+        navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ],
@@ -54,4 +62,4 @@ export default defineConfig({
     host: true,
     port: 5173,
   },
-});
+}));
