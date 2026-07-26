@@ -13,5 +13,6 @@ export default defineConfig({
       ['src/**', 'happy-dom'],
     ],
     include: ['api/**/*.test.ts', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['./vitest.setup.ts'],
   },
 });

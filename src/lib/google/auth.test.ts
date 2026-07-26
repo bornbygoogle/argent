@@ -12,7 +12,9 @@ const err = (status: number, body: unknown = {}) =>
 const future = () => Date.now() + 3_600_000;
 
 beforeEach(() => { clearCachedAccessToken(); });
-afterEach(() => { vi.restoreAllMocks(); });
+// stubGlobal is NOT undone by restoreAllMocks — unstub explicitly so a stub
+// cannot leak into the next test.
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('getValidAccessToken', () => {
   it('fetches a token from the server', async () => {

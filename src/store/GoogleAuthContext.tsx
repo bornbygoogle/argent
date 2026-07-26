@@ -8,17 +8,16 @@ import {
 } from 'react';
 import { isGoogleConfigured } from '@/lib/google/env';
 import {
-  requestAccessToken,
-  revokeAccessToken,
-  fetchDriveUser,
+  fetchSession,
   getValidAccessToken,
-  getCachedAccessToken,
-  clearCachedAccessToken,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  startSignIn,
+  serverSignOut,
+  AuthRevokedError,
+  AuthOfflineError,
 } from '@/lib/google/auth';
+import { purgeLegacyGoogleStorage } from '@/lib/google/legacyCleanup';
 import { getOrCreateDeviceId } from '@/lib/google/folderStore';
 
-const LS_EMAIL = 'argent.google.email';
 const SS_RESTORED_FLAG = 'argent.google.restoredJustNow';
 
 export type GoogleAuthStatus = 'signed-out' | 'signed-in';
@@ -38,9 +37,9 @@ export interface UseGoogleAuth {
   status: GoogleAuthStatus;
   email: string | null;
   busy: boolean;
-  /** Explicit sign-in: opens the Google consent popup once, resolves the email. */
-  signIn: () => Promise<void>;
-  /** Sign out: revoke + drop cached token and persisted email. */
+  /** Start the consent flow. Full-page redirect — this frame is going away. */
+  signIn: () => void;
+  /** Sign out: revoke at Google + drop the server session cookie. */
   signOut: () => Promise<void>;
   /** Silent, cached token for background use — never shows a popup. */
   getValidAccessToken: () => Promise<string>;
@@ -54,30 +53,27 @@ export interface UseGoogleAuth {
   restoredJustNow: boolean;
   /** Acknowledge the "restored" notice (hides it). */
   clearRestoredJustNow: () => void;
-  /** True when silent + auto-popup reconnect both failed; drives the reconnect banner/pill. */
+  /**
+   * True ONLY when the server reports the Google grant is genuinely revoked.
+   * Being offline or hitting a transient upstream error must never set this —
+   * conflating them is what asked the user to reconnect on every refresh.
+   */
   needsReconnect: boolean;
-  /** Set/clear the reconnect-required flag (used by useSilentReconnect + signIn success). */
+  /** Set/clear the reconnect-required flag. */
   setNeedsReconnect: (v: boolean) => void;
+  /** True when the last token attempt failed at the network layer. */
+  offline: boolean;
 }
 
 const GoogleAuthContext = createContext<UseGoogleAuth | null>(null);
 
 export function GoogleAuthProvider({ children }: { children: React.ReactNode }) {
   const configured = isGoogleConfigured();
-  // `email` is a *remembered* account hint (persists across reloads) — purely so
-  // we can greet a returning user. It does NOT imply an active session.
-  const [email, setEmail] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(LS_EMAIL);
-    } catch {
-      return null;
-    }
-  });
-  // `active` is true ONLY when a valid token exists in *this* session (set by an
-  // explicit signIn). It is false on a fresh load, so the app never touches Google
-  // until the user chooses to connect. This is what gates auto-backup/pull.
-  const [active, setActive] = useState<boolean>(false);
+  const [status, setStatus] = useState<GoogleAuthStatus>('signed-out');
+  const [email, setEmail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [syncStatus, setSyncStatus] = useState<GoogleSyncStatus>({
     lastBackupAt: null,
     lastError: null,
@@ -92,7 +88,6 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       return false;
     }
   });
-  const [needsReconnect, setNeedsReconnect] = useState(false);
 
   // Ensure the device id exists before any push/pull happens.
   useEffect(() => {
@@ -103,70 +98,52 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
     });
   }, [configured]);
 
-  // Silent re-activation on load: if a still-valid access token was persisted
-  // in the previous tab/visit (cachedExpiresAt not yet reached), flip `active`
-  // to true WITHOUT any GIS call. This is the crux of fixing "must re-login on
-  // every refresh": as long as the GIS token (lives ≤1h) hasn't expired, the
-  // session survives a reload — no popup, no 12s slot occupation, no Drive op
-  // fired before the user opened the feature (the background loop's pull-only-
-  // on-status-flip still gates real network work). If no valid token persists
-  // (long absence, Brave blocked the cookie, first ever load) `active` stays
-  // false and the user clicks "Se connecter" once — silent-first inside signIn
-  // reconnects without a popup when the GIS cookie allows it.
+  // Boot probe. ONE request to /api/auth/token establishes the session from the
+  // httpOnly refresh-token cookie — no popup, no GIS, no third-party cookies,
+  // and no sibling effect racing this one. The previous implementation ran a
+  // reconnect state machine in a *descendant* component, whose effect fired
+  // before this provider's, so it always saw 'signed-out' and destroyed the
+  // still-valid token it was supposed to reuse.
   useEffect(() => {
     if (!configured) return;
-    // `email` is just a *hint* — having it doesn't prove the session is alive
-    // (the persisted token is the proof). But requiring it avoids flipping
-    // active for a user who wiped state. The token is the real gate.
-    if (email && getCachedAccessToken() && !active) setActive(true);
-  }, [configured, email, active]);
-
-  const signIn = useCallback(async () => {
-    setBusy(true);
-    try {
-      // Returning user: try a SILENT token first (no popup). If Google still
-      // grants one from its GIS cookie, we're reconnected invisibly. Only if
-      // that fails do we fall back to an explicit consent popup. This keeps
-      // the GIS slot free until the user actually clicks "Se connecter" — so
-      // automatic page loads never tie up the single callback channel for 12s
-      // (which previously broke concurrent Restore / manual sign-in attempts).
-      let token: string;
+    purgeLegacyGoogleStorage();
+    let cancelled = false;
+    void (async () => {
       try {
-        token = await requestAccessToken({ prompt: '' });
-      } catch {
-        token = await requestAccessToken({ prompt: 'consent' });
+        const session = await fetchSession();
+        if (cancelled) return;
+        setEmail(session.email);
+        setStatus('signed-in');
+        setNeedsReconnect(false);
+        setOffline(false);
+      } catch (e) {
+        if (cancelled) return;
+        setStatus('signed-out');
+        // Only a genuinely dead grant prompts the user.
+        setNeedsReconnect(e instanceof AuthRevokedError);
+        setOffline(e instanceof AuthOfflineError);
       }
-      if (!email) {
-        const user = await fetchDriveUser(token);
-        if (user.email) {
-          setEmail(user.email);
-          try {
-            localStorage.setItem(LS_EMAIL, user.email);
-          } catch {
-            /* ignore quota errors */
-          }
-        }
-      }
-      // Mark the session active only after a real token is in hand.
-      setActive(true);
-      setNeedsReconnect(false);
-    } finally {
-      setBusy(false);
-    }
-  }, [email]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [configured]);
+
+  const signIn = useCallback((): void => {
+    setBusy(true);
+    startSignIn();
+  }, []);
 
   const signOut = useCallback(async () => {
-    const t = getCachedAccessToken();
-    if (t) revokeAccessToken(t);
-    clearCachedAccessToken();
+    setBusy(true);
     try {
-      localStorage.removeItem(LS_EMAIL);
-    } catch {
-      /* ignore */
+      await serverSignOut();
+    } finally {
+      setStatus('signed-out');
+      setEmail(null);
+      setNeedsReconnect(false);
+      setBusy(false);
     }
-    setEmail(null);
-    setActive(false);
-    setNeedsReconnect(false);
   }, []);
 
   const reportBackupDone = useCallback((at: string) => {
@@ -193,11 +170,8 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
   const value = useMemo<UseGoogleAuth>(
     () => ({
       configured,
-      // `signed-in` requires an active session THIS load — not just a remembered
-      // email. This is the gate that prevents auto-backup/pull from firing on a
-      // stale localStorage hint before the user has chosen to connect.
-      status: active && email ? 'signed-in' : 'signed-out',
-      email: active ? email : null,
+      status,
+      email: status === 'signed-in' ? email : null,
       busy,
       signIn,
       signOut,
@@ -209,10 +183,11 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       clearRestoredJustNow,
       needsReconnect,
       setNeedsReconnect,
+      offline,
     }),
     [
       configured,
-      active,
+      status,
       email,
       busy,
       signIn,
@@ -223,6 +198,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       restoredJustNow,
       clearRestoredJustNow,
       needsReconnect,
+      offline,
     ],
   );
 
@@ -271,8 +247,6 @@ export function markRestoredJustNow(): void {
   } catch {
     /* ignore */
   }
-  // Update live state too, so the Settings "restored" banner appears without a
-  // page reload (the post-restore reload was removed in Task 7).
   restoredSetterRef.current?.(true);
 }
 

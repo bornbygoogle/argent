@@ -23,7 +23,6 @@ import { MovementsList } from '@/features/transactions/MovementsList';
 import { Transfer } from '@/features/transactions/Transfer';
 import { Accounts } from '@/features/accounts/Accounts';
 import { useCurrency } from '@/lib/currency';
-import { useSilentReconnect } from '@/hooks/useSilentReconnect';
 
 function AppRoutes() {
   // Re-render the whole route tree when the active currency changes so every
@@ -61,11 +60,6 @@ function AppRoutes() {
   );
 }
 
-function SilentReconnect() {
-  useSilentReconnect();
-  return null;
-}
-
 export default function App() {
   // Single phone-column shell for every route (tab roots + pushed + onboarding).
   return (
@@ -77,7 +71,6 @@ export default function App() {
               {/* Background Drive sync: auto-backup every ~5s + cross-device pull.
                   Renders nothing; lives here so it can read db + the google context. */}
               <GoogleAutoBackup />
-              <SilentReconnect />
               <div className="stage">
                 <div className="screen">
                   <AppRoutes />
