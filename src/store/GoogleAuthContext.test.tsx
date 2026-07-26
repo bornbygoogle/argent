@@ -52,9 +52,20 @@ describe('GoogleAuthProvider boot', () => {
   });
 
   it('asks for reconnect ONLY when the grant is revoked', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(err(401)));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'revoked' }), { status: 401 })));
     mount();
     await waitFor(() => expect(screen.getByTestId('reconnect')).toHaveTextContent('true'));
+  });
+
+  it('does NOT nag a user who has never connected Google', async () => {
+    // Never-connected and revoked both return 401. Only the latter is actionable.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'no-session' }), { status: 401 })));
+    mount();
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('signed-out'));
+    expect(screen.getByTestId('reconnect')).toHaveTextContent('false');
+    expect(screen.getByTestId('offline')).toHaveTextContent('false');
   });
 
   it('purges the legacy localStorage token on boot', async () => {

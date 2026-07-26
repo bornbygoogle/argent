@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   getValidAccessToken, clearCachedAccessToken,
-  AuthRevokedError, AuthOfflineError, AuthTransientError,
+  AuthRevokedError, AuthOfflineError, AuthTransientError, AuthNoSessionError,
 } from './auth';
 
 const ok = (body: unknown) =>
@@ -51,9 +51,25 @@ describe('getValidAccessToken', () => {
     expect(f).toHaveBeenCalledTimes(1);
   });
 
-  it('throws AuthRevokedError on 401', async () => {
+  it('throws AuthRevokedError on 401 revoked', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(err(401, { error: 'revoked' })));
     await expect(getValidAccessToken()).rejects.toBeInstanceOf(AuthRevokedError);
+  });
+
+  it('throws AuthNoSessionError (NOT revoked) on 401 no-session', async () => {
+    // A user who has never connected Google also gets a 401. Treating that as
+    // "revoked" would show a reconnect banner to someone who never set up backup.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(err(401, { error: 'no-session' })));
+    const e = await getValidAccessToken().catch((x) => x);
+    expect(e).toBeInstanceOf(AuthNoSessionError);
+    expect(e).not.toBeInstanceOf(AuthRevokedError);
+  });
+
+  it('treats a 401 with an unreadable body as no-session, not revoked', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 401 })));
+    const e = await getValidAccessToken().catch((x) => x);
+    expect(e).toBeInstanceOf(AuthNoSessionError);
+    expect(e).not.toBeInstanceOf(AuthRevokedError);
   });
 
   it('throws AuthOfflineError on a network failure, NOT AuthRevokedError', async () => {

@@ -15,11 +15,27 @@ const START_ENDPOINT = '/api/auth/start';
 /** Refresh a little early so a token never expires mid-request. */
 const SKEW_MS = 60_000;
 
-/** The grant is dead. This is the ONLY condition that should prompt the user. */
+/**
+ * The grant was live and Google has now rejected it. This is the ONLY condition
+ * that should prompt the user to reconnect.
+ */
 export class AuthRevokedError extends Error {
   constructor() {
     super('auth-revoked');
     this.name = 'AuthRevokedError';
+  }
+}
+
+/**
+ * No session cookie at all — the user has never connected Google, or signed out.
+ * Distinct from revoked on purpose: both are HTTP 401, but only a revoked grant
+ * is worth interrupting the user about. Showing "reconnect" to someone who never
+ * set up backup is noise.
+ */
+export class AuthNoSessionError extends Error {
+  constructor() {
+    super('auth-no-session');
+    this.name = 'AuthNoSessionError';
   }
 }
 
@@ -88,7 +104,15 @@ export function fetchSession(): Promise<Session> {
       throw new AuthOfflineError();
     }
 
-    if (res.status === 401) throw new AuthRevokedError();
+    if (res.status === 401) {
+      // The server distinguishes "no cookie" from "Google rejected the grant".
+      // Preserve that: only the latter is actionable by the user.
+      const reason = await res
+        .json()
+        .then((b: { error?: string }) => b?.error)
+        .catch(() => undefined);
+      throw reason === 'revoked' ? new AuthRevokedError() : new AuthNoSessionError();
+    }
     if (res.status === 503) throw new AuthNotConfiguredError();
     if (!res.ok) throw new AuthTransientError();
 

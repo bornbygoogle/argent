@@ -42,7 +42,9 @@
 - **i18next** — internationalisation FR/EN
 - **Tailwind CSS 3** + CSS utilitaires
 - **vite-plugin-pwa** (Workbox) — service worker, installable, auto-update
-- **Google Identity Services + Drive REST API** — sauvegarde optionnelle (zéro dépendance npm ajoutée)
+- **Google OAuth 2.0 (authorization code + PKCE) + Drive REST API** — sauvegarde optionnelle, via
+  4 fonctions serverless Vercel (`api/auth/`) qui détiennent le refresh token (zéro dépendance npm ajoutée)
+- **Vitest** + happy-dom — tests unitaires (`npm test`)
 
 ---
 
@@ -89,16 +91,33 @@ cp .env.example .env
 ```
 
 ```env
+# Publics — finissent dans le bundle navigateur, par design.
 VITE_GOOGLE_CLIENT_ID=xxxxx.apps.googleusercontent.com
 VITE_GOOGLE_API_KEY=AIza...
+
+# Serveur uniquement — JAMAIS de préfixe VITE_ (Vite inline tout VITE_* dans le bundle).
+GOOGLE_CLIENT_SECRET=GOCSPX-...
+SESSION_SECRET=<32 octets base64>
+APP_ORIGIN=http://localhost:5173
 ```
 
-> ℹ️ Ces credentials sont **publics par design** (identity client + clé restreinte par referrer) — ils finissent dans le bundle navigateur. Leur sécurité repose sur les **origines autorisées** et **restrictions de referrer** configurées dans Google Cloud Console, pas sur le secret.
+Génère `SESSION_SECRET` :
 
-### 3. Origines autorisées (dev + prod)
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+> ℹ️ Les deux `VITE_*` sont **publics par design** — leur sécurité repose sur les origines et
+> referrers autorisés dans Google Cloud Console. Les trois autres sont des **secrets serveur** :
+> ils ne quittent jamais les fonctions `api/auth/`.
+
+### 3. Origines et redirections autorisées (dev + prod)
 Dans Google Cloud Console :
+- **OAuth Client → Authorized redirect URIs** : `http://localhost:5173/api/auth/callback` + `https://<prod>/api/auth/callback`.
 - **OAuth Client → Authorized JavaScript origins** : `http://localhost:5173` + ton URL de production.
 - **API key → HTTP referrers** : `http://localhost:5173/*` + ton URL de production `/*`.
+- **OAuth consent screen → Publish app** (*Testing* → *In production*), sinon le refresh token
+  expire tous les 7 jours. Voir [`docs/google-setup.md`](docs/google-setup.md).
 
 Redémarre `npm run dev` après avoir créé `.env`.
 
@@ -111,11 +130,16 @@ Le dépôt contient un [`vercel.json`](vercel.json) préconfiguré (routing SPA 
 1. Pousse le repo sur GitHub.
 2. Sur [vercel.com/new](https://vercel.com/new) → importe le repo. Framework Preset : **Vite** (auto-détecté).
 3. Build Command : `npm run build` · Output : `dist` (auto).
-4. **Environment Variables** (avant de cliquer Deploy) :
+4. **Environment Variables** (avant de cliquer Deploy) — Production **et** Preview :
    - `VITE_GOOGLE_CLIENT_ID` = ta valeur
    - `VITE_GOOGLE_API_KEY` = ta valeur
-5. **Deploy.**
-6. ⚠️ Ajoute l'URL Vercel de production aux **origines autorisées** et **referrers** dans Google Cloud Console (sinon OAuth casse en prod).
+   - `GOOGLE_CLIENT_SECRET` = ta valeur *(serveur — jamais préfixé `VITE_`)*
+   - `SESSION_SECRET` = 32 octets base64 *(serveur)*
+   - `APP_ORIGIN` = l'URL exacte de cet environnement, ex. `https://argent.vercel.app` *(serveur)*
+5. **Deploy.** Les fonctions `api/auth/*` sont détectées automatiquement (runtime Node.js).
+6. ⚠️ Dans Google Cloud Console : ajoute `https://<ton-domaine>/api/auth/callback` aux **redirect
+   URIs**, l'origine aux **JavaScript origins** et aux **referrers**, et **publie l'app**
+   (sinon OAuth casse en prod, ou redemande une reconnexion chaque semaine).
 
 ---
 
@@ -124,7 +148,8 @@ Le dépôt contient un [`vercel.json`](vercel.json) préconfiguré (routing SPA 
 | Aspect | Détail |
 |-------|--------|
 | Stockage | Local, IndexedDB (Dexie). Aucune donnée n'est envoyée à un serveur applicatif. |
-| Sauvegarde Google | Optionnelle, OAuth `drive.file` — l'app n'accède qu'aux fichiers qu'elle crée ou que vous sélectionnez via le Picker. Token court en mémoire, jamais persisté (seul l'email est conservé pour l'affichage). |
+| Sauvegarde Google | Optionnelle, OAuth `drive.file` — l'app n'accède qu'aux fichiers qu'elle crée ou que vous sélectionnez via le Picker. |
+| Jetons Google | Le **refresh token** est chiffré (AES-256-GCM) dans un cookie `httpOnly` : il n'est jamais lisible par le JavaScript de la page. Les **access tokens** sont éphémères et vivent uniquement en mémoire — rien n'est écrit dans `localStorage`. Les fonctions serverless ne voient que des jetons : **aucune donnée financière ne transite par un serveur.** |
 | Export/Import | Fichier JSON local (Réglages → Données). |
 | Effacement | « Tout effacer » wipe toutes les tables locales (confirmation par mot tapé). |
 
