@@ -57,6 +57,8 @@ export function MovementsList() {
 
   const scopeLabel = scope === 'all' ? t('scope.all') : accountMap.get(scope)?.name ?? t('scope.all');
   const activeAccount = scope === 'all' ? undefined : accountMap.get(scope);
+  // With one account its name repeats on every row and carries no information.
+  const showRowAccount = scope === 'all' && accountMap.size > 1;
   const totalCount = groups.reduce((s, g) => s + g.rows.length, 0);
   const totalNet = groups.reduce((s, g) => s + g.net, 0);
   const hasAnyMovements = allTx.length > 0;
@@ -115,7 +117,11 @@ export function MovementsList() {
               <section key={g.date}>
                 <div className="section-head" style={{ marginBottom: 4 }}>
                   <span className="label">{formatDayHeader(g.date)}</span>
-                  <span className="body-sm tnum">{formatCurrency(g.net)}</span>
+                  {/* A day total only tells you something when the day has more
+                      than one movement; otherwise it restates the row below it. */}
+                  {g.rows.length > 1 && (
+                    <span className="body-sm tnum">{formatCurrency(g.net)}</span>
+                  )}
                 </div>
                 <div className="card tight">
                   {g.rows.map((tx) => (
@@ -125,7 +131,7 @@ export function MovementsList() {
                       account={accountMap.get(tx.accountId)}
                       category={tx.categoryId ? categoryMap.get(tx.categoryId) : undefined}
                       counterAccount={tx.counterAccountId ? accountMap.get(tx.counterAccountId) : undefined}
-                      showAccount={scope === 'all'}
+                      showAccount={showRowAccount}
                       onClick={() =>
                         navigate(
                           isTransfer(tx) ? `/transfer/${tx.transferGroupId}` : `/expenses/${tx.id}`,
