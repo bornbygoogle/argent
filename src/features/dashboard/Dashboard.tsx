@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/db/db';
+import { computeRunway } from '@/lib/runway';
+import { Runway } from '@/components/ui/Runway';
 import { useAccountScope } from '@/store/AccountScopeContext';
 import {
   useAccounts,
@@ -20,7 +24,6 @@ import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Icon } from '@/components/ui/Icon';
 import { TopBar } from '@/components/ui/TopBar';
 import { AccountChip } from '@/components/ui/AccountChip';
-import { Hero } from '@/components/ui/Hero';
 import { Banner } from '@/components/ui/Banner';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -57,10 +60,41 @@ export function Dashboard() {
   const activeAccount = scope === 'all' ? undefined : accountMap.get(scope);
   const balance = activeAccount ? accountBalance(activeAccount, allTx) : totalBalance(accounts, allTx);
   const scopeLabel = scope === 'all' ? t('scope.all') : activeAccount?.name ?? t('scope.all');
-  const heroLabel =
-    scope === 'all' && accounts.length > 0
+
+  // The home screen's job is to answer "what can I still spend?". Budgets are
+  // per-account, so the figure covers whichever accounts are in scope. With no
+  // budget set there is nothing to be "left" of, so it falls back to balance.
+  const budgets = useLiveQuery(() => db.budgets.toArray(), [], []) ?? [];
+  const scopedBudget = budgets
+    .filter((b) => (scope === 'all' ? accountMap.has(b.accountId) : b.accountId === scope))
+    .reduce((sum, b) => sum + (b.monthlyBudget || 0), 0);
+  const runway = computeRunway(scopedBudget, summary.expense, new Date());
+  const hasBudget = scopedBudget > 0;
+
+  const heroLabel = hasBudget
+    ? t('dashboard.leftToSpend')
+    : scope === 'all' && accounts.length > 0
       ? `${t('dashboard.balance')} · ${accounts.length}`
       : t('dashboard.balance');
+  const heroFigure = hasBudget ? runway.remaining : balance;
+  // With a single account its name appears on every row and tells you nothing —
+  // pure noise in a list whose whole job is to be scannable.
+  const showRowAccount = scope === 'all' && accounts.length > 1;
+
+  // Most-used expense categories this month, so the commonest entry is one tap
+  // from the home screen instead of three.
+  const topCategories = (() => {
+    const counts = new Map<string, number>();
+    for (const tx of allTx) {
+      if (tx.kind !== 'expense' || !tx.categoryId) continue;
+      counts.set(tx.categoryId, (counts.get(tx.categoryId) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([id]) => categoryMap.get(id))
+      .filter((c): c is NonNullable<typeof c> => Boolean(c));
+  })();
 
   return (
     <>
@@ -102,31 +136,56 @@ export function Dashboard() {
           </Banner>
         )}
 
-        {/* Balance hero */}
-        <Hero label={heroLabel}>
-          <div className="amount" style={{ color: '#fff', fontSize: 36, marginTop: 4 }}>
-            {formatCurrency(balance)}
+        {/* Hero — one figure that answers "what can I still spend?", the runway
+            that gives it context, and the two supporting totals underneath. */}
+        <div className="hero">
+          <div className="hero-label">{heroLabel}</div>
+          <div className={['amount', 'hero-figure', hasBudget && !runway.over ? 'is-signal' : ''].join(' ').trim()}>
+            {formatCurrency(heroFigure)}
           </div>
-          <div style={{ display: 'flex', gap: 16, marginTop: 14 }}>
+
+          {hasBudget ? (
+            <Runway data={runway} />
+          ) : (
+            <button type="button" className="hero-cta" onClick={() => navigate('/budget')}>
+              {t('dashboard.setBudget')}
+            </button>
+          )}
+
+          <div className="hero-foot">
             <div>
-              <div className="caption" style={{ color: 'rgba(255,255,255,.8)' }}>
-                {t('dashboard.income')}
-              </div>
-              <div className="amount-md" style={{ color: '#fff' }}>
-                {formatCurrency(summary.income)}
-              </div>
+              <div className="hf-k">{t('dashboard.income')}</div>
+              <div className="hf-v">{formatCurrency(summary.income)}</div>
             </div>
-            <div style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,.25)' }} />
             <div>
-              <div className="caption" style={{ color: 'rgba(255,255,255,.8)' }}>
-                {t('dashboard.expenses')}
-              </div>
-              <div className="amount-md" style={{ color: '#fff' }}>
-                {formatCurrency(summary.expense)}
-              </div>
+              <div className="hf-k">{t('dashboard.expenses')}</div>
+              <div className="hf-v">{formatCurrency(summary.expense)}</div>
             </div>
+            {hasBudget && (
+              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                <div className="hf-k">{t('dashboard.balance')}</div>
+                <div className="hf-v">{formatCurrency(balance)}</div>
+              </div>
+            )}
           </div>
-        </Hero>
+        </div>
+
+        {/* Quick log — the commonest entry, one tap from home. */}
+        {topCategories.length > 0 && (
+          <div className="quicklog">
+            {topCategories.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className="ql-tile"
+                onClick={() => navigate(`/add?category=${encodeURIComponent(c.id)}`)}
+              >
+                <TintedIcon hex={c.color} icon={c.icon} variant="cat-sm" />
+                <span className="ql-lbl">{c.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Recurring — to confirm this month */}
         {todoRecurring.length > 0 && (
@@ -211,7 +270,7 @@ export function Dashboard() {
                   account={accountMap.get(tx.accountId)}
                   category={tx.categoryId ? categoryMap.get(tx.categoryId) : undefined}
                   counterAccount={tx.counterAccountId ? accountMap.get(tx.counterAccountId) : undefined}
-                  showAccount={scope === 'all'}
+                  showAccount={showRowAccount}
                   showDir
                   onClick={() =>
                     navigate(isTransfer(tx) ? `/transfer/${tx.transferGroupId}` : `/expenses/${tx.id}`)

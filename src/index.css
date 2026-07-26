@@ -5,41 +5,73 @@
    utility-only helper; the mock classes ARE the design system.
    ============================================================ */
 
-/* 1. Fonts (must precede everything) */
+/* 1. Fonts (must precede everything)
+      Inter carries all UI text. Space Grotesk is used ONLY for money figures and
+      numerals — its tabular lining figures are unusually legible at a glance,
+      which is the one thing this app is used for many times a day. Latin subsets
+      only: this is an offline-first PWA and every byte is precached. */
 @import '@fontsource/inter/400.css';
 @import '@fontsource/inter/500.css';
 @import '@fontsource/inter/600.css';
 @import '@fontsource/inter/700.css';
+@import '@fontsource/space-grotesk/latin-500.css';
+@import '@fontsource/space-grotesk/latin-700.css';
 
 /* 2. Tailwind utilities only (no base/preflight, no components) — after the
       fonts, before the mock block so utilities can override at equal specificity. */
 @tailwind utilities;
 
 /* 3. === Verbatim validated mock design system === */
+/* ============================================================
+   "Ink & Signal" — a personal money instrument, not a bank product.
+   Ground is warm paper (light) / warm ink (dark), never cold slate.
+   The ACTION colour is ink. Exactly one signal colour — gold — and it
+   is spent on one thing only: the figure that answers "what can I
+   still spend?". Everything else stays quiet so that figure carries.
+   Token NAMES are unchanged from the previous system on purpose: all
+   15 screens re-skin from here without touching their markup.
+   ============================================================ */
 :root{
-  /* Primary (Indigo) */
-  --primary-50:#EEF2FF; --primary-100:#E0E7FF; --primary-200:#C7D2FE;
-  --primary-500:#6366F1; --primary-600:#4F46E5; --primary-700:#4338CA;
-  /* Neutral (Slate) */
-  --white:#FFFFFF; --neutral-50:#F8FAFC; --neutral-100:#F1F5F9;
-  --neutral-200:#E2E8F0; --neutral-300:#CBD5E1; --neutral-400:#94A3B8;
-  --neutral-500:#64748B; --neutral-600:#475569; --neutral-700:#334155;
-  --neutral-800:#1E293B; --neutral-900:#0F172A;
-  /* Semantic */
-  --success-50:#ECFDF5; --success-500:#10B981; --success-600:#059669;
-  --warning-50:#FFFBEB; --warning-500:#F59E0B; --warning-600:#D97706;
-  --danger-50:#FEF2F2;  --danger-500:#EF4444;  --danger-600:#DC2626;
-  /* token fix: referenced by .banner.warn / .stat-pill but missing upstream */
-  --warning-700:#B45309; --danger-700:#B91C1C;
+  /* Primary = ink. Buttons, FAB, active nav, hero ground. */
+  --primary-50:#EDE9E3; --primary-100:#DDD8D0; --primary-200:#C3BCB2;
+  --primary-500:#2B2823; --primary-600:#14120F; --primary-700:#14120F;
+  --on-primary:#FBFAF8;
+  /* Neutral = warm paper ramp (replaces cold slate) */
+  --white:#FFFFFF; --neutral-50:#F7F5F1; --neutral-100:#EDE9E3;
+  /* --neutral-400 carries captions and row subtitles. At #8B857C it measured
+     3.66:1 on a white card — under 4.5:1, and these are exactly the small
+     labels that made the old activity list hard to scan. #767065 clears 4.5:1
+     on both the card (4.91) and the page ground (4.51). */
+  --neutral-200:#DDD8D0; --neutral-300:#C3BCB2; --neutral-400:#767065;
+  --neutral-500:#6B655C; --neutral-600:#4A453E; --neutral-700:#33302B;
+  --neutral-800:#23211D; --neutral-900:#14120F;
+  /* Semantic — money in reads calm green; money out is NOT red.
+     Ordinary spending is not an error, so it stays ink. Red is reserved
+     for genuinely over-budget, which makes it mean something again. */
+  --success-50:#E4EFE7; --success-500:#2F8F62; --success-600:#25764F; --success-700:#1B5A3C;
+  --warning-50:#F6EEDC; --warning-500:#C98A16; --warning-600:#9C6A0F; --warning-700:#7A520B;
+  --danger-50:#F6E6E3;  --danger-500:#C0503F;  --danger-600:#A33E2F;  --danger-700:#7F2F23;
 
-  --radius-sm:6px; --radius-md:12px; --radius-lg:16px; --radius-xl:24px; --radius-full:9999px;
+  /* The signal. Used for the remaining-to-spend figure and its runway marker.
+     Nothing else may claim it. */
+  --signal:#C98A16; --signal-ink:#8A5D0C; --signal-soft:#F6EEDC;
 
-  --shadow-sm:0 1px 2px rgba(15,23,42,.06);
-  --shadow-md:0 4px 12px rgba(15,23,42,.08);
-  --shadow-lg:0 10px 24px rgba(15,23,42,.12);
-  --shadow-fab:0 8px 20px rgba(79,70,229,.35);
+  --radius-sm:6px; --radius-md:10px; --radius-lg:14px; --radius-xl:20px; --radius-full:9999px;
+
+  --shadow-sm:0 1px 2px rgba(20,18,15,.05);
+  --shadow-md:0 6px 16px rgba(20,18,15,.07);
+  --shadow-lg:0 16px 40px rgba(20,18,15,.13);
+  --shadow-fab:0 10px 24px rgba(20,18,15,.28);
+
+  /* The hero is an ink slab in BOTH themes — it is the app's identity, and it
+     is the only surface the signal gold ever sits on. Gold on ink clears
+     contrast comfortably; gold on the bone that --primary-600 becomes in dark
+     does not (~1.9:1), so the hero must not follow the primary inversion. */
+  --hero-bg:#14120F; --hero-fg:#FBFAF8;
 
   --font:'Inter','Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+  /* Figures only. Never body text. */
+  --font-figure:'Space Grotesk','Inter',system-ui,sans-serif;
 }
 
 /* ---------- Dark theme ----------
@@ -49,39 +81,47 @@
    when SettingsContext/FOUC-script toggle the .dark class on <html>. */
 html.dark{
   color-scheme:dark;
-  /* surfaces */
-  --white:#1E293B;        /* cards, bottomnav, sheet, active seg pill */
-  --neutral-50:#0F172A;   /* page + topbar background */
-  --neutral-100:#273449;  /* chips, inputs, numpad keys, progress track, qa tiles */
-  --neutral-200:#334155;  /* borders + dividers */
-  --neutral-300:#475569;  /* sheet handle, dots */
+  /* surfaces — warm ink, not blue-black */
+  --white:#1A1815;        /* cards, bottomnav, sheet, active seg pill */
+  --neutral-50:#100E0C;   /* page + topbar background */
+  --neutral-100:#262320;  /* chips, inputs, numpad keys, progress track, qa tiles */
+  --neutral-200:#332F2A;  /* borders + dividers */
+  --neutral-300:#4A453E;  /* sheet handle, dots */
   /* text ramp (light on dark) */
-  --neutral-400:#94A3B8;  /* captions, row sub */
-  --neutral-500:#94A3B8;  /* labels, muted, body-sm */
-  --neutral-600:#CBD5E1;
-  --neutral-700:#CBD5E1;  /* body text */
-  --neutral-800:#E2E8F0;
-  --neutral-900:#F1F5F9;  /* titles, amounts */
-  /* primary tints — dark bg + light text (inverted pair) */
-  --primary-50:#312E81;   /* chip / secondary btn background */
-  --primary-100:#3730A3;
-  --primary-200:#4F46E5;  /* chip outline */
-  --primary-700:#C7D2FE;  /* text on tinted indigo bg */
-  /* semantic tints — same invert */
-  --success-50:#064E3B;  --success-600:#34D399; --success-700:#6EE7B7;
-  --warning-50:#451A03;  --warning-600:#FBBF24; --warning-700:#FCD34D;
-  --danger-50:#450A0A;   --danger-600:#F87171;  --danger-700:#FCA5A5;
+  --neutral-400:#918A80;  /* captions, row sub */
+  --neutral-500:#A39C92;  /* labels, muted, body-sm */
+  --neutral-600:#C9C2B8;
+  --neutral-700:#DED8CF;  /* body text */
+  --neutral-800:#EDE9E3;
+  --neutral-900:#F7F5F1;  /* titles, amounts */
+  /* Primary inverts to bone so ink buttons stay readable on an ink ground. */
+  --primary-50:#262320;   /* chip / secondary btn background */
+  --primary-100:#332F2A;
+  --primary-200:#4A453E;  /* chip outline */
+  --primary-500:#DED8CF;
+  --primary-600:#EDE9E3;  /* buttons, FAB, active nav */
+  --primary-700:#EDE9E3;  /* text on tinted surfaces */
+  --on-primary:#14120F;   /* text ON a bone button */
+  /* semantic tints — lifted for dark, same warm family */
+  --success-50:#16281F;  --success-500:#4FBF8B; --success-600:#5FCB99; --success-700:#8FDCB8;
+  --warning-50:#2B2113;  --warning-500:#E0A52E; --warning-600:#E8B54E; --warning-700:#F0CB84;
+  --danger-50:#2E1815;   --danger-500:#D9705E;  --danger-600:#E28777;  --danger-700:#EDAA9E;
+
+  --signal:#E8B54E; --signal-ink:#F0CB84; --signal-soft:#2B2113;
+  /* Lifted just off the page black so the slab still reads as a raised object. */
+  --hero-bg:#211E1A; --hero-fg:#F7F5F1;
+
   /* softer shadows on dark */
-  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
-  --shadow-md:0 4px 12px rgba(0,0,0,.4);
-  --shadow-lg:0 10px 24px rgba(0,0,0,.5);
-  --shadow-fab:0 8px 20px rgba(79,70,229,.5);
-  background:#020617;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.5);
+  --shadow-md:0 6px 16px rgba(0,0,0,.5);
+  --shadow-lg:0 16px 40px rgba(0,0,0,.6);
+  --shadow-fab:0 10px 24px rgba(0,0,0,.55);
+  background:#0A0908;
 }
-html.dark body{ background:#020617; }
+html.dark body{ background:#0A0908; }
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
-html,body{font-family:var(--font);background:#e9eef5;color:var(--neutral-900)}
+html,body{font-family:var(--font);background:#E6E1D8;color:var(--neutral-900)}
 /* Without Tailwind Preflight, normalize button/heading fonts so unclassed buttons don't drop to the system font. */
 button{font-family:inherit}
 h1,h2,h3,h4{font-weight:600}
@@ -91,13 +131,15 @@ h1,h2,h3,h4{font-weight:600}
 .screen{
   width:390px;height:844px;background:var(--neutral-50);
   display:flex;flex-direction:column;position:relative;overflow:hidden;
-  box-shadow:0 20px 60px rgba(15,23,42,.18);border-radius:0;
+  box-shadow:none;border-radius:0;
 }
 
 /* ---------- Typography ---------- */
-.amount{font-size:40px;font-weight:700;line-height:1.1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.amount-lg{font-size:28px;font-weight:700;line-height:1.15;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
-.amount-md{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+/* Money figures use the figure face. Tabular lining numerals keep columns of
+   amounts aligned, which is what makes a list of movements scannable. */
+.amount{font-family:var(--font-figure);font-size:44px;font-weight:700;line-height:1;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+.amount-lg{font-family:var(--font-figure);font-size:28px;font-weight:700;line-height:1.1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.amount-md{font-family:var(--font-figure);font-size:16px;font-weight:500;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .h1{font-size:24px;font-weight:700;line-height:1.3;letter-spacing:-.01em}
 .h2{font-size:20px;font-weight:600;line-height:1.35}
 .h3{font-size:16px;font-weight:600;line-height:1.4}
@@ -108,9 +150,35 @@ h1,h2,h3,h4{font-weight:600}
 .muted{color:var(--neutral-500)}
 .subtle{color:var(--neutral-400)}
 
+/* Prompt shown in the hero when no budget exists yet — an empty state is an
+   invitation to act, so it is a control, not a sentence. */
+.hero-cta{
+  margin-top:14px;height:34px;padding:0 12px;border:none;cursor:pointer;
+  border-radius:var(--radius-full);font-family:var(--font);
+  font-size:12px;font-weight:600;
+  background:color-mix(in srgb, var(--hero-fg) 12%, transparent);
+  color:var(--hero-fg);
+}
+
+/* ---------- Quick log ----------
+   The four categories this person actually uses, one tap from home. Logging is
+   the thing done most often, so it gets the shortest path on the screen. */
+.quicklog{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.ql-tile{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:10px 4px;border-radius:var(--radius-lg);cursor:pointer;
+  background:var(--white);border:1px solid var(--neutral-200);
+  font-family:var(--font);
+}
+.ql-tile:active{background:var(--neutral-100)}
+.ql-lbl{
+  font-size:11px;font-weight:600;color:var(--neutral-600);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
 /* ---------- Top bar ---------- */
 .topbar{
-  display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;flex-shrink:0;
+  display:flex;align-items:center;gap:12px;height:52px;padding:0 16px;flex-shrink:0;
   background:var(--neutral-50);
 }
 .topbar .tb-title{flex:1;font-size:18px;font-weight:700}
@@ -118,23 +186,83 @@ h1,h2,h3,h4{font-weight:600}
 .topbar .tb-right{justify-content:flex-end}
 
 /* ---------- Content ---------- */
-.content{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+.content{flex:1;overflow-y:auto;padding:4px 16px 16px;display:flex;flex-direction:column;gap:14px}
+/* .content is a fixed-height scrolling flex column, so its children default to
+   flex-shrink:1 and get squashed the moment the column overflows — the section
+   scrolls instead of the page, so shrinking is never what you want here. */
+.content>*{flex-shrink:0}
 .content::-webkit-scrollbar{display:none}
 
 /* ---------- Cards ---------- */
-.card{background:var(--white);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:16px}
-.card.tight{padding:12px 16px}
-.hero{background:linear-gradient(135deg,var(--primary-600),var(--primary-500));border-radius:var(--radius-xl);box-shadow:var(--shadow-md);padding:20px;color:#fff}
-.section-head{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
-.section-head .h3{font-size:15px}
+.card{background:var(--white);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:16px;border:1px solid var(--neutral-200)}
+.card.tight{padding:6px 16px}
+
+/* Hero: an ink slab, not a coloured gradient card. The figure is the hero —
+   the surface behind it should recede, not compete. */
+.hero{
+  background:var(--hero-bg);
+  border-radius:var(--radius-xl);
+  box-shadow:var(--shadow-md);
+  padding:20px 20px 18px;
+  color:var(--hero-fg);
+  position:relative;
+  overflow:hidden;
+}
+.hero .hero-label{
+  font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:color-mix(in srgb, var(--hero-fg) 58%, transparent);
+}
+.hero .hero-figure{color:var(--hero-fg);margin-top:8px}
+/* The one place the signal colour is allowed. */
+.hero .hero-figure.is-signal{color:var(--signal)}
+.hero .hero-foot{
+  display:flex;gap:18px;margin-top:16px;
+  border-top:1px solid color-mix(in srgb, var(--hero-fg) 14%, transparent);
+  padding-top:12px;
+}
+.hero .hero-foot .hf-k{
+  font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:color-mix(in srgb, var(--hero-fg) 52%, transparent);
+}
+.hero .hero-foot .hf-v{font-family:var(--font-figure);font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;margin-top:3px}
+
+/* ---------- Runway ----------
+   THE signature element. One hairline track carrying two facts at once:
+   how far through the month you are (the notch) and how far through your
+   money you are (the fill). Fill past notch = spending faster than the
+   month is passing. No chart states this in less space. */
+.runway{margin-top:16px}
+.runway-track{
+  position:relative;height:6px;border-radius:var(--radius-full);
+  background:color-mix(in srgb, var(--hero-fg) 16%, transparent);
+  overflow:visible;
+}
+.runway-fill{
+  position:absolute;inset-block:0;left:0;border-radius:var(--radius-full);
+  background:var(--signal);transition:width .35s cubic-bezier(.2,0,0,1);
+}
+.runway-fill.is-over{background:var(--danger-500)}
+/* The notch marks today's position in the month. */
+.runway-notch{
+  position:absolute;top:-4px;width:2px;height:14px;border-radius:1px;
+  background:var(--hero-fg);transform:translateX(-1px);
+}
+.runway-legend{
+  display:flex;justify-content:space-between;margin-top:8px;
+  font-size:11px;font-weight:500;
+  color:color-mix(in srgb, var(--hero-fg) 62%, transparent);
+}
+
+.section-head{display:flex;align-items:baseline;justify-content:space-between;padding:0 2px}
+.section-head .h3{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--neutral-500)}
 
 /* ---------- Buttons ---------- */
 .btn{height:48px;border:none;border-radius:var(--radius-md);font-size:15px;font-weight:600;font-family:var(--font);display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;padding:0 18px}
 .btn-block{width:100%}
-.btn-primary{background:var(--primary-600);color:#fff}
+.btn-primary{background:var(--primary-600);color:var(--on-primary)}
 .btn-secondary{background:var(--primary-50);color:var(--primary-700)}
 .btn-ghost{background:transparent;color:var(--primary-600)}
-.btn-danger{background:var(--danger-600);color:#fff}
+.btn-danger{background:var(--danger-600);color:var(--white)}
 .btn-disabled,.btn:disabled{background:var(--neutral-200);color:var(--neutral-400);cursor:default}
 .btn-sm{height:36px;font-size:14px;padding:0 14px}
 
@@ -157,20 +285,25 @@ h1,h2,h3,h4{font-weight:600}
 .row{display:flex;align-items:center;gap:12px;padding:12px 0}
 .row+.row{border-top:1px solid var(--neutral-100)}
 .row .r-main{flex:1;min-width:0}
-.row .r-title{font-size:15px;font-weight:600;color:var(--neutral-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.row .r-sub{font-size:12px;color:var(--neutral-400);margin-top:2px}
-.row .r-amt{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+/* display:block matters: several screens render these as <span>, which flows
+   inline, so the title and subtitle ran together on one line and margin-top
+   was silently ignored. */
+.row .r-title{display:block;font-size:15px;font-weight:600;color:var(--neutral-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .r-sub{display:block;font-size:12px;line-height:1.35;color:var(--neutral-400);margin-top:2px}
+.row .r-amt{font-family:var(--font-figure);font-size:16px;font-weight:500;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 
 /* Account-switcher rows: name grows & truncates, amount stays flush right */
 .acct-name{flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--neutral-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.acct-amount{flex-shrink:0;margin-left:12px;font-size:15px;font-weight:600;color:var(--neutral-700);text-align:right}
+.acct-amount{flex-shrink:0;margin-left:12px;font-family:var(--font-figure);font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--neutral-700);text-align:right}
 
 /* ---------- Progress ---------- */
-.progress{height:10px;border-radius:var(--radius-full);background:var(--neutral-100);overflow:hidden}
+.progress{height:6px;border-radius:var(--radius-full);background:var(--neutral-100);overflow:hidden}
 .progress>span{display:block;height:100%;border-radius:var(--radius-full);background:var(--success-500)}
+.progress.warn>span{background:var(--signal)}
+.progress.over>span{background:var(--danger-500)}
 
 /* ---------- FAB ---------- */
-.fab{position:absolute;right:16px;bottom:78px;width:56px;height:56px;border-radius:var(--radius-full);background:var(--primary-600);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-fab);z-index:20;border:none;cursor:pointer}
+.fab{position:absolute;right:16px;bottom:78px;width:56px;height:56px;border-radius:var(--radius-full);background:var(--primary-600);color:var(--on-primary);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-fab);z-index:20;border:none;cursor:pointer}
 .fab.center{left:50%;right:auto;transform:translateX(-50%);bottom:20px}
 
 /* ---------- Bottom nav ---------- */
@@ -183,7 +316,7 @@ h1,h2,h3,h4{font-weight:600}
 
 /* ---------- Numpad ---------- */
 .numpad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.numpad .key{height:64px;border:none;background:var(--neutral-100);border-radius:var(--radius-md);font-size:24px;font-weight:600;font-family:var(--font);color:var(--neutral-900);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.numpad .key{height:64px;border:none;background:var(--neutral-100);border-radius:var(--radius-md);font-size:24px;font-weight:500;font-family:var(--font-figure);color:var(--neutral-900);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .numpad .key:active{background:var(--neutral-200)}
 .numpad .key.ghost{background:transparent;color:var(--neutral-400)}
 
@@ -209,7 +342,7 @@ h1,h2,h3,h4{font-weight:600}
    title pinned at the top while the body scrolls. Works for any sheet length. */
 .sheet{position:absolute;left:0;right:0;bottom:0;max-height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--white);border-radius:var(--radius-lg) var(--radius-lg) 0 0;box-shadow:var(--shadow-lg);padding:20px 16px 28px;z-index:40}
 .sheet .handle{width:40px;height:4px;border-radius:var(--radius-full);background:var(--neutral-300);margin:0 auto 16px;flex-shrink:0}
-.scrim{position:absolute;inset:0;background:rgba(15,23,42,.45);z-index:30}
+.scrim{position:absolute;inset:0;background:rgba(20,18,15,.5);z-index:30}
 
 /* ---------- Helpers ---------- */
 .row-between{display:flex;align-items:center;justify-content:space-between}
@@ -220,7 +353,7 @@ h1,h2,h3,h4{font-weight:600}
 .divider{height:1px;background:var(--neutral-100)}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--neutral-300)}
 .dot.on{background:var(--primary-600)}
-.badge{min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-full);background:var(--warning-500);color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.badge{min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-full);background:var(--signal);color:var(--neutral-900);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 
 /* ============ Multi-account / income / recurring additions ============ */
 /* account selector chip (top bar) */
@@ -251,12 +384,12 @@ h1,h2,h3,h4{font-weight:600}
 .recur .r-title{font-size:15px;font-weight:600;color:var(--neutral-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .recur .r-sub{font-size:12px;color:var(--neutral-400);margin-top:2px}
 .recur>.amount-md{flex:none;min-width:84px;text-align:right;white-space:nowrap}
-.confirm-btn{flex:none;height:36px;padding:0 14px;border-radius:var(--radius-md);background:var(--primary-600);color:#fff;font-size:13px;font-weight:600;border:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font)}
+.confirm-btn{flex:none;height:36px;padding:0 14px;border-radius:var(--radius-md);background:var(--primary-600);color:var(--on-primary);font-size:13px;font-weight:600;border:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--font)}
 .confirm-btn.done{background:var(--success-50);color:var(--success-600)}
 
 /* quick-action tiles */
 .qa{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 6px;border-radius:var(--radius-lg);background:var(--neutral-50);cursor:pointer;border:none;font-family:var(--font)}
-.qa .qa-ic{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:#fff}
+.qa .qa-ic{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--white)}
 .qa .qa-lbl{font-size:13px;font-weight:600;color:var(--neutral-700)}
 
 /* misc */
@@ -270,8 +403,8 @@ h1,h2,h3,h4{font-weight:600}
 .cal.dim{background:transparent;color:var(--neutral-300)}
 .cal.low{background:var(--primary-50);color:var(--primary-700)}
 .cal.mod{background:var(--primary-200);color:var(--primary-700)}
-.cal.high{background:var(--primary-500);color:#fff}
-.cal.over{background:var(--danger-500);color:#fff}
+.cal.high{background:var(--primary-500);color:var(--on-primary)}
+.cal.over{background:var(--danger-500);color:var(--white)}
 .cal.today{outline:2px solid var(--neutral-900);outline-offset:1px}
 
 /* spinner (sync toast / loading) */
@@ -292,7 +425,7 @@ h1,h2,h3,h4{font-weight:600}
   max-width:430px;
   height:100dvh;
   margin:0 auto;
-  box-shadow:0 20px 60px rgba(15,23,42,.18);
+  box-shadow:0 24px 70px rgba(20,18,15,.16);
 }
 @media (min-width:480px){
   .stage{padding:24px;align-items:flex-start}

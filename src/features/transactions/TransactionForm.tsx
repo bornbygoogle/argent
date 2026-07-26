@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -36,6 +36,7 @@ const QUICK_ADDS = [5, 10, 20, 50];
 export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { scope } = useAccountScope();
   const { settings, update } = useSettings();
   const toast = useToast();
@@ -46,6 +47,8 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   const locale = getLocale();
   const isEdit = Boolean(transaction);
   const isExpense = kind === 'expense';
+  // ?category=<id> — set by the home screen quick-log tiles.
+  const presetCategoryId = searchParams.get('category') ?? '';
 
   const defaultAccount = useMemo(() => {
     if (transaction) return transaction.accountId;
@@ -71,7 +74,11 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   ]);
 
   const [amountStr, setAmountStr] = useState(transaction ? String(transaction.amount) : '');
-  const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? '');
+  // A new expense can arrive with its category already chosen, from the home
+  // screen's quick-log tiles. Editing an existing movement always wins.
+  const [categoryId, setCategoryId] = useState(
+    transaction?.categoryId ?? (isExpense ? presetCategoryId : '') ?? '',
+  );
   const [incomeType, setIncomeType] = useState(transaction?.incomeType ?? 'Autre');
   // For a NEW transaction, keep accountId in sync with the derived default
   // (accounts/settings load asynchronously after mount). A manual pick sets

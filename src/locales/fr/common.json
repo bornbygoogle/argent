@@ -211,7 +211,19 @@
     "recent": "Mouvements récents",
     "empty": "Aucun mouvement",
     "emptyHint": "Touchez le bouton + pour ajouter votre première dépense.",
-    "offline": "Hors-ligne — vos saisies sont enregistrées."
+    "offline": "Hors-ligne — vos saisies sont enregistrées.",
+    "leftToSpend": "Reste à dépenser",
+    "perDay": "{{amount}} par jour d'ici la fin",
+    "aheadOfPace": "Rythme de dépense trop rapide",
+    "overBy": "Dépassé de {{amount}}",
+    "daysLeft_one": "{{count}} jour restant",
+    "daysLeft_other": "{{count}} jours restants",
+    "runwayAria": "{{spent}} % du budget dépensé, {{month}} % du mois écoulé",
+    "setBudget": "Définis un budget mensuel pour voir ce qu'il te reste",
+    "quickLog": "Saisie rapide",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "earlier": "Plus tôt"
   },
   "quickAction": {
     "title": "Ajout rapide",
@@ -380,16 +392,35 @@
     "insightBadBody": "Vous avez dépensé {{pct}} % de plus que la période précédente.",
     "topCategories": "Top catégories",
     "topMerchants": "Top commerçants",
-    "visits": { "one": "{{count}} visite", "other": "{{count}} visites" },
+    "visits": {
+      "one": "{{count}} visite",
+      "other": "{{count}} visites"
+    },
     "empty": "Pas encore de données",
     "emptyHint": "Ajoutez quelques dépenses pour voir vos statistiques.",
     "lastWeek": "semaine dernière",
     "monthShort": {
-      "1": "jan", "2": "fév", "3": "mar", "4": "avr", "5": "mai", "6": "juin",
-      "7": "juil", "8": "août", "9": "sep", "10": "oct", "11": "nov", "12": "déc"
+      "1": "jan",
+      "2": "fév",
+      "3": "mar",
+      "4": "avr",
+      "5": "mai",
+      "6": "juin",
+      "7": "juil",
+      "8": "août",
+      "9": "sep",
+      "10": "oct",
+      "11": "nov",
+      "12": "déc"
     },
     "weekShort": {
-      "0": "L", "1": "M", "2": "M", "3": "J", "4": "V", "5": "S", "6": "D"
+      "0": "L",
+      "1": "M",
+      "2": "M",
+      "3": "J",
+      "4": "V",
+      "5": "S",
+      "6": "D"
     }
   },
   "overview": {

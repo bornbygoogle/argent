@@ -211,7 +211,19 @@
     "recent": "Recent activity",
     "empty": "No movements yet",
     "emptyHint": "Tap the + button to add your first expense.",
-    "offline": "Offline — your entries are still saved."
+    "offline": "Offline — your entries are still saved.",
+    "leftToSpend": "Left to spend",
+    "perDay": "{{amount}} a day from here",
+    "aheadOfPace": "Spending ahead of pace",
+    "overBy": "Over by {{amount}}",
+    "daysLeft_one": "{{count}} day left",
+    "daysLeft_other": "{{count}} days left",
+    "runwayAria": "{{spent}}% of budget spent, {{month}}% of the month elapsed",
+    "setBudget": "Set a monthly budget to see what's left",
+    "quickLog": "Quick log",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "earlier": "Earlier"
   },
   "quickAction": {
     "title": "Quick add",
@@ -380,16 +392,35 @@
     "insightBadBody": "You spent {{pct}}% more than the previous period.",
     "topCategories": "Top categories",
     "topMerchants": "Top merchants",
-    "visits": { "one": "{{count}} visit", "other": "{{count}} visits" },
+    "visits": {
+      "one": "{{count}} visit",
+      "other": "{{count}} visits"
+    },
     "empty": "No data yet",
     "emptyHint": "Add a few expenses to see your stats.",
     "lastWeek": "last week",
     "monthShort": {
-      "1": "jan", "2": "feb", "3": "mar", "4": "apr", "5": "may", "6": "jun",
-      "7": "jul", "8": "aug", "9": "sep", "10": "oct", "11": "nov", "12": "dec"
+      "1": "jan",
+      "2": "feb",
+      "3": "mar",
+      "4": "apr",
+      "5": "may",
+      "6": "jun",
+      "7": "jul",
+      "8": "aug",
+      "9": "sep",
+      "10": "oct",
+      "11": "nov",
+      "12": "dec"
     },
     "weekShort": {
-      "0": "M", "1": "T", "2": "W", "3": "T", "4": "F", "5": "S", "6": "S"
+      "0": "M",
+      "1": "T",
+      "2": "W",
+      "3": "T",
+      "4": "F",
+      "5": "S",
+      "6": "S"
     }
   },
   "overview": {
