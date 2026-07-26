@@ -69,6 +69,12 @@
      does not (~1.9:1), so the hero must not follow the primary inversion. */
   --hero-bg:#14120F; --hero-fg:#FBFAF8;
 
+  /* Sequential heat ramp — climbs in lightness, then breaks to red for "over". */
+  --heat-1:#F6EEDC; --heat-1-fg:#7A520B;
+  --heat-2:#EBD08A; --heat-2-fg:#5C3D08;
+  --heat-3:#C98A16; --heat-3-fg:#231A05;
+  --heat-over:#A33E2F; --heat-over-fg:#FFFFFF;
+
   --font:'Inter','Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
   /* Figures only. Never body text. */
   --font-figure:'Space Grotesk','Inter',system-ui,sans-serif;
@@ -110,6 +116,11 @@ html.dark{
   --signal:#E8B54E; --signal-ink:#F0CB84; --signal-soft:#2B2113;
   /* Lifted just off the page black so the slab still reads as a raised object. */
   --hero-bg:#211E1A; --hero-fg:#F7F5F1;
+
+  --heat-1:#33280F; --heat-1-fg:#D9BA72;
+  --heat-2:#7A5A17; --heat-2-fg:#F7EBCE;
+  --heat-3:#E0A52E; --heat-3-fg:#231A05;
+  --heat-over:#D9705E; --heat-over-fg:#2A0F0A;
 
   /* softer shadows on dark */
   --shadow-sm:0 1px 2px rgba(0,0,0,.5);
@@ -396,15 +407,20 @@ h1,h2,h3,h4{font-weight:600}
 .stat-pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 9px;border-radius:var(--radius-full)}
 .scope-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 
-/* monthly heat-map day cells (from 06-monthly-overview.html, verbatim) */
-.cal{height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
-.cal.empty{background:var(--neutral-50);border:1px solid var(--neutral-100);color:var(--neutral-400)}
-.cal.future{background:var(--neutral-50);color:var(--neutral-300)}
+/* Monthly heat-map day cells.
+   A sequential scale must be monotonic in lightness or the reader cannot
+   order it. The previous ramp ran bone -> taupe -> near-black -> red, so
+   "High" appeared darker than "Over" and the legend had to be consulted
+   every time. This ramp climbs through the signal family into red, which
+   orders correctly at a glance and keeps the palette coherent. */
+.cal{height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;font-family:var(--font-figure);font-variant-numeric:tabular-nums}
+.cal.empty{background:transparent;border:1px solid var(--neutral-200);color:var(--neutral-400)}
+.cal.future{background:var(--neutral-100);color:var(--neutral-400)}
 .cal.dim{background:transparent;color:var(--neutral-300)}
-.cal.low{background:var(--primary-50);color:var(--primary-700)}
-.cal.mod{background:var(--primary-200);color:var(--primary-700)}
-.cal.high{background:var(--primary-500);color:var(--on-primary)}
-.cal.over{background:var(--danger-500);color:var(--white)}
+.cal.low{background:var(--heat-1);color:var(--heat-1-fg)}
+.cal.mod{background:var(--heat-2);color:var(--heat-2-fg)}
+.cal.high{background:var(--heat-3);color:var(--heat-3-fg)}
+.cal.over{background:var(--heat-over);color:var(--heat-over-fg)}
 .cal.today{outline:2px solid var(--neutral-900);outline-offset:1px}
 
 /* spinner (sync toast / loading) */

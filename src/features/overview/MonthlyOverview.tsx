@@ -153,11 +153,13 @@ export function MonthlyOverview() {
           </div>
           {/* legend */}
           <div style={{ display: 'flex', gap: 12, marginTop: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {/* Must read the same heat tokens as the day cells — a legend that
+                does not match its own scale is worse than no legend. */}
             <Legend color="var(--neutral-100)" label="0" />
-            <Legend color="var(--primary-50)" label={t('overview.low')} />
-            <Legend color="var(--primary-200)" label={t('overview.mod')} />
-            <Legend color="var(--primary-500)" label={t('overview.high')} />
-            <Legend color="var(--danger-500)" label={t('overview.over')} />
+            <Legend color="var(--heat-1)" label={t('overview.low')} />
+            <Legend color="var(--heat-2)" label={t('overview.mod')} />
+            <Legend color="var(--heat-3)" label={t('overview.high')} />
+            <Legend color="var(--heat-over)" label={t('overview.over')} />
           </div>
         </div>
 

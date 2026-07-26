@@ -11,14 +11,14 @@ interface SeedCategory {
 // Default expense categories (global). Colors/icons aligned to the validated
 // mocks (05/06/07/08). "Autre" is non-deletable (reassign target).
 export const DEFAULT_CATEGORIES: SeedCategory[] = [
-  { id: 'cat-courses', name: 'Courses', icon: 'ShoppingCart', color: '#10B981' },
-  { id: 'cat-restaurant', name: 'Restaurant', icon: 'Utensils', color: '#F59E0B' },
-  { id: 'cat-transport', name: 'Transport', icon: 'Car', color: '#0EA5E9' },
-  { id: 'cat-logement', name: 'Logement', icon: 'Home', color: '#14B8A6' },
-  { id: 'cat-loisirs', name: 'Loisirs', icon: 'BookOpen', color: '#8B5CF6' },
-  { id: 'cat-sante', name: 'Santé', icon: 'Heart', color: '#EC4899' },
-  { id: 'cat-factures', name: 'Factures', icon: 'Receipt', color: '#EF4444' },
-  { id: 'cat-autre', name: 'Autre', icon: 'CircleDashed', color: '#64748B' },
+  { id: 'cat-courses', name: 'Courses', icon: 'ShoppingCart', color: '#3F8F6B' },
+  { id: 'cat-restaurant', name: 'Restaurant', icon: 'Utensils', color: '#C97E2C' },
+  { id: 'cat-transport', name: 'Transport', icon: 'Car', color: '#3C7A8C' },
+  { id: 'cat-logement', name: 'Logement', icon: 'Home', color: '#6B7F5C' },
+  { id: 'cat-loisirs', name: 'Loisirs', icon: 'BookOpen', color: '#7A6A9B' },
+  { id: 'cat-sante', name: 'Santé', icon: 'Heart', color: '#B0627A' },
+  { id: 'cat-factures', name: 'Factures', icon: 'Receipt', color: '#B35341' },
+  { id: 'cat-autre', name: 'Autre', icon: 'CircleDashed', color: '#8A8378' },
 ];
 
 export const INCOME_TYPE_KEYS: IncomeTypeKey[] = [
@@ -35,10 +35,10 @@ export const ACCOUNT_TYPE_DEFAULTS: Record<
   AccountType,
   { color: string; icon: string }
 > = {
-  courant: { color: '#4F46E5', icon: 'Wallet' },
-  épargne: { color: '#10B981', icon: 'PiggyBank' },
-  espèces: { color: '#F59E0B', icon: 'Banknote' },
-  autre: { color: '#64748B', icon: 'CircleDashed' },
+  courant: { color: '#2B2823', icon: 'Wallet' },
+  épargne: { color: '#3F8F6B', icon: 'PiggyBank' },
+  espèces: { color: '#C97E2C', icon: 'Banknote' },
+  autre: { color: '#8A8378', icon: 'CircleDashed' },
 };
 
 /** Seed default categories, income types, and a settings row if missing.
