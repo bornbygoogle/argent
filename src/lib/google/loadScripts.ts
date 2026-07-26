@@ -2,7 +2,9 @@
 // injected the first time a Google action is used, so users who never open the
 // feature pay zero cost.
 
-const gsiUrl = 'https://accounts.google.com/gsi/client';
+// Only the Picker script is needed now. Authentication moved to the server-side
+// authorization-code flow (api/auth/*), so the Google Identity Services script
+// is no longer loaded at all.
 const pickerUrl = 'https://apis.google.com/js/picker.js';
 
 const cache = new Map<string, Promise<void>>();
@@ -40,10 +42,6 @@ function inject(url: string): Promise<void> {
   document.head.appendChild(s);
 
   return p;
-}
-
-export function loadGsi(): Promise<void> {
-  return inject(gsiUrl);
 }
 
 export function loadPicker(): Promise<void> {

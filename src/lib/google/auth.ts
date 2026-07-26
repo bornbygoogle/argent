@@ -1,174 +1,125 @@
-// Google Identity Services token client wrapper. Issues short-lived access
-// tokens authorised for drive.file. The first sign-in requests an explicit
-// consent prompt; subsequent requests are silent and the token is cached
-// (in-memory + localStorage, with expiry) so the ~5s background backup loop
-// doesn't re-prompt and a page refresh is re-activated with NO GIS call.
+// Access tokens are minted by /api/auth/token, which holds the Google refresh
+// token in an encrypted httpOnly cookie. Tokens live in memory only: a token in
+// localStorage is XSS-exfiltrable, and the server-side cookie makes persisting
+// one unnecessary.
+//
+// This replaces the Google Identity Services implicit-token flow, which could
+// not survive a page refresh: GIS issues no refresh token, its silent renewal
+// depends on third-party cookies, and its popup fallback is blocked when not
+// triggered by a user gesture.
 
-import { GOOGLE_CLIENT_ID, DRIVE_FILE_SCOPE } from './env';
-import { loadGsi } from './loadScripts';
+const TOKEN_ENDPOINT = '/api/auth/token';
+const SIGNOUT_ENDPOINT = '/api/auth/signout';
+const START_ENDPOINT = '/api/auth/start';
 
-let tokenClient: TokenClient | null = null;
-let pending: { resolve: (t: string) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> } | null = null;
-
-// --- Token cache (in-memory + localStorage) --------------------------------
-// The in-memory cache dies on reload. We ALSO persist the token + expiry to
-// localStorage so a page refresh can re-activate the session WITHOUT any GIS
-// call — no popup, no 12s slot occupation, no Drive op before user action.
-// GIS tokens are short-lived (≤1h); after that the user re-signs-in (silent
-// first via the GIS cookie inside signIn, consent popup as fallback).
-const LS_TOKEN = 'argent.google.token';
-const LS_EXPIRES = 'argent.google.tokenExpiresAt';
-let cachedToken: string | null = null;
-let cachedExpiresAt = 0; // epoch ms
-// Refresh a little before the real expiry to avoid 401s on the wire.
+/** Refresh a little early so a token never expires mid-request. */
 const SKEW_MS = 60_000;
-let silentInflight: Promise<string> | null = null;
 
-function persistToken(token: string, expiresAt: number): void {
-  cachedToken = token;
-  cachedExpiresAt = expiresAt;
-  try {
-    localStorage.setItem(LS_TOKEN, token);
-    localStorage.setItem(LS_EXPIRES, String(expiresAt));
-  } catch {
-    /* ignore quota / private-mode errors */
+/** The grant is dead. This is the ONLY condition that should prompt the user. */
+export class AuthRevokedError extends Error {
+  constructor() {
+    super('auth-revoked');
+    this.name = 'AuthRevokedError';
   }
 }
 
-function forgetToken(): void {
-  cachedToken = null;
-  cachedExpiresAt = 0;
-  try {
-    localStorage.removeItem(LS_TOKEN);
-    localStorage.removeItem(LS_EXPIRES);
-  } catch {
-    /* ignore */
+/** No network. Backups queue; the user is told nothing. */
+export class AuthOfflineError extends Error {
+  constructor() {
+    super('auth-offline');
+    this.name = 'AuthOfflineError';
   }
 }
 
-/** A cached, non-expired token, or null if none / stale. */
+/** Upstream hiccup. Retry later; the user is told nothing. */
+export class AuthTransientError extends Error {
+  constructor() {
+    super('auth-transient');
+    this.name = 'AuthTransientError';
+  }
+}
+
+/** Server env is incomplete. Surfaced in Settings only. */
+export class AuthNotConfiguredError extends Error {
+  constructor() {
+    super('auth-not-configured');
+    this.name = 'AuthNotConfiguredError';
+  }
+}
+
+export interface Session {
+  accessToken: string;
+  expiresAt: number;
+  email: string | null;
+}
+
+let cachedToken: string | null = null;
+let cachedExpiresAt = 0;
+let cachedEmail: string | null = null;
+let inflight: Promise<Session> | null = null;
+
+/** A cached, non-expired token, or null. Never triggers a network call. */
 export function getCachedAccessToken(): string | null {
-  // Hot path: in-memory hit.
   if (cachedToken && Date.now() < cachedExpiresAt - SKEW_MS) return cachedToken;
-  // Cold path (after a refresh): hydrate from localStorage once, then check.
-  if (!cachedToken) {
-    try {
-      const t = localStorage.getItem(LS_TOKEN);
-      const exp = Number(localStorage.getItem(LS_EXPIRES) ?? '0');
-      if (t && exp && Date.now() < exp - SKEW_MS) {
-        cachedToken = t;
-        cachedExpiresAt = exp;
-        return t;
-      }
-      // Stale or absent on disk → drop it so we don't keep re-reading garbage.
-      if (t) forgetToken();
-    } catch {
-      /* ignore */
-    }
-  }
   return null;
 }
 
+export function getCachedEmail(): string | null {
+  return cachedEmail;
+}
+
 export function clearCachedAccessToken(): void {
-  forgetToken();
+  cachedToken = null;
+  cachedExpiresAt = 0;
+  cachedEmail = null;
+  inflight = null;
 }
 
-// --- Pending-slot helpers --------------------------------------------------
-// The SDK has a single callback channel. Reject a newcomer rather than
-// overwriting `pending` (which would orphan the first promise).
-function setPending(resolve: (t: string) => void, reject: (e: Error) => void): void {
-  if (pending) {
-    reject(new Error('google-auth-busy'));
-    return;
-  }
-  // If Google never calls back (popup swallowed by the browser, or `prompt:''`
-  // no-ops), don't leave the UI spinning — clear the slot so the next call can
-  // actually proceed.
-  const timer = setTimeout(() => {
-    if (pending) {
-      pending.reject(new Error('google-auth-timeout'));
-      pending = null;
+/** Ask the server for a fresh access token. De-dupes concurrent callers. */
+export function fetchSession(): Promise<Session> {
+  if (inflight) return inflight;
+  const run = (async (): Promise<Session> => {
+    let res: Response;
+    try {
+      res = await fetch(TOKEN_ENDPOINT, { method: 'POST', credentials: 'same-origin' });
+    } catch {
+      // fetch only rejects on a network-layer failure — this is offline, never
+      // a revoked grant. Conflating the two is what nagged the user on refresh.
+      throw new AuthOfflineError();
     }
-  }, 12000);
-  pending = { resolve, reject, timer };
-}
 
-function clearPending(): { resolve: (t: string) => void; reject: (e: Error) => void } | null {
-  if (!pending) return null;
-  clearTimeout(pending.timer);
-  const p = pending;
-  pending = null;
-  return p;
-}
+    if (res.status === 401) throw new AuthRevokedError();
+    if (res.status === 503) throw new AuthNotConfiguredError();
+    if (!res.ok) throw new AuthTransientError();
 
-async function ensureClient(): Promise<void> {
-  await loadGsi();
-  if (tokenClient || !window.google) return;
-  tokenClient = window.google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: DRIVE_FILE_SCOPE,
-    callback: (resp: TokenResponse) => {
-      const p = clearPending();
-      if (!p) return;
-      if (resp.error || !resp.access_token) {
-        p.reject(new Error(resp.error || 'google-auth-failed'));
-        return;
-      }
-      // Cache the token + its real expiry so the background loop can reuse it.
-      // Persist to localStorage too, so a page refresh can re-activate the
-      // session with NO GIS call (no popup, no slot occupied) while the token
-      // is still live.
-      const secs = Number(resp.expires_in) || 3600;
-      persistToken(resp.access_token, Date.now() + secs * 1000);
-      p.resolve(resp.access_token);
-    },
-    error_callback: (err) => {
-      const p = clearPending();
-      if (!p) return;
-      p.reject(new Error(err.error || 'google-auth-error'));
-    },
-  });
-}
-
-/**
- * Request an access token. The first sign-in should pass `{ prompt: 'consent' }`
- * for one visible popup; the background loop / silent refresh use the default
- * `{ prompt: '' }` (silent, assumes prior consent).
- */
-export async function requestAccessToken(opts: { prompt?: 'consent' | '' } = {}): Promise<string> {
-  await ensureClient();
-  if (!tokenClient) throw new Error('google-sdk-unavailable');
-  if (pending) throw new Error('google-auth-busy');
-  // Silent refresh about to hit the SDK: drop any stale persisted token so we
-  // don't keep re-hydrating one the GIS cookie can no longer back. A 'consent'
-  // request is a deliberate re-auth and will replace it via persistToken.
-  if (!opts.prompt) forgetToken();
-  const prompt = opts.prompt ?? '';
-  return new Promise<string>((resolve, reject) => {
-    setPending(resolve, reject);
-    if (pending === null) {
-      // setPending refused (another caller raced in between) — abort this one.
-      reject(new Error('google-auth-busy'));
-      return;
+    const body = (await res.json()) as Partial<Session>;
+    if (typeof body.accessToken !== 'string' || typeof body.expiresAt !== 'number') {
+      throw new AuthTransientError();
     }
-    tokenClient!.requestAccessToken({ prompt });
+    const session: Session = {
+      accessToken: body.accessToken,
+      expiresAt: body.expiresAt,
+      email: typeof body.email === 'string' ? body.email : null,
+    };
+    cachedToken = session.accessToken;
+    cachedExpiresAt = session.expiresAt;
+    cachedEmail = session.email;
+    return session;
+  })();
+
+  inflight = run;
+  // Clear the in-flight slot on settle, but keep returning `run` to callers that
+  // are already awaiting it. A failure is never cached.
+  void run.catch(() => undefined).finally(() => {
+    if (inflight === run) inflight = null;
   });
+  return run;
 }
 
-/** Return a valid token, refreshing silently if the cache is empty/stale.
- *  Never shows a popup (assumes prior consent). De-dupes concurrent calls. */
 export async function getValidAccessToken(): Promise<string> {
   const hit = getCachedAccessToken();
   if (hit) return hit;
-  if (silentInflight) return silentInflight;
-  silentInflight = (async () => {
-    try {
-      return await requestAccessToken({ prompt: '' });
-    } finally {
-      silentInflight = null;
-    }
-  })();
-  return silentInflight;
+  return (await fetchSession()).accessToken;
 }
 
 /**
@@ -182,30 +133,25 @@ export async function withTokenRefresh<T>(op: (token: string) => Promise<T>): Pr
   } catch (e) {
     if (e instanceof Error && /401/.test(e.message)) {
       clearCachedAccessToken();
-      const fresh = await getValidAccessToken();
-      return op(fresh);
+      return op(await getValidAccessToken());
     }
     throw e;
   }
 }
 
-/** Best-effort revoke of a granted token — used on sign-out. */
-export function revokeAccessToken(token: string): void {
-  window.google?.accounts.oauth2.revoke(token, () => {});
+/**
+ * Start the consent flow. A full-page redirect — unlike a popup, it cannot be
+ * blocked by the browser, which is what made the old flow fail on mobile.
+ */
+export function startSignIn(): void {
+  window.location.assign(START_ENDPOINT);
 }
 
-export interface DriveUser {
-  email: string | null;
-  name: string | null;
-}
-
-/** Resolve the account's display info via the Drive `about` endpoint. */
-export async function fetchDriveUser(token: string): Promise<DriveUser> {
-  const res = await fetch(
-    'https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)',
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  if (!res.ok) throw new Error('google-about-failed');
-  const json = (await res.json()) as { user?: { displayName?: string; emailAddress?: string } };
-  return { name: json.user?.displayName ?? null, email: json.user?.emailAddress ?? null };
+/** Revoke at Google and drop the session cookie. */
+export async function serverSignOut(): Promise<void> {
+  try {
+    await fetch(SIGNOUT_ENDPOINT, { method: 'POST', credentials: 'same-origin' });
+  } finally {
+    clearCachedAccessToken();
+  }
 }
