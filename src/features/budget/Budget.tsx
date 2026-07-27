@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -11,7 +11,12 @@ import { AccountChip } from '@/components/ui/AccountChip';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import { AccountSwitcher } from '@/features/sheets/AccountSwitcher';
 import { useAccountScope } from '@/store/AccountScopeContext';
-import { useCategories, useMonthExpenses, useAccountMap } from '@/hooks/selectors';
+import {
+  useCategories,
+  useMonthExpenses,
+  useAccountMap,
+  useAutoBudget,
+} from '@/hooks/selectors';
 import { categoryLabel } from '@/lib/labels';
 import { byCategory } from '@/lib/calc';
 import { currentMonth } from '@/lib/date';
@@ -24,7 +29,7 @@ const parseNum = (s: string) => Number.parseFloat(s.replace(',', '.')) || 0;
 
 export function Budget() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/settings');
   const { scope, setScope, accounts } = useAccountScope();
   const accountMap = useAccountMap();
   const scopeAccount = scope === 'all' ? accounts[0] : accountMap.get(scope);
@@ -33,8 +38,12 @@ export function Budget() {
   const monthExpenses = useMonthExpenses(currentMonth(), scope);
   const [scopeOpen, setScopeOpen] = useState(false);
 
+  // The monthly total is derived from the user's own numbers rather than typed:
+  // income for the month less the recurring expenses already committed to it.
+  const auto = useAutoBudget(scope, currentMonth());
+  const monthly = auto.total;
+
   // Editable state, hydrated once from the loaded budget.
-  const [monthlyStr, setMonthlyStr] = useState('0');
   const [limits, setLimits] = useState<Record<string, string>>({});
   const [threshold, setThreshold] = useState(80);
   const [rollover, setRollover] = useState(true);
@@ -65,7 +74,6 @@ export function Budget() {
     let cancelled = false;
     void getBudget(accountId).then((b) => {
       if (cancelled) return;
-      setMonthlyStr(b ? String(b.monthlyBudget) : '0');
       const lm: Record<string, string> = {};
       for (const c of categories) {
         const found = b?.categoryLimits.find((x) => x.categoryId === c.id);
@@ -81,7 +89,6 @@ export function Budget() {
     };
   }, [categories, accountId, hydrated]);
 
-  const monthly = parseNum(monthlyStr);
   const allocated = useMemo(
     () => Object.values(limits).reduce((acc, v) => acc + (v ? parseNum(v) : 0), 0),
     [limits],
@@ -109,7 +116,7 @@ export function Budget() {
         warningThreshold,
         rolloverEnabled: rollover,
       });
-      navigate(-1);
+      goBack();
     } finally {
       setBusy(false);
     }
@@ -121,7 +128,7 @@ export function Budget() {
     <>
       <TopBar
         left={
-          <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')}>
+          <button type="button" className="icon-btn" onClick={() => goBack()} aria-label={t('common.back')}>
             <Icon name="ChevronLeft" size={22} />
           </button>
         }
@@ -141,7 +148,7 @@ export function Budget() {
           onClick={() => setScopeOpen(true)}
         />
 
-        {/* monthly total */}
+        {/* monthly total — derived, never typed */}
         <div className="card text-center">
           <span className="label">{t('budget.monthly')}</span>
           <div
@@ -150,27 +157,35 @@ export function Budget() {
               alignItems: 'baseline',
               justifyContent: 'center',
               gap: 4,
-              borderBottom: '2px solid var(--primary-200)',
               padding: '0 16px',
               marginTop: 6,
             }}
           >
-            <input
-              value={monthlyStr}
-              onChange={(e) => setMonthlyStr(cleanNum(e.target.value))}
-              inputMode="decimal"
-              className="amount tnum"
-              style={{
-                color: 'var(--primary-600)',
-                width: `${Math.max(3, monthlyStr.length)}ch`,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                textAlign: 'center',
-              }}
-            />
-            <span className="h2 muted">€</span>
+            <span className="amount tnum" style={{ color: 'var(--primary-600)' }}>
+              {formatCurrency(monthly)}
+            </span>
           </div>
+
+          {/* The sum is shown, not just its result: a budget the user cannot
+              account for is a number they will not trust. */}
+          <div className="col gap-2" style={{ marginTop: 12, textAlign: 'left' }}>
+            <div className="row-between">
+              <span className="body-sm muted">{t('budget.autoIncome')}</span>
+              <span className="body-sm tnum" style={{ color: 'var(--success-600)', fontWeight: 600 }}>
+                +{formatCurrency(auto.income)}
+              </span>
+            </div>
+            <div className="row-between">
+              <span className="body-sm muted">{t('budget.autoRecurring')}</span>
+              <span className="body-sm tnum" style={{ color: 'var(--danger-600)', fontWeight: 600 }}>
+                −{formatCurrency(auto.recurringExpenses)}
+              </span>
+            </div>
+          </div>
+
+          <p className="caption" style={{ marginTop: 10 }}>
+            {auto.overcommitted ? t('budget.autoOvercommitted') : t('budget.autoHint')}
+          </p>
         </div>
 
         {/* allocated preview */}

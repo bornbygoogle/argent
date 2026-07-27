@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
 import { Numpad, displayAmount, parseAmount } from '@/components/ui/Numpad';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import { AccountPickerSheet } from '@/features/sheets/AccountPickerSheet';
 import { useAccounts, useTransfer } from '@/hooks/selectors';
@@ -20,6 +22,7 @@ type Picker = 'from' | 'to' | null;
 
 export function Transfer() {
   const { t } = useTranslation();
+  const goBack = useGoBack('/');
   const navigate = useNavigate();
   const { groupId } = useParams<{ groupId: string }>();
   const { scope } = useAccountScope();
@@ -31,8 +34,15 @@ export function Transfer() {
   const locale = getLocale();
   const isEdit = Boolean(groupId);
 
-  const outLeg = legs.find((l) => l.transferRole === 'out');
-  const inLeg = legs.find((l) => l.transferRole === 'in');
+  // In edit mode: `undefined` is still loading, `[]` means the group is gone.
+  // Rendering the form for a gone group gives the user an editable transfer
+  // whose save silently does nothing (updateTransfer returns early without
+  // both legs) and a delete button that deletes nothing.
+  const loadingLegs = isEdit && legs === undefined;
+  const missingTransfer = isEdit && legs !== undefined && legs.length === 0;
+
+  const outLeg = legs?.find((l) => l.transferRole === 'out');
+  const inLeg = legs?.find((l) => l.transferRole === 'in');
 
   const defaults = useMemo(() => {
     const first = accounts[0]?.id ?? '';
@@ -46,8 +56,28 @@ export function Transfer() {
     return { from, to };
   }, [accounts, scope, settings.lastUsedAccountId]);
 
+  // Accounts arrive from a live query, so on first render `defaults` is still
+  // empty and useState captures that. Without re-syncing, the transfer screen
+  // always opened with both pickers unset and the "pick two different accounts"
+  // error already showing. A manual pick or swap sets `touchedRef` so the
+  // user's choice is never overwritten. (Same guard as TransactionForm.)
   const [fromId, setFromId] = useState(defaults.from);
   const [toId, setToId] = useState(defaults.to);
+  const touchedRef = useRef(false);
+  useEffect(() => {
+    if (isEdit || touchedRef.current) return;
+    setFromId(defaults.from);
+    setToId(defaults.to);
+  }, [isEdit, defaults.from, defaults.to]);
+
+  const pickFrom = (id: string) => {
+    touchedRef.current = true;
+    setFromId(id);
+  };
+  const pickTo = (id: string) => {
+    touchedRef.current = true;
+    setToId(id);
+  };
   const [amountStr, setAmountStr] = useState('');
   const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState('');
@@ -72,6 +102,7 @@ export function Transfer() {
   const toAccount = accounts.find((a) => a.id === toId);
 
   const swap = () => {
+    touchedRef.current = true;
     setFromId(toId);
     setToId(fromId);
   };
@@ -88,7 +119,7 @@ export function Transfer() {
         update({ lastUsedAccountId: fromId });
       }
       toast.success(t('form.saved'));
-      navigate(-1);
+      goBack();
     } catch {
       setSaving(false);
       toast.error(t('form.saveError'));
@@ -98,8 +129,40 @@ export function Transfer() {
   const handleDelete = async () => {
     if (!groupId) return;
     await deleteTransfer(groupId);
-    navigate(-1);
+    goBack();
   };
+
+  if (loadingLegs || missingTransfer) {
+    return (
+      <>
+        <TopBar
+          centered
+          title={t('screens.editTransfer')}
+          left={
+            <button type="button" className="icon-btn" onClick={() => goBack()} aria-label={t('common.back')}>
+              <Icon name="ChevronLeft" size={22} />
+            </button>
+          }
+        />
+        <div className="content">
+          {missingTransfer ? (
+            <EmptyState
+              icon="Search"
+              title={t('movements.notFound')}
+              hint={t('movements.notFoundHint')}
+              action={
+                <Button onClick={() => navigate('/expenses', { replace: true })}>
+                  {t('screens.movements')}
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState icon="Search" title={t('common.loading')} />
+          )}
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -108,11 +171,11 @@ export function Transfer() {
         title={t(isEdit ? 'screens.editTransfer' : 'screens.transfer')}
         left={
           isEdit ? (
-            <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')}>
+            <button type="button" className="icon-btn" onClick={() => goBack()} aria-label={t('common.back')}>
               <Icon name="ChevronLeft" size={22} />
             </button>
           ) : (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => goBack()}>
               {t('common.cancel')}
             </button>
           )
@@ -238,7 +301,7 @@ export function Transfer() {
         title={t('transfer.from')}
         selectedId={fromId}
         excludeId={toId}
-        onPick={setFromId}
+        onPick={pickFrom}
       />
       <AccountPickerSheet
         open={picker === 'to'}
@@ -246,7 +309,7 @@ export function Transfer() {
         title={t('transfer.to')}
         selectedId={toId}
         excludeId={fromId}
-        onPick={setToId}
+        onPick={pickTo}
       />
 
       {/* Delete confirm */}

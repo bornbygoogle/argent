@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/db/db';
 import { computeRunway } from '@/lib/runway';
 import { Runway } from '@/components/ui/Runway';
 import { useAccountScope } from '@/store/AccountScopeContext';
@@ -14,6 +12,8 @@ import {
   useMonthSummary,
   useRecentMovements,
   useRecurrings,
+  useAutoBudget,
+  useVariableExpenses,
 } from '@/hooks/selectors';
 import { accountBalance, isTransfer, totalBalance } from '@/lib/calc';
 import { currentMonth } from '@/lib/date';
@@ -61,14 +61,16 @@ export function Dashboard() {
   const balance = activeAccount ? accountBalance(activeAccount, allTx) : totalBalance(accounts, allTx);
   const scopeLabel = scope === 'all' ? t('scope.all') : activeAccount?.name ?? t('scope.all');
 
-  // The home screen's job is to answer "what can I still spend?". Budgets are
-  // per-account, so the figure covers whichever accounts are in scope. With no
-  // budget set there is nothing to be "left" of, so it falls back to balance.
-  const budgets = useLiveQuery(() => db.budgets.toArray(), [], []) ?? [];
-  const scopedBudget = budgets
-    .filter((b) => (scope === 'all' ? accountMap.has(b.accountId) : b.accountId === scope))
-    .reduce((sum, b) => sum + (b.monthlyBudget || 0), 0);
-  const runway = computeRunway(scopedBudget, summary.expense, new Date());
+  // The home screen's job is to answer "what can I still spend?". The figure is
+  // derived from income less recurring commitments for whichever accounts are
+  // in scope — the same derivation the Budget screen shows, so the two can
+  // never disagree. With no income and no budget there is nothing to be "left"
+  // of, so it falls back to balance.
+  // Recurring expenses were already deducted from the budget, so measuring them
+  // again as spending would subtract the same rent twice.
+  const scopedBudget = useAutoBudget(scope).total;
+  const variableSpent = useVariableExpenses(scope, month).reduce((s, t) => s + t.amount, 0);
+  const runway = computeRunway(scopedBudget, variableSpent, new Date());
   const hasBudget = scopedBudget > 0;
 
   const heroLabel = hasBudget

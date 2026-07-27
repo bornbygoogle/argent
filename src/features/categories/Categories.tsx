@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -7,11 +7,22 @@ import { TintedIcon } from '@/components/ui/TintedIcon';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { useCategories, useAllTransactions, useBudget } from '@/hooks/selectors';
+import { ChildListEditor } from '@/components/ui/ChildListEditor';
+import {
+  useCategories,
+  useAllTransactions,
+  useBudget,
+  useSubcategoriesByCategory,
+} from '@/hooks/selectors';
 import { useAccountScope } from '@/store/AccountScopeContext';
-import { categoryLabel } from '@/lib/labels';
+import { categoryLabel, subcategoryLabel } from '@/lib/labels';
 import { formatCurrency } from '@/lib/format';
 import { createCategory, updateCategory, deleteCategory } from '@/lib/categories';
+import {
+  createSubcategory,
+  updateSubcategory,
+  deleteSubcategory,
+} from '@/lib/subcategories';
 import type { Category } from '@/types/models';
 
 /** Icon choices offered when creating/editing a custom category. */
@@ -28,8 +39,9 @@ type EditTarget = 'new' | Category;
 
 export function Categories() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/settings');
   const categories = useCategories();
+  const subsByCategory = useSubcategoriesByCategory();
   const allTx = useAllTransactions();
   const { scope, accounts } = useAccountScope();
   const scopeAccount = scope === 'all' ? accounts[0] : accounts.find((a) => a.id === scope);
@@ -64,14 +76,20 @@ export function Categories() {
         ? `${t('categories.budget')} ${formatCurrency(limit)}`
         : t('categories.noBudget');
     const n = counts.get(c.id) ?? 0;
-    return `${budgetPart} · ${n} ${t('categories.transactions')}`;
+    const base = `${budgetPart} · ${n} ${t('categories.transactions')}`;
+    // Only mention sub-categories on the categories that have some — a
+    // "0 sub-categories" on every row would be noise.
+    const subCount = subsByCategory.get(c.id)?.length ?? 0;
+    return subCount > 0
+      ? `${base} · ${t('categories.subcategoriesCount', { count: subCount })}`
+      : base;
   };
 
   return (
     <>
       <TopBar
         left={
-          <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')}>
+          <button type="button" className="icon-btn" onClick={() => goBack()} aria-label={t('common.back')}>
             <Icon name="ChevronLeft" size={22} />
           </button>
         }
@@ -167,6 +185,8 @@ function CategoryFormSheet({
 }) {
   const { t } = useTranslation();
   const existing = target === 'new' ? undefined : target;
+  const subsByCategory = useSubcategoriesByCategory();
+  const subcategories = existing ? subsByCategory.get(existing.id) ?? [] : [];
 
   const [name, setName] = useState(existing?.name ?? '');
   const [icon, setIcon] = useState(existing?.icon ?? 'ShoppingCart');
@@ -248,12 +268,33 @@ function CategoryFormSheet({
             ))}
           </div>
 
-          {/* preview */}
+          <p className="label" style={{ marginBottom: 8 }}>{t('categories.subcategories')}</p>
+          {existing ? (
+            <ChildListEditor
+              items={subcategories}
+              onAdd={(name) => createSubcategory({ categoryId: existing.id, name })}
+              onRename={(id, name) => updateSubcategory(id, { name })}
+              onDelete={deleteSubcategory}
+              emptyText={t('categories.subcategoriesNone')}
+              addLabel={t('categories.subcategoryAdd')}
+              placeholder={t('categories.subcategoryPlaceholder')}
+              deleteHint={t('categories.subcategoryDeleteHint')}
+            />
+          ) : (
+            <p className="body-sm" style={{ marginBottom: 20, color: 'var(--neutral-500)' }}>
+              {t('categories.subcategorySaveFirst')}
+            </p>
+          )}
+
+          {/* preview — shows the exact display format a movement will use */}
           <div className="card tight" style={{ marginBottom: 20 }}>
             <div className="row" style={{ padding: '4px 0' }}>
               <TintedIcon hex={color} icon={icon} variant="cat" />
               <div className="r-main">
-                <div className="r-title">{name || t('categories.namePlaceholder')}</div>
+                <div className="r-title">
+                  {name || t('categories.namePlaceholder')}
+                  {subcategories.length > 0 && `(${subcategoryLabel(subcategories[0])})`}
+                </div>
               </div>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -30,7 +30,7 @@ const cadenceLabel = (t: (k: string) => string, c: Cadence): string => t(`recurr
 
 export function Recurring() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/settings');
   const toast = useToast();
   const recurrings = useRecurrings();
   const accounts = useAccounts();
@@ -95,7 +95,7 @@ export function Recurring() {
     <>
       <TopBar
         left={
-          <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')}>
+          <button type="button" className="icon-btn" onClick={() => goBack()} aria-label={t('common.back')}>
             <Icon name="ChevronLeft" size={22} />
           </button>
         }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -31,6 +32,7 @@ type EditTarget = 'new' | Account;
 export function Accounts() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const goBack = useGoBack('/settings');
   const { settings, update } = useSettings();
   const accounts = useAccountsIncludingArchived();
   const allTx = useAllTransactions();
@@ -46,7 +48,7 @@ export function Accounts() {
       <TopBar
         title={t('screens.accounts')}
         left={
-          <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')}>
+          <button type="button" className="icon-btn" onClick={() => goBack()} aria-label={t('common.back')}>
             <Icon name="ChevronLeft" size={22} />
           </button>
         }

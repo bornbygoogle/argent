@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -7,9 +7,15 @@ import { TintedIcon } from '@/components/ui/TintedIcon';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { useIncomeTypes, useAllTransactions } from '@/hooks/selectors';
-import { incomeTypeLabel } from '@/lib/labels';
+import { ChildListEditor } from '@/components/ui/ChildListEditor';
+import { useIncomeTypes, useAllTransactions, useIncomeSubtypesByType } from '@/hooks/selectors';
+import { incomeSubtypeLabel, incomeTypeLabel } from '@/lib/labels';
 import { createIncomeType, updateIncomeType, deleteIncomeType } from '@/lib/incomeTypes';
+import {
+  createIncomeSubtype,
+  updateIncomeSubtype,
+  deleteIncomeSubtype,
+} from '@/lib/incomeSubtypes';
 import type { IncomeType } from '@/types/models';
 
 /** Icon choices offered when creating/editing an income type. */
@@ -29,8 +35,9 @@ type EditTarget = 'new' | IncomeType;
 
 export function IncomeTypes() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/settings');
   const incomeTypes = useIncomeTypes();
+  const subsByType = useIncomeSubtypesByType();
   const allTx = useAllTransactions();
   const [editing, setEditing] = useState<EditTarget | null>(null);
 
@@ -47,14 +54,17 @@ export function IncomeTypes() {
 
   const subFor = (it: IncomeType): string => {
     const n = counts.get(it.key) ?? 0;
-    return `${n} ${t('incomeTypes.transactions')}`;
+    const base = `${n} ${t('incomeTypes.transactions')}`;
+    // Only mention sub-types on the types that have some.
+    const subCount = subsByType.get(it.key)?.length ?? 0;
+    return subCount > 0 ? `${base} · ${t('incomeTypes.subtypesCount', { count: subCount })}` : base;
   };
 
   return (
     <>
       <TopBar
         left={
-          <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')}>
+          <button type="button" className="icon-btn" onClick={() => goBack()} aria-label={t('common.back')}>
             <Icon name="ChevronLeft" size={22} />
           </button>
         }
@@ -123,6 +133,8 @@ function IncomeTypeFormSheet({
 }) {
   const { t } = useTranslation();
   const existing = target === 'new' ? undefined : target;
+  const subsByType = useIncomeSubtypesByType();
+  const subtypes = existing ? subsByType.get(existing.key) ?? [] : [];
 
   const [label, setLabel] = useState(existing?.label ?? '');
   const [icon, setIcon] = useState(existing?.icon ?? DEFAULT_ICON);
@@ -207,12 +219,33 @@ function IncomeTypeFormSheet({
             ))}
           </div>
 
-          {/* preview */}
+          <p className="label" style={{ marginBottom: 8 }}>{t('incomeTypes.subtypes')}</p>
+          {existing ? (
+            <ChildListEditor
+              items={subtypes}
+              onAdd={(name) => createIncomeSubtype({ incomeTypeKey: existing.key, name })}
+              onRename={(id, name) => updateIncomeSubtype(id, { name })}
+              onDelete={deleteIncomeSubtype}
+              emptyText={t('incomeTypes.subtypesNone')}
+              addLabel={t('incomeTypes.subtypeAdd')}
+              placeholder={t('incomeTypes.subtypePlaceholder')}
+              deleteHint={t('incomeTypes.subtypeDeleteHint')}
+            />
+          ) : (
+            <p className="body-sm" style={{ marginBottom: 20, color: 'var(--neutral-500)' }}>
+              {t('incomeTypes.subtypeSaveFirst')}
+            </p>
+          )}
+
+          {/* preview — shows the exact display format a movement will use */}
           <div className="card tight" style={{ marginBottom: 20 }}>
             <div className="row" style={{ padding: '4px 0' }}>
               <TintedIcon hex={color} icon={icon} variant="cat" />
               <div className="r-main">
-                <div className="r-title">{label || t('incomeTypes.namePlaceholder')}</div>
+                <div className="r-title">
+                  {label || t('incomeTypes.namePlaceholder')}
+                  {subtypes.length > 0 && `(${incomeSubtypeLabel(subtypes[0])})`}
+                </div>
               </div>
             </div>
           </div>

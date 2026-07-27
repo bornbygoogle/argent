@@ -5,7 +5,7 @@ import { DirectionBadge } from '@/components/ui/DirectionBadge';
 import { formatSignedCurrency } from '@/lib/format';
 import { transactionLabel, transferLabel } from '@/lib/labels';
 import { direction, isExpense, isTransfer } from '@/lib/calc';
-import { useIncomeTypeMap } from '@/hooks/selectors';
+import { useIncomeTypeMap, useSubcategoryMap, useIncomeSubtypeMap } from '@/hooks/selectors';
 import type { Account, Category, Transaction } from '@/types/models';
 
 interface MovementRowProps {
@@ -31,6 +31,8 @@ export function MovementRow({
 }: MovementRowProps) {
   const { t } = useTranslation();
   const incomeTypeMap = useIncomeTypeMap();
+  const subcategoryMap = useSubcategoryMap();
+  const incomeSubtypeMap = useIncomeSubtypeMap();
   const dir = direction(tx);
   const transfer = isTransfer(tx);
   const expense = isExpense(tx);
@@ -40,12 +42,12 @@ export function MovementRow({
 
   const label = transfer
     ? transferLabel(t, tx, counterAccount)
-    : transactionLabel(
-        t,
-        tx,
-        new Map(category ? [[category.id, category]] : []),
-        incomeTypeMap,
-      );
+    : transactionLabel(t, tx, {
+        categoryById: new Map(category ? [[category.id, category]] : []),
+        incomeTypeByKey: incomeTypeMap,
+        subcategoryById: subcategoryMap,
+        incomeSubtypeById: incomeSubtypeMap,
+      });
   const sub = showAccount && account ? account.name : undefined;
 
   const amtClass = transfer ? 'amt-trf' : dir === 'in' ? 'amt-in' : 'amt-out';

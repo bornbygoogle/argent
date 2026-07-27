@@ -10,6 +10,7 @@ import {
   Heart, HeartPulse, FileText, Receipt, Tag,
   // arrows / actions
   ArrowLeft, ArrowRight, ArrowUp, ArrowDownRight, ArrowUpRight, ArrowLeftRight,
+  CornerDownRight,
   Archive, ArchiveRestore, Search, Trash2, Pencil, Type, Delete, Download, Upload,
   CloudUpload, CloudDownload, Cloud, CloudOff, RefreshCw, Repeat, Lock, LogOut, GripVertical, LayoutGrid,
   Filter,
@@ -37,6 +38,7 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   Heart, HeartPulse, FileText, Receipt, Tag,
   // arrows / actions
   ArrowLeft, ArrowRight, ArrowUp, ArrowDownRight, ArrowUpRight, ArrowLeftRight,
+  CornerDownRight,
   Archive, ArchiveRestore, Search, Trash2, Pencil, Type, Delete, Download, Upload,
   CloudUpload, CloudDownload, Cloud, CloudOff, RefreshCw, Repeat, Lock, LogOut, GripVertical, LayoutGrid,
   Filter,

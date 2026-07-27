@@ -248,7 +248,15 @@
     "selectIncomeType": "Choisir un type",
     "selectAccount": "Choisir un compte",
     "saved": "Enregistré",
-    "saveError": "L'enregistrement a échoué"
+    "saveError": "L'enregistrement a échoué",
+    "subcategory": "Sous-catégorie",
+    "selectSubcategory": "Choisir une sous-catégorie",
+    "noSubcategory": "Aucune",
+    "noteToSubcategory": "Convertir la note en sous-catégorie",
+    "incomeSubtype": "Sous-type",
+    "selectIncomeSubtype": "Choisir un sous-type",
+    "noIncomeSubtype": "Aucun",
+    "noteToIncomeSubtype": "Convertir la note en sous-type"
   },
   "movements": {
     "filterAll": "Tous",
@@ -258,7 +266,9 @@
     "empty": "Rien à afficher",
     "emptyHint": "Les mouvements apparaîtront ici une fois ajoutés.",
     "emptyFilter": "Aucun résultat pour ce filtre",
-    "emptyFilterHint": "Changez de filtre pour voir d'autres mouvements."
+    "emptyFilterHint": "Changez de filtre pour voir d'autres mouvements.",
+    "notFound": "Mouvement introuvable",
+    "notFoundHint": "Il a été supprimé, ou le lien n’est plus valide."
   },
   "transfer": {
     "from": "De",
@@ -342,7 +352,11 @@
     "rollover": "Report du solde",
     "rolloverHint": "Le reste non dépensé est reporté sur le mois suivant.",
     "save": "Enregistrer le budget",
-    "removeLimit": "Retirer la limite"
+    "removeLimit": "Retirer la limite",
+    "autoIncome": "Revenus du mois",
+    "autoRecurring": "Dépenses récurrentes",
+    "autoHint": "Calculé automatiquement : revenus moins dépenses récurrentes.",
+    "autoOvercommitted": "Tes dépenses récurrentes dépassent tes revenus du mois."
   },
   "categories": {
     "new": "Nouvelle",
@@ -360,7 +374,15 @@
     "icon": "Icône",
     "color": "Couleur",
     "delete": "Supprimer la catégorie",
-    "deleteHint": "Les dépenses de cette catégorie seront déplacées vers « Autre »."
+    "deleteHint": "Les dépenses de cette catégorie seront déplacées vers « Autre ».",
+    "subcategories": "Sous-catégories",
+    "subcategoriesNone": "Aucune sous-catégorie",
+    "subcategoryAdd": "Ajouter une sous-catégorie",
+    "subcategoryPlaceholder": "ex. Midi",
+    "subcategoryDeleteHint": "Les dépenses concernées gardent leur catégorie et perdent la sous-catégorie.",
+    "subcategoriesCount_one": "{{count}} sous-catégorie",
+    "subcategoriesCount_other": "{{count}} sous-catégories",
+    "subcategorySaveFirst": "Enregistre la catégorie pour lui ajouter des sous-catégories."
   },
   "incomeTypes": {
     "new": "Nouveau",
@@ -376,7 +398,15 @@
     "icon": "Icône",
     "color": "Couleur",
     "delete": "Supprimer le type",
-    "deleteHint": "Les rentrées de ce type basculeront vers « Autre »."
+    "deleteHint": "Les rentrées de ce type basculeront vers « Autre ».",
+    "subtypes": "Sous-types",
+    "subtypesNone": "Aucun sous-type",
+    "subtypeAdd": "Ajouter un sous-type",
+    "subtypePlaceholder": "ex. Prime",
+    "subtypeDeleteHint": "Les revenus concernés gardent leur type et perdent le sous-type.",
+    "subtypesCount_one": "{{count}} sous-type",
+    "subtypesCount_other": "{{count}} sous-types",
+    "subtypeSaveFirst": "Enregistre le type pour lui ajouter des sous-types."
   },
   "stats": {
     "month": "Mois",
@@ -436,7 +466,8 @@
     "carried": "reporté de {{m}}",
     "dailyAvg": "Moyenne / jour",
     "topCategories": "Top catégories",
-    "noExpenses": "Aucune dépense ce mois-ci"
+    "noExpenses": "Aucune dépense ce mois-ci",
+    "variableOf": "{{spent}} de dépenses variables sur {{budget}}"
   },
   "install": {
     "title": "Installer {{app}}",

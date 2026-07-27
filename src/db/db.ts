@@ -5,7 +5,9 @@ import type {
   Recurring,
   Budget,
   Category,
+  Subcategory,
   IncomeType,
+  IncomeSubtype,
   MonthClosure,
 } from '@/types/models';
 
@@ -35,7 +37,9 @@ export class AppDB extends Dexie {
   recurrings!: Table<Recurring, string>;
   budgets!: Table<Budget, string>;
   categories!: Table<Category, string>;
+  subcategories!: Table<Subcategory, string>;
   incomeTypes!: Table<IncomeType, string>;
+  incomeSubtypes!: Table<IncomeSubtype, string>;
   monthClosures!: Table<MonthClosure, [string, string]>;
   settings!: Table<SettingsRecord, 'app'>;
 
@@ -52,6 +56,23 @@ export class AppDB extends Dexie {
       incomeTypes: 'id, order',
       monthClosures: '[accountId+month], accountId, month',
       settings: 'key',
+    });
+
+    // v2 — sub-categories. Only the changed stores are restated; Dexie carries
+    // the rest forward. Existing rows need no migration: `subcategoryId` is
+    // optional and absent rows simply fall out of the new index.
+    this.version(2).stores({
+      transactions:
+        'id, accountId, date, [accountId+date], kind, [kind+accountId+date], transferGroupId, recurringSourceId, incomeType, [incomeType+date], categoryId, subcategoryId',
+      subcategories: 'id, categoryId, [categoryId+sortOrder]',
+    });
+
+    // v3 — the income-side counterpart. Parent is the income type's `key`,
+    // which is what transactions already store.
+    this.version(3).stores({
+      transactions:
+        'id, accountId, date, [accountId+date], kind, [kind+accountId+date], transferGroupId, recurringSourceId, incomeType, [incomeType+date], categoryId, subcategoryId, incomeSubtypeId',
+      incomeSubtypes: 'id, incomeTypeKey, [incomeTypeKey+sortOrder]',
     });
   }
 }

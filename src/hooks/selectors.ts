@@ -2,15 +2,18 @@
 import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
-import { monthOf } from '@/lib/date';
+import { monthOf, todayISO } from '@/lib/date';
 import { sumExpenses, sumIncome } from '@/lib/calc';
+import { computeAutoBudget, variableExpenses, type AutoBudget } from '@/lib/budget';
 import type {
   Account,
   AccountScope,
   Budget,
   Category,
+  IncomeSubtype,
   IncomeType,
   Recurring,
+  Subcategory,
   Transaction,
 } from '@/types/models';
 
@@ -35,6 +38,32 @@ export function useCategories(): Category[] {
   return useMemo(() => (list?.sort((a, b) => a.sortOrder - b.sortOrder) ?? []), [list]);
 }
 
+/** All sub-categories, ordered within each category. */
+export function useSubcategories(): Subcategory[] {
+  const list = useLiveQuery(() => db.subcategories.toArray(), []);
+  return useMemo(() => (list?.slice().sort((a, b) => a.sortOrder - b.sortOrder) ?? []), [list]);
+}
+
+/** categoryId → its sub-categories, ordered. Categories with none are absent. */
+export function useSubcategoriesByCategory(): Map<string, Subcategory[]> {
+  const subs = useSubcategories();
+  return useMemo(() => {
+    const m = new Map<string, Subcategory[]>();
+    for (const s of subs) {
+      const arr = m.get(s.categoryId);
+      if (arr) arr.push(s);
+      else m.set(s.categoryId, [s]);
+    }
+    return m;
+  }, [subs]);
+}
+
+/** id → Subcategory lookup map, for resolving a transaction's sub-category. */
+export function useSubcategoryMap(): Map<string, Subcategory> {
+  const subs = useSubcategories();
+  return useMemo(() => new Map(subs.map((s) => [s.id, s])), [subs]);
+}
+
 /** Income-type enum ordered. */
 export function useIncomeTypes(): IncomeType[] {
   const list = useLiveQuery(() => db.incomeTypes.toArray(), []);
@@ -46,6 +75,32 @@ export function useIncomeTypes(): IncomeType[] {
 export function useIncomeTypeMap(): Map<string, IncomeType> {
   const list = useLiveQuery(() => db.incomeTypes.toArray(), []);
   return useMemo(() => new Map((list ?? []).map((it) => [it.key, it])), [list]);
+}
+
+/** All income sub-types, ordered within each income type. */
+export function useIncomeSubtypes(): IncomeSubtype[] {
+  const list = useLiveQuery(() => db.incomeSubtypes.toArray(), []);
+  return useMemo(() => (list?.slice().sort((a, b) => a.sortOrder - b.sortOrder) ?? []), [list]);
+}
+
+/** incomeTypeKey → its sub-types, ordered. Types with none are absent. */
+export function useIncomeSubtypesByType(): Map<string, IncomeSubtype[]> {
+  const subs = useIncomeSubtypes();
+  return useMemo(() => {
+    const m = new Map<string, IncomeSubtype[]>();
+    for (const s of subs) {
+      const arr = m.get(s.incomeTypeKey);
+      if (arr) arr.push(s);
+      else m.set(s.incomeTypeKey, [s]);
+    }
+    return m;
+  }, [subs]);
+}
+
+/** id → IncomeSubtype lookup map, for resolving a transaction's sub-type. */
+export function useIncomeSubtypeMap(): Map<string, IncomeSubtype> {
+  const subs = useIncomeSubtypes();
+  return useMemo(() => new Map(subs.map((s) => [s.id, s])), [subs]);
 }
 
 /** id → Account lookup map for scoped "all" rows that show the account name. */
@@ -108,24 +163,66 @@ export function useRecentMovements(scope: AccountScope, limit = 8): Transaction[
 }
 
 /** Single transaction by id (for the edit screen). */
-export function useTransaction(id: string | undefined): Transaction | undefined {
-  return useLiveQuery(async () => (id ? db.transactions.get(id) : undefined), [id]);
+/** `undefined` while the query is in flight, `null` once we know there is no
+ *  such movement. An edit screen that cannot tell those apart shows a
+ *  "Loading…" spinner forever for a deleted or mistyped id. */
+export function useTransaction(id: string | undefined): Transaction | null | undefined {
+  return useLiveQuery(async () => (id ? (await db.transactions.get(id)) ?? null : null), [id]);
 }
 
-/** Both legs of a transfer by group id (for the transfer edit screen). */
-export function useTransfer(groupId: string | undefined): Transaction[] {
-  return (
-    useLiveQuery(
-      async () =>
-        groupId ? db.transactions.where('transferGroupId').equals(groupId).toArray() : [],
-      [groupId],
-    ) ?? []
+/** Both legs of a transfer by group id (for the transfer edit screen).
+ *  `undefined` while the query is in flight, `[]` once we know the group does
+ *  not exist — otherwise the screen renders an editable phantom transfer whose
+ *  save silently does nothing. */
+export function useTransfer(groupId: string | undefined): Transaction[] | undefined {
+  return useLiveQuery(
+    async () =>
+      groupId ? db.transactions.where('transferGroupId').equals(groupId).toArray() : [],
+    [groupId],
   );
 }
 
 /** All recurring templates (screens sort/filter as needed). */
 export function useRecurrings(): Recurring[] {
   return useLiveQuery(() => db.recurrings.toArray(), []) ?? [];
+}
+
+/** Recurring templates within the current scope. */
+export function useScopedRecurrings(scope: AccountScope): Recurring[] {
+  const all = useRecurrings();
+  const accounts = useAccounts();
+  return useMemo(() => {
+    if (scope !== 'all') return all.filter((r) => r.accountId === scope);
+    // "All accounts" means the active ones — a template left on an archived
+    // account is not a commitment the user is still budgeting for.
+    const active = new Set(accounts.map((a) => a.id));
+    return all.filter((r) => active.has(r.accountId));
+  }, [all, accounts, scope]);
+}
+
+/**
+ * The monthly budget derived from the user's own numbers: income for the month
+ * less the recurring expenses committed against it. Single source of truth for
+ * the Budget screen, the home hero and the monthly overview, so no two screens
+ * can disagree about how much there is to spend.
+ */
+/** Expenses that count against the derived budget — everything except the
+ *  recurring commitments already deducted from it. */
+export function useVariableExpenses(scope: AccountScope, month: string): Transaction[] {
+  const tx = useScopedTransactions(scope);
+  return useMemo(
+    () => variableExpenses(tx.filter((t) => monthOf(t.date) === month)),
+    [tx, month],
+  );
+}
+
+export function useAutoBudget(scope: AccountScope, month: string = monthOf(todayISO())): AutoBudget {
+  const summary = useMonthSummary(month, scope);
+  const recurrings = useScopedRecurrings(scope);
+  return useMemo(
+    () => computeAutoBudget(summary.income, recurrings, month),
+    [summary.income, recurrings, month],
+  );
 }
 
 /** The budget for a single account (undefined until the user sets one). */

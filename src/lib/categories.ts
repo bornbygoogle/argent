@@ -2,6 +2,7 @@
 // editable. Deleting a custom reassigns its expenses to "Autre" (cat-autre).
 import { db } from '@/db/db';
 import { uid } from '@/lib/id';
+import { deleteSubcategoriesOfCategory } from '@/lib/subcategories';
 import type { Category } from '@/types/models';
 
 export interface CategoryInput {
@@ -47,7 +48,10 @@ export async function updateCategory(id: string, patch: CategoryPatch): Promise<
 
 export async function deleteCategory(id: string): Promise<void> {
   if (id === 'cat-autre') return; // never delete the fallback
-  await db.transaction('rw', db.transactions, db.categories, db.budgets, async () => {
+  await db.transaction('rw', db.transactions, db.categories, db.subcategories, db.budgets, async () => {
+    // Sub-categories belong to this category and cannot follow its expenses to
+    // the fallback, so they go first — while their transactions still resolve.
+    await deleteSubcategoriesOfCategory(id);
     // Reassign expenses, then strip the limit from every budget.
     await db.transactions.where('categoryId').equals(id).modify({ categoryId: 'cat-autre' });
     const budgets = await db.budgets.toArray();

@@ -248,7 +248,15 @@
     "selectIncomeType": "Select a type",
     "selectAccount": "Select an account",
     "saved": "Saved",
-    "saveError": "Could not save"
+    "saveError": "Could not save",
+    "subcategory": "Sub-category",
+    "selectSubcategory": "Choose a sub-category",
+    "noSubcategory": "None",
+    "noteToSubcategory": "Turn the note into a sub-category",
+    "incomeSubtype": "Sub-type",
+    "selectIncomeSubtype": "Choose a sub-type",
+    "noIncomeSubtype": "None",
+    "noteToIncomeSubtype": "Turn the note into a sub-type"
   },
   "movements": {
     "filterAll": "All",
@@ -258,7 +266,9 @@
     "empty": "Nothing here yet",
     "emptyHint": "Movements will show up here once you add some.",
     "emptyFilter": "No results for this filter",
-    "emptyFilterHint": "Switch filter to see other movements."
+    "emptyFilterHint": "Switch filter to see other movements.",
+    "notFound": "Movement not found",
+    "notFoundHint": "It was deleted, or the link is no longer valid."
   },
   "transfer": {
     "from": "From",
@@ -342,7 +352,11 @@
     "rollover": "Carry over balance",
     "rolloverHint": "The unspent remainder carries into the next month.",
     "save": "Save budget",
-    "removeLimit": "Remove limit"
+    "removeLimit": "Remove limit",
+    "autoIncome": "Income this month",
+    "autoRecurring": "Recurring expenses",
+    "autoHint": "Calculated automatically: income minus recurring expenses.",
+    "autoOvercommitted": "Your recurring expenses exceed this month’s income."
   },
   "categories": {
     "new": "New",
@@ -360,7 +374,15 @@
     "icon": "Icon",
     "color": "Color",
     "delete": "Delete category",
-    "deleteHint": "Expenses in this category will move to \"Other\"."
+    "deleteHint": "Expenses in this category will move to \"Other\".",
+    "subcategories": "Sub-categories",
+    "subcategoriesNone": "No sub-categories",
+    "subcategoryAdd": "Add a sub-category",
+    "subcategoryPlaceholder": "e.g. Lunch",
+    "subcategoryDeleteHint": "Affected expenses keep their category and lose the sub-category.",
+    "subcategoriesCount_one": "{{count}} sub-category",
+    "subcategoriesCount_other": "{{count}} sub-categories",
+    "subcategorySaveFirst": "Save the category to give it sub-categories."
   },
   "incomeTypes": {
     "new": "New",
@@ -376,7 +398,15 @@
     "icon": "Icon",
     "color": "Color",
     "delete": "Delete type",
-    "deleteHint": "Income of this type will move to \"Other\"."
+    "deleteHint": "Income of this type will move to \"Other\".",
+    "subtypes": "Sub-types",
+    "subtypesNone": "No sub-types",
+    "subtypeAdd": "Add a sub-type",
+    "subtypePlaceholder": "e.g. Bonus",
+    "subtypeDeleteHint": "Affected income keeps its type and loses the sub-type.",
+    "subtypesCount_one": "{{count}} sub-type",
+    "subtypesCount_other": "{{count}} sub-types",
+    "subtypeSaveFirst": "Save the type to give it sub-types."
   },
   "stats": {
     "month": "Month",
@@ -436,7 +466,8 @@
     "carried": "carried from {{m}}",
     "dailyAvg": "Daily average",
     "topCategories": "Top categories",
-    "noExpenses": "No expenses this month"
+    "noExpenses": "No expenses this month",
+    "variableOf": "{{spent}} variable spending of {{budget}}"
   },
   "install": {
     "title": "Install {{app}}",

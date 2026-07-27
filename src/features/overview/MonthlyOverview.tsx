@@ -8,7 +8,12 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Progress } from '@/components/ui/Progress';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useAccountScope } from '@/store/AccountScopeContext';
-import { useScopedTransactions, useCategoryMap, useBudget } from '@/hooks/selectors';
+import {
+  useScopedTransactions,
+  useCategoryMap,
+  useAutoBudget,
+  useVariableExpenses,
+} from '@/hooks/selectors';
 import { byCategory } from '@/lib/calc';
 import {
   dailyExpenses,
@@ -40,9 +45,17 @@ export function MonthlyOverview() {
   const [month, setMonth] = useState<string>(currentMonth());
   const atCurrentMonth = month >= currentMonth();
 
-  const scopeAccount = scope === 'all' ? accounts[0] : accounts.find((a) => a.id === scope);
-  const budget = useBudget(scopeAccount?.id);
-  const monthlyBudget = budget?.monthlyBudget ?? 0;
+  // Same derivation as the Budget screen and the home hero, for the month being
+  // viewed rather than always the current one.
+  const monthlyBudget = useAutoBudget(scope, month).total;
+  // Recurring commitments are already out of that budget, so everything
+  // measured against it — the progress bar and the heat map's daily threshold —
+  // must count only variable spending, or the same rent is subtracted twice.
+  const variableTx = useVariableExpenses(scope, month);
+  const variableTotal = useMemo(
+    () => variableTx.reduce((s, e) => s + e.amount, 0),
+    [variableTx],
+  );
 
   const expenses = useMemo(() => scoped.filter((tx) => tx.kind === 'expense' && monthOf(tx.date) === month), [scoped, month]);
   const prevExpenses = useMemo(() => scoped.filter((tx) => tx.kind === 'expense' && monthOf(tx.date) === prevMonth(month)), [scoped, month]);
@@ -60,7 +73,7 @@ export function MonthlyOverview() {
   ) ?? 0;
 
   // ---- Heatmap ----
-  const dailyMap = useMemo(() => dailyExpenses(scoped, month), [scoped, month]);
+  const dailyMap = useMemo(() => dailyExpenses(variableTx, month), [variableTx, month]);
   const maxDaily = useMemo(() => Math.max(0, ...dailyMap.values()), [dailyMap]);
   const isCurrent = month === currentMonth();
   const today = isCurrent ? new Date().getDate() : 0;
@@ -170,9 +183,18 @@ export function MonthlyOverview() {
             <div className="amount-lg" style={{ marginTop: 4 }}>{formatCurrency(curTotal)}</div>
             {monthlyBudget > 0 && (
               <>
-                <Progress value={curTotal / monthlyBudget} color={curTotal > monthlyBudget ? 'var(--danger-500)' : 'var(--success-500)'} className="mt-2" />
+                <Progress
+                  value={variableTotal / monthlyBudget}
+                  color={variableTotal > monthlyBudget ? 'var(--danger-500)' : 'var(--success-500)'}
+                  className="mt-2"
+                />
+                {/* The headline above is every expense; the bar measures only
+                    what the budget actually covers, so it says which is which. */}
                 <span className="caption" style={{ marginTop: 6, display: 'block' }}>
-                  {t('overview.of')} {formatCurrency(monthlyBudget)}
+                  {t('overview.variableOf', {
+                    spent: formatCurrency(variableTotal),
+                    budget: formatCurrency(monthlyBudget),
+                  })}
                 </span>
               </>
             )}

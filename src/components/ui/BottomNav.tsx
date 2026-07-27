@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '@/components/ui/Icon';
 
@@ -12,15 +12,26 @@ const slot = (active: boolean) => (active ? 'bn-slot active' : 'bn-slot');
 /** Bottom navigation: Accueil · Stats · [FAB] · Calendrier · Réglages. */
 export function BottomNav({ onAdd }: BottomNavProps) {
   const { t } = useTranslation();
+  const [params] = useSearchParams();
+
+  // The account scope is app-wide but lives in the URL, so a bare tab link
+  // would silently reset it — and Statistics has no picker to notice it by.
+  // Only `account` travels: params like `?category=` belong to one screen.
+  const account = params.get('account');
+  const to = (pathname: string) =>
+    account
+      ? { pathname, search: `?${new URLSearchParams({ account }).toString()}` }
+      : pathname;
+
   return (
     <>
       <nav className="bottomnav">
-        <NavLink to="/" end className={({ isActive }) => slot(isActive)} aria-label={t('nav.home')}>
+        <NavLink to={to('/')} end className={({ isActive }) => slot(isActive)} aria-label={t('nav.home')}>
           <Icon name="Home" size={22} strokeWidth={2} />
           <span className="bn-label">{t('nav.home')}</span>
         </NavLink>
 
-        <NavLink to="/stats" className={({ isActive }) => slot(isActive)} aria-label={t('nav.stats')}>
+        <NavLink to={to('/stats')} className={({ isActive }) => slot(isActive)} aria-label={t('nav.stats')}>
           <Icon name="ChartColumnIncreasing" size={22} strokeWidth={2} />
           <span className="bn-label">{t('nav.stats')}</span>
         </NavLink>
@@ -30,12 +41,12 @@ export function BottomNav({ onAdd }: BottomNavProps) {
           <span className="bn-spacer" />
         </div>
 
-        <NavLink to="/overview" className={({ isActive }) => slot(isActive)} aria-label={t('nav.calendar')}>
+        <NavLink to={to('/overview')} className={({ isActive }) => slot(isActive)} aria-label={t('nav.calendar')}>
           <Icon name="Calendar" size={22} strokeWidth={2} />
           <span className="bn-label">{t('nav.calendar')}</span>
         </NavLink>
 
-        <NavLink to="/settings" className={({ isActive }) => slot(isActive)} aria-label={t('nav.settings')}>
+        <NavLink to={to('/settings')} className={({ isActive }) => slot(isActive)} aria-label={t('nav.settings')}>
           <Icon name="Settings" size={22} strokeWidth={2} />
           <span className="bn-label">{t('nav.settings')}</span>
         </NavLink>

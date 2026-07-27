@@ -5,7 +5,7 @@ import { GoogleAuthProvider } from '@/store/GoogleAuthContext';
 import { ToastProvider } from '@/store/ToastContext';
 import { GoogleAutoBackup } from '@/components/GoogleAutoBackup';
 import { ToastContainer } from '@/components/ui/Toast';
-import { OnboardingGuard } from '@/routes/OnboardingGuard';
+import { OnboardingGuard, OnboardingRoute } from '@/routes/OnboardingGuard';
 import { RootLayout } from '@/routes/RootLayout';
 import { Onboarding } from '@/features/onboarding/Onboarding';
 import { Settings } from '@/features/settings/Settings';
@@ -30,7 +30,14 @@ function AppRoutes() {
   useCurrency();
   return (
     <Routes>
-      <Route path="/onboarding" element={<Onboarding />} />
+      <Route
+        path="/onboarding"
+        element={
+          <OnboardingRoute>
+            <Onboarding />
+          </OnboardingRoute>
+        }
+      />
 
       <Route element={<OnboardingGuard />}>
         {/* Tab roots (persistent bottom nav) */}

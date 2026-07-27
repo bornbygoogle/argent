@@ -9,7 +9,13 @@ export interface TransactionInput {
   amount: number;
   accountId: string;
   categoryId?: string;
+  /** Empty string clears it. Always dropped when the category changes without
+   *  a matching sub-category being supplied in the same patch. */
+  subcategoryId?: string;
   incomeType?: string;
+  /** Empty string clears it. Dropped when the income type changes without a
+   *  matching sub-type being supplied in the same patch. */
+  incomeSubtypeId?: string;
   merchant?: string;
   note?: string;
   date?: string;
@@ -30,7 +36,11 @@ export async function addTransaction(
     accountId: input.accountId,
     amount: round2(input.amount),
     categoryId: kind === 'expense' ? input.categoryId : undefined,
+    // A sub-category only means anything under a category, and only expenses
+    // carry one.
+    subcategoryId: kind === 'expense' ? input.subcategoryId || undefined : undefined,
     incomeType: kind === 'income' ? input.incomeType : undefined,
+    incomeSubtypeId: kind === 'income' ? input.incomeSubtypeId || undefined : undefined,
     merchant: input.merchant?.trim() || undefined,
     note: input.note?.trim() || undefined,
     date: input.date?.trim() || todayISO(),
@@ -49,7 +59,20 @@ export async function updateTransaction(
   if (patch.amount !== undefined) next.amount = round2(patch.amount);
   if (patch.accountId !== undefined) next.accountId = patch.accountId;
   if (patch.categoryId !== undefined) next.categoryId = patch.categoryId;
+  // A sub-category is scoped to its category, so moving the category orphans
+  // it. Clear it unless this same patch names a replacement.
+  if (patch.subcategoryId !== undefined) {
+    next.subcategoryId = patch.subcategoryId || undefined;
+  } else if (patch.categoryId !== undefined) {
+    next.subcategoryId = undefined;
+  }
   if (patch.incomeType !== undefined) next.incomeType = patch.incomeType;
+  // Same rule as the category side: moving the income type orphans its sub-type.
+  if (patch.incomeSubtypeId !== undefined) {
+    next.incomeSubtypeId = patch.incomeSubtypeId || undefined;
+  } else if (patch.incomeType !== undefined) {
+    next.incomeSubtypeId = undefined;
+  }
   if (patch.merchant !== undefined) next.merchant = patch.merchant?.trim() || undefined;
   if (patch.note !== undefined) next.note = patch.note?.trim() || undefined;
   if (patch.date !== undefined) next.date = patch.date?.trim() || todayISO();

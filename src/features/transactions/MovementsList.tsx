@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -25,6 +26,7 @@ interface DayGroup {
 export function MovementsList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const goBack = useGoBack('/');
   const { scope, setScope } = useAccountScope();
   const accountMap = useAccountMap();
   const categoryMap = useCategoryMap();
@@ -68,7 +70,7 @@ export function MovementsList() {
       <TopBar
         title={t('screens.movements')}
         left={
-          <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')}>
+          <button type="button" className="icon-btn" onClick={() => goBack()} aria-label={t('common.back')}>
             <Icon name="ChevronLeft" size={22} />
           </button>
         }

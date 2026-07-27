@@ -5,6 +5,7 @@
 // custom types render correctly even without an i18n entry.
 import { db } from '@/db/db';
 import { uid } from '@/lib/id';
+import { deleteIncomeSubtypesOfType } from '@/lib/incomeSubtypes';
 import type { IncomeType } from '@/types/models';
 
 /** The fallback key expenses/income are reassigned to on deletion. */
@@ -67,7 +68,11 @@ export async function deleteIncomeType(id: string): Promise<void> {
   // Never delete the fallback type ("Autre") — it's the reassignment sink.
   if (!target || target.key === INCOME_TYPE_FALLBACK_KEY) return;
 
-  await db.transaction('rw', db.transactions, db.recurrings, db.incomeTypes, async () => {
+  await db.transaction('rw', db.transactions, db.recurrings, db.incomeTypes, db.incomeSubtypes, async () => {
+    // Sub-types belong to this income type and cannot follow its transactions
+    // to the fallback, so they go first — while their transactions still
+    // reference the old key.
+    await deleteIncomeSubtypesOfType(target.key);
     // Reassign every usage to the fallback. `transactions.incomeType` is indexed;
     // `recurrings` is not, so filter in-memory (the set is small).
     await db.transactions

@@ -9,7 +9,9 @@ const TABLES = [
   'recurrings',
   'budgets',
   'categories',
+  'subcategories',
   'incomeTypes',
+  'incomeSubtypes',
   'monthClosures',
 ] as const;
 
@@ -57,13 +59,17 @@ function isPayload(v: unknown): v is BackupPayload {
 export async function importBackup(raw: unknown): Promise<{ rows: number }> {
   if (!isPayload(raw)) throw new Error('invalid-backup');
   let rows = 0;
-  const stores = [db.accounts, db.transactions, db.recurrings, db.budgets, db.categories, db.incomeTypes, db.monthClosures];
+  const stores = [db.accounts, db.transactions, db.recurrings, db.budgets, db.categories, db.subcategories, db.incomeTypes, db.incomeSubtypes, db.monthClosures];
   await db.transaction('rw', stores, async () => {
     for (const name of TABLES) {
       const table = (db as unknown as Record<string, { clear: () => Promise<void>; bulkPut: (r: unknown[]) => Promise<unknown> }>)[name];
       const data = raw.tables[name];
-      if (!Array.isArray(data)) continue;
+      // Clear even when the payload omits the table. A backup taken before
+      // sub-categories existed has no `subcategories` key, and keeping the
+      // local rows would leave them pointing at categories the restore just
+      // replaced.
       await table.clear();
+      if (!Array.isArray(data)) continue;
       await table.bulkPut(data);
       rows += data.length;
     }
@@ -74,7 +80,7 @@ export async function importBackup(raw: unknown): Promise<{ rows: number }> {
 /** Wipe every domain table + settings, then re-seed defaults (fresh onboarding). */
 export async function clearAllData(): Promise<void> {
   const stores = [...TABLES, 'settings'] as const;
-  await db.transaction('rw', [db.accounts, db.transactions, db.recurrings, db.budgets, db.categories, db.incomeTypes, db.monthClosures, db.settings], async () => {
+  await db.transaction('rw', [db.accounts, db.transactions, db.recurrings, db.budgets, db.categories, db.subcategories, db.incomeTypes, db.incomeSubtypes, db.monthClosures, db.settings], async () => {
     for (const name of stores) {
       await (db as unknown as Record<string, { clear: () => Promise<void> }>)[name].clear();
     }

@@ -46,7 +46,13 @@ export interface Transaction {
   transferRole?: 'out' | 'in';
   amount: number; // positive magnitude; sign derived from kind+role
   categoryId?: string;
+  /** Optional refinement of `categoryId`. Always belongs to that category —
+   *  changing or clearing the category clears this too. */
+  subcategoryId?: string;
   incomeType?: string;
+  /** Optional refinement of `incomeType`. Always belongs to that type —
+   *  changing or clearing the income type clears this too. */
+  incomeSubtypeId?: string;
   merchant?: string;
   note?: string;
   date: string; // 'YYYY-MM-DD'
@@ -109,6 +115,16 @@ export interface Category {
   customName?: string;
 }
 
+/** A user-defined refinement of one category ("Restaurant" → "Midi", "Livraison").
+ *  Owned entirely by its parent: no defaults are seeded, none survive the
+ *  parent's deletion, and icon/color are inherited rather than stored. */
+export interface Subcategory {
+  id: string;
+  categoryId: string;
+  name: string;
+  sortOrder: number;
+}
+
 export interface IncomeType {
   id: string;
   /** Stable unique key (slug for defaults, generated slug for customs).
@@ -119,6 +135,18 @@ export interface IncomeType {
   order: number;
   icon?: string; // lucide icon name (defaults to 'Coins' in the UI)
   color?: string; // hex (defaults to the income accent in the UI)
+}
+
+/** A user-defined refinement of one income type ("Salaire" → "Prime", "13e mois").
+ *  The income-type counterpart of [Subcategory]: no defaults are seeded, none
+ *  survive the parent's deletion, and icon/color are inherited.
+ *  Parent is referenced by `key`, matching how Transaction.incomeType does — a
+ *  key is stable across relabelling, an id would be redundant indirection. */
+export interface IncomeSubtype {
+  id: string;
+  incomeTypeKey: string;
+  name: string;
+  sortOrder: number;
 }
 
 export interface MonthClosure {

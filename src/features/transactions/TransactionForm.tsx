@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -12,6 +13,8 @@ import {
   useAccounts,
   useCategories,
   useIncomeTypes,
+  useSubcategoriesByCategory,
+  useIncomeSubtypesByType,
 } from '@/hooks/selectors';
 import { useAccountScope } from '@/store/AccountScopeContext';
 import { useSettings } from '@/store/SettingsContext';
@@ -21,7 +24,14 @@ import {
   deleteTransaction,
   updateTransaction,
 } from '@/lib/transactions';
-import { categoryLabel, incomeTypeLabel } from '@/lib/labels';
+import { ensureSubcategory } from '@/lib/subcategories';
+import { ensureIncomeSubtype } from '@/lib/incomeSubtypes';
+import {
+  categoryLabel,
+  incomeTypeLabel,
+  subcategoryLabel,
+  incomeSubtypeLabel,
+} from '@/lib/labels';
 import { getLocale, formatSignedCurrency } from '@/lib/format';
 import { todayISO, addDaysISO } from '@/lib/date';
 import type { Transaction, TransactionKind } from '@/types/models';
@@ -35,7 +45,7 @@ const QUICK_ADDS = [5, 10, 20, 50];
 
 export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/');
   const [searchParams] = useSearchParams();
   const { scope } = useAccountScope();
   const { settings, update } = useSettings();
@@ -43,7 +53,9 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   const [saving, setSaving] = useState(false);
   const accounts = useAccounts();
   const categories = useCategories();
+  const subsByCategory = useSubcategoriesByCategory();
   const incomeTypes = useIncomeTypes();
+  const subsByIncomeType = useIncomeSubtypesByType();
   const locale = getLocale();
   const isEdit = Boolean(transaction);
   const isExpense = kind === 'expense';
@@ -79,7 +91,23 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   const [categoryId, setCategoryId] = useState(
     transaction?.categoryId ?? (isExpense ? presetCategoryId : '') ?? '',
   );
+  const [subcategoryId, setSubcategoryId] = useState(transaction?.subcategoryId ?? '');
   const [incomeType, setIncomeType] = useState(transaction?.incomeType ?? 'Autre');
+  const [incomeSubtypeId, setIncomeSubtypeId] = useState(transaction?.incomeSubtypeId ?? '');
+
+  // A sub belongs to one parent, so picking a different parent has to drop it —
+  // otherwise the row would read "Courses(Midi)".
+  const pickCategory = (id: string) => {
+    if (id !== categoryId) setSubcategoryId('');
+    setCategoryId(id);
+  };
+  const pickIncomeType = (key: string) => {
+    if (key !== incomeType) setIncomeSubtypeId('');
+    setIncomeType(key);
+  };
+  const subcategories = subsByCategory.get(categoryId) ?? [];
+  const incomeSubtypes = subsByIncomeType.get(incomeType) ?? [];
+
   // For a NEW transaction, keep accountId in sync with the derived default
   // (accounts/settings load asynchronously after mount). A manual pick sets
   // `touchedRef` so we never overwrite the user's choice.
@@ -95,6 +123,33 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   };
   const [date, setDate] = useState(transaction?.date ?? todayISO());
   const [note, setNote] = useState(transaction?.note ?? '');
+
+  // "Convert the note into a sub-category / sub-type": only offered once there
+  // is text to convert and a parent to hang it under — a sub has no meaning
+  // without one, and filing it under a fallback the user never chose would be a
+  // surprise. Income always has a type selected, so only the expense side can
+  // be missing its parent.
+  const [converting, setConverting] = useState(false);
+  const noteText = note.trim();
+  const convertParent = isExpense ? categoryId : incomeType;
+  const canConvertNote = noteText !== '' && convertParent !== '';
+
+  const convertNoteToSub = async () => {
+    if (!canConvertNote || converting) return;
+    setConverting(true);
+    try {
+      // Reuses a same-named sub rather than creating a duplicate.
+      if (isExpense) setSubcategoryId(await ensureSubcategory(convertParent, noteText));
+      else setIncomeSubtypeId(await ensureIncomeSubtype(convertParent, noteText));
+      // The text has become the sub, so leaving it in the note too would print
+      // it twice on the movement row.
+      setNote('');
+    } catch {
+      toast.error(t('form.saveError'));
+    } finally {
+      setConverting(false);
+    }
+  };
 
   const [acctOpen, setAcctOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -131,7 +186,9 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
       amount,
       accountId,
       categoryId: isExpense ? categoryId || 'cat-autre' : undefined,
+      subcategoryId: isExpense ? subcategoryId : '',
       incomeType: !isExpense ? incomeType : undefined,
+      incomeSubtypeId: !isExpense ? incomeSubtypeId : '',
       note,
       date,
     };
@@ -143,7 +200,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
         update({ lastUsedAccountId: accountId });
       }
       toast.success(t('form.saved'));
-      navigate(-1);
+      goBack();
     } catch {
       setSaving(false);
       toast.error(t('form.saveError'));
@@ -153,7 +210,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   const handleDelete = async () => {
     if (!transaction) return;
     await deleteTransaction(transaction.id);
-    navigate(-1);
+    goBack();
   };
 
   return (
@@ -163,11 +220,11 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
         title={title}
         left={
           isEdit ? (
-            <button type="button" className="icon-btn" onClick={() => navigate(-1)} aria-label={t('common.back')}>
+            <button type="button" className="icon-btn" onClick={() => goBack()} aria-label={t('common.back')}>
               <Icon name="ChevronLeft" size={22} />
             </button>
           ) : (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => goBack()}>
               {t('common.cancel')}
             </button>
           )
@@ -239,32 +296,78 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
 
         {/* Category / income-type combo box */}
         {isExpense ? (
-          <Select
-            label={t('form.category')}
-            placeholder={t('form.selectCategory')}
-            value={categoryId}
-            onChange={setCategoryId}
-            options={categories.map((c) => ({
-              id: c.id,
-              label: categoryLabel(t, c),
-              icon: c.icon,
-              color: c.color,
-            }))}
-          />
+          <>
+            <Select
+              label={t('form.category')}
+              placeholder={t('form.selectCategory')}
+              value={categoryId}
+              onChange={pickCategory}
+              options={categories.map((c) => ({
+                id: c.id,
+                label: categoryLabel(t, c),
+                icon: c.icon,
+                color: c.color,
+              }))}
+            />
+            {/* Only categories that actually have sub-categories show the
+                second picker — an empty selector on every expense would be
+                pure chrome on the fastest path in the app. */}
+            {subcategories.length > 0 && (
+              <Select
+                label={t('form.subcategory')}
+                placeholder={t('form.noSubcategory')}
+                value={subcategoryId}
+                onChange={setSubcategoryId}
+                emptyIcon="CircleDashed"
+                options={[
+                  { id: '', label: t('form.noSubcategory'), icon: 'CircleDashed' },
+                  ...subcategories.map((s) => ({
+                    id: s.id,
+                    label: subcategoryLabel(s),
+                    icon: 'CornerDownRight',
+                    color: categories.find((c) => c.id === categoryId)?.color,
+                  })),
+                ]}
+              />
+            )}
+          </>
         ) : (
-          <Select
-            variant="income"
-            label={t('form.incomeType')}
-            placeholder={t('form.selectIncomeType')}
-            value={incomeType}
-            onChange={setIncomeType}
-            options={incomeTypes.map((it) => ({
-              id: it.key,
-              label: incomeTypeLabel(t, it),
-              icon: it.icon ?? 'Coins',
-              color: it.color ?? '#10B981',
-            }))}
-          />
+          <>
+            <Select
+              variant="income"
+              label={t('form.incomeType')}
+              placeholder={t('form.selectIncomeType')}
+              value={incomeType}
+              onChange={pickIncomeType}
+              options={incomeTypes.map((it) => ({
+                id: it.key,
+                label: incomeTypeLabel(t, it),
+                icon: it.icon ?? 'Coins',
+                color: it.color ?? '#10B981',
+              }))}
+            />
+            {/* Only income types that actually have sub-types show the second
+                picker, same as the expense side. */}
+            {incomeSubtypes.length > 0 && (
+              <Select
+                variant="income"
+                label={t('form.incomeSubtype')}
+                placeholder={t('form.noIncomeSubtype')}
+                value={incomeSubtypeId}
+                onChange={setIncomeSubtypeId}
+                emptyIcon="CircleDashed"
+                options={[
+                  { id: '', label: t('form.noIncomeSubtype'), icon: 'CircleDashed' },
+                  ...incomeSubtypes.map((s) => ({
+                    id: s.id,
+                    label: incomeSubtypeLabel(s),
+                    icon: 'CornerDownRight',
+                    color: incomeTypes.find((it) => it.key === incomeType)?.color ?? '#10B981',
+                  })),
+                ]}
+              />
+            )}
+          </>
         )}
 
         {/* Note + date */}
@@ -292,6 +395,22 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
                 color: 'var(--neutral-900)',
               }}
             />
+            {/* Appears only when it can actually do something, so it costs no
+                permanent chrome on the app's fastest screen. */}
+            {canConvertNote && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={convertNoteToSub}
+                disabled={converting}
+                title={t(isExpense ? 'form.noteToSubcategory' : 'form.noteToIncomeSubtype')}
+                aria-label={t(isExpense ? 'form.noteToSubcategory' : 'form.noteToIncomeSubtype')}
+                style={{ flexShrink: 0, gap: 4 }}
+              >
+                <Icon name="CornerDownRight" size={14} />
+                {t(isExpense ? 'form.subcategory' : 'form.incomeSubtype')}
+              </button>
+            )}
           </div>
           <div className="divider" />
           <label className="row" style={{ padding: '9px 16px', cursor: 'pointer' }}>
