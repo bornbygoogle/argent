@@ -24,17 +24,17 @@ export default {
 
     // In dependency order, so the first failure names the culprit.
     await step('node:crypto', () => import('node:crypto'));
-    await step('_lib/cookies', () => import('./_lib/cookies'));
-    await step('_lib/session', () => import('./_lib/session'));
-    await step('_lib/env', () => import('./_lib/env'));
-    await step('_lib/oauth', () => import('./_lib/oauth'));
-    await step('_lib/handlers', () => import('./_lib/handlers'));
-    await step('_lib/adapter', () => import('./_lib/adapter'));
+    await step('_lib/cookies', () => import('./_lib/cookies.js'));
+    await step('_lib/session', () => import('./_lib/session.js'));
+    await step('_lib/env', () => import('./_lib/env.js'));
+    await step('_lib/oauth', () => import('./_lib/oauth.js'));
+    await step('_lib/handlers', () => import('./_lib/handlers.js'));
+    await step('_lib/adapter', () => import('./_lib/adapter.js'));
 
     // And whether the real endpoint module can be loaded and shaped correctly.
     let startShape = 'not reached';
     try {
-      const mod = (await import('./auth/start')) as { default?: unknown };
+      const mod = (await import('./auth/start.js')) as { default?: unknown };
       const def = mod.default as { fetch?: unknown } | undefined;
       startShape = `default=${typeof def}, fetch=${typeof def?.fetch}`;
     } catch (e) {

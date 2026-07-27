@@ -5,7 +5,7 @@
 // hint — the careful "list every missing name" message never reaches anyone but
 // the deploy logs. The client already treats 503 as "server not configured", so
 // answer that instead, and say which names are missing.
-import { readEnv, type ServerEnv } from './env';
+import { readEnv, type ServerEnv } from './env.js';
 
 export type EndpointHandler = (
   request: Request,

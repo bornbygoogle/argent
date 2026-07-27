@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { endpoint } from './adapter';
-import type { ServerEnv } from './env';
+import { endpoint } from './adapter.js';
+import type { ServerEnv } from './env.js';
 
 const VALID = {
   VITE_GOOGLE_CLIENT_ID: 'client-id',

@@ -1,4 +1,4 @@
-import { loadKey } from './session';
+import { loadKey } from './session.js';
 
 export interface ServerEnv {
   clientId: string;

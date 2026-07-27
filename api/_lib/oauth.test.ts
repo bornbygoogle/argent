@@ -4,7 +4,7 @@ import {
   DRIVE_FILE_SCOPE, OAuthRevokedError, OAuthUpstreamError,
   createVerifier, createState, challengeFor, buildAuthorizeUrl,
   exchangeCode, refreshAccessToken, fetchEmail,
-} from './oauth';
+} from './oauth.js';
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

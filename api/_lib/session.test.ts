@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { randomBytes } from 'node:crypto';
-import { loadKey, sealSession, openSession } from './session';
+import { loadKey, sealSession, openSession } from './session.js';
 
 const key = () => randomBytes(32);
 const b64 = (b: Buffer) => b.toString('base64');

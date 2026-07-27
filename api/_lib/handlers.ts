@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
-import type { ServerEnv } from './env';
-import { openSession, sealSession } from './session';
+import type { ServerEnv } from './env.js';
+import { openSession, sealSession } from './session.js';
 import {
   SESSION_COOKIE,
   STATE_COOKIE,
@@ -9,7 +9,7 @@ import {
   OAUTH_TEMP_MAX_AGE,
   parseCookies,
   serializeCookie,
-} from './cookies';
+} from './cookies.js';
 import {
   OAuthRevokedError,
   buildAuthorizeUrl,
@@ -20,7 +20,7 @@ import {
   fetchEmail,
   refreshAccessToken,
   revokeToken,
-} from './oauth';
+} from './oauth.js';
 
 export interface Deps {
   env: ServerEnv;

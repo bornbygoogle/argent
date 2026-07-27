@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { serializeCookie, parseCookies, SESSION_COOKIE } from './cookies';
+import { serializeCookie, parseCookies, SESSION_COOKIE } from './cookies.js';
 
 describe('serializeCookie', () => {
   it('emits the security flags', () => {

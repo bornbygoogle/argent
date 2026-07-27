@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { randomBytes } from 'node:crypto';
-import { handleStart, handleCallback, handleToken, handleSignout } from './handlers';
-import { sealSession } from './session';
-import type { ServerEnv } from './env';
+import { handleStart, handleCallback, handleToken, handleSignout } from './handlers.js';
+import { sealSession } from './session.js';
+import type { ServerEnv } from './env.js';
 
 const sessionKey = randomBytes(32);
 const env: ServerEnv = {
