@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router';
 import { useSettings } from '@/store/SettingsContext';
 
 /** Shown while settings are being read — routing cannot be decided before then,

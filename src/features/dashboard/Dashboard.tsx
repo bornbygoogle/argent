@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { computeRunway } from '@/lib/runway';
 import { Runway } from '@/components/ui/Runway';

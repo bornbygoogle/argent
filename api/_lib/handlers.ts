@@ -45,11 +45,28 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ab, bb);
 }
 
-/** Reject cross-site callers. SameSite=Lax already blocks cross-site POST; this is depth. */
+/**
+ * Reject cross-site callers. SameSite=Lax already blocks cross-site POST; this
+ * is depth. Two signals, in order of precision:
+ *
+ *  1. `Origin` — always sent on cross-origin requests, and on same-origin POST
+ *     in every browser this app supports.
+ *  2. `Sec-Fetch-Site` — a Fetch Metadata header. Page script cannot set it
+ *     (it is forbidden), so a cross-site caller cannot forge `same-origin`.
+ *
+ * Only when a request carries neither does this fall through to allow, and only
+ * because such a client predates both headers — there SameSite=Lax is the
+ * control, not this function.
+ */
 function sameOrigin(request: Request, env: ServerEnv): boolean {
   const origin = request.headers.get('origin');
-  if (!origin) return true; // same-origin fetches may omit Origin in some browsers
-  return origin === env.appOrigin;
+  if (origin) return origin === env.appOrigin;
+
+  const site = request.headers.get('sec-fetch-site');
+  // 'same-site' is deliberately refused: a sibling subdomain is not us.
+  if (site) return site === 'same-origin';
+
+  return true;
 }
 
 export async function handleStart(_request: Request, deps: Deps): Promise<Response> {

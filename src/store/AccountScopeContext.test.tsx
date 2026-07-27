@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { AccountScopeProvider, useAccountScope } from '@/store/AccountScopeContext';
 import { db } from '@/db/db';
 import type { Account } from '@/types/models';

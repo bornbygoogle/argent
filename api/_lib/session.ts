@@ -13,7 +13,16 @@ export interface SessionData {
 
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
-const VERSION = 1;
+/** v2 added the absolute expiry. v1 payloads have none and are refused. */
+const VERSION = 2;
+
+/**
+ * Absolute server-enforced session lifetime, in seconds. Kept equal to the
+ * cookie's Max-Age (cookies.ts) so both sides expire at the same instant — but
+ * only this one binds: a cookie value copied out of the browser and replayed by
+ * any other client ignores Max-Age entirely.
+ */
+export const SESSION_TTL_SECONDS = 34_560_000;
 
 /** Decode + validate SESSION_SECRET. Fails loudly rather than silently truncating. */
 export function loadKey(secret: string | undefined): Buffer {
@@ -29,17 +38,27 @@ export function loadKey(secret: string | undefined): Buffer {
   return key;
 }
 
-export function sealSession(data: SessionData, key: Buffer): string {
+export function sealSession(data: SessionData, key: Buffer, nowMs: number = Date.now()): string {
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
-  const plaintext = Buffer.from(JSON.stringify({ v: VERSION, rt: data.rt, em: data.em }), 'utf8');
+  // `exp` sits inside the authenticated payload, so pushing it out requires the
+  // key — the GCM tag rejects any edit.
+  const exp = Math.floor(nowMs / 1000) + SESSION_TTL_SECONDS;
+  const plaintext = Buffer.from(
+    JSON.stringify({ v: VERSION, rt: data.rt, em: data.em, exp }),
+    'utf8',
+  );
   const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   return Buffer.concat([iv, ciphertext, cipher.getAuthTag()]).toString('base64url');
 }
 
-export function openSession(sealed: string, key: Buffer): SessionData | null {
+export function openSession(
+  sealed: string,
+  key: Buffer,
+  nowMs: number = Date.now(),
+): SessionData | null {
   // A null return is the contract for "this cookie is not usable" — tampered,
-  // wrong key, truncated, or from an older format. Callers treat it as
+  // wrong key, truncated, expired, or from an older format. Callers treat it as
   // "no session", which is exactly right for all of those cases.
   try {
     const raw = Buffer.from(sealed, 'base64url');
@@ -56,6 +75,10 @@ export function openSession(sealed: string, key: Buffer): SessionData | null {
     if (typeof parsed !== 'object' || parsed === null) return null;
     const o = parsed as Record<string, unknown>;
     if (o.v !== VERSION || typeof o.rt !== 'string' || o.rt.length === 0) return null;
+    // Fail closed on a missing or malformed expiry: a session with no deadline
+    // is exactly the thing this field exists to prevent.
+    if (typeof o.exp !== 'number' || !Number.isFinite(o.exp)) return null;
+    if (o.exp * 1000 <= nowMs) return null;
     return { rt: o.rt, em: typeof o.em === 'string' ? o.em : null };
   } catch {
     return null;

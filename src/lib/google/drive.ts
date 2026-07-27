@@ -6,6 +6,20 @@ import type { BackupPayload } from '@/lib/data';
 const DRIVE_FILES = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD_FILES = 'https://www.googleapis.com/upload/drive/v3/files';
 
+/**
+ * Escape a value interpolated into a Drive `q` string literal.
+ *
+ * Drive's query language gives `'` and `\` meaning inside a literal, so a name
+ * or id carrying either would otherwise close the literal early and have the
+ * remainder read as query syntax. Backslash is escaped first: doing it after
+ * the quote rule would re-escape the backslash that rule just added and set the
+ * quote free again. See:
+ * https://developers.google.com/drive/api/guides/search-files#quoted-strings
+ */
+export function escapeDriveQueryValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 /** Timestamped filename, stable format: argent-backup-YYYY-MM-DDTHH-MM.json */
 export function backupFileName(d = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -87,7 +101,9 @@ export async function listBackupsInFolder(
   folderId: string,
   token: string,
 ): Promise<DriveBackupMeta[]> {
-  const q = `'${folderId}' in parents and trashed = false and name contains 'argent-backup-'`;
+  const q =
+    `'${escapeDriveQueryValue(folderId)}' in parents and trashed = false ` +
+    `and name contains 'argent-backup-'`;
   const url =
     `${DRIVE_FILES}?q=${encodeURIComponent(q)}` +
     `&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=100`;
@@ -122,7 +138,9 @@ export async function findFolderByName(
   name: string,
   token: string,
 ): Promise<{ id: string } | null> {
-  const q = `mimeType = 'application/vnd.google-apps.folder' and name = '${name}' and trashed = false`;
+  const q =
+    `mimeType = 'application/vnd.google-apps.folder' ` +
+    `and name = '${escapeDriveQueryValue(name)}' and trashed = false`;
   const url = `${DRIVE_FILES}?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {

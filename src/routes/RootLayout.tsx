@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { QuickActionSheet, type QuickAction } from '@/features/sheets/QuickActionSheet';
 

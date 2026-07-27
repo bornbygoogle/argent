@@ -134,6 +134,43 @@ describe('handleToken', () => {
     expect(res.status).toBe(405);
   });
 
+  // Origin is the primary signal, but a request that omits it is not therefore
+  // trustworthy. Sec-Fetch-Site is the second one; it is set by the browser and
+  // unreachable from page script, so a cross-site caller cannot forge it.
+  describe('when the request carries no Origin header', () => {
+    const noOriginReq = (extra: Record<string, string>) =>
+      new Request('https://app.test/api/auth/token', {
+        method: 'POST',
+        headers: { cookie: `argent_session=${sealSession({ rt: 'rt', em: null }, sessionKey)}`, ...extra },
+      });
+
+    it('rejects a cross-site fetch', async () => {
+      const res = await handleToken(noOriginReq({ 'sec-fetch-site': 'cross-site' }), { env });
+      expect(res.status).toBe(403);
+    });
+
+    it('rejects a same-site (different subdomain) fetch', async () => {
+      const res = await handleToken(noOriginReq({ 'sec-fetch-site': 'same-site' }), { env });
+      expect(res.status).toBe(403);
+    });
+
+    it('allows a same-origin fetch', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(json({ access_token: 'fresh', expires_in: 3599 }));
+      const res = await handleToken(noOriginReq({ 'sec-fetch-site': 'same-origin' }), {
+        env, fetchImpl: fetchImpl as unknown as typeof fetch });
+      expect(res.status).toBe(200);
+    });
+
+    // Browsers that send neither header predate both controls; SameSite=Lax is
+    // what protects them, so don't break them here.
+    it('allows a request that sends neither header', async () => {
+      const fetchImpl = vi.fn().mockResolvedValue(json({ access_token: 'fresh', expires_in: 3599 }));
+      const res = await handleToken(noOriginReq({}), {
+        env, fetchImpl: fetchImpl as unknown as typeof fetch });
+      expect(res.status).toBe(200);
+    });
+  });
+
   it('returns a fresh access token and never the refresh token', async () => {
     const sealed = sealSession({ rt: 'super-secret-refresh', em: 'me@example.com' }, sessionKey);
     const fetchImpl = vi.fn().mockResolvedValue(json({ access_token: 'fresh', expires_in: 3599 }));

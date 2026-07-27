@@ -9,7 +9,13 @@
       "source": "/(.*)",
       "headers": [
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
-        { "key": "Referrer-Policy", "value": "unsafe-url" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-nSM4BzdttuHqUD2ZLAJYXo7x1MmmCiZFhl/mj4saRVc=' https://apis.google.com https://www.gstatic.com https://ssl.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://drive-thirdparty.googleusercontent.com; font-src 'self' data:; connect-src 'self' https://www.googleapis.com https://content.googleapis.com https://clients6.google.com https://*.googleusercontent.com; frame-src https://docs.google.com https://drive.google.com https://content.googleapis.com https://accounts.google.com; worker-src 'self'; manifest-src 'self'"
+        }
       ]
     }
   ]

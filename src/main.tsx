@@ -3,19 +3,17 @@ import { createRoot } from 'react-dom/client';
 import '@/i18n';
 import App from '@/App';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { renderFatalScreen } from '@/lib/fatalScreen';
 import '@/index.css';
 import { registerSW } from 'virtual:pwa-register';
 
 // Dev aid: surface any module-eval / uncaught async error into the page
 // instead of leaving a blank screen. Safe to keep; only fires on error.
+// The panel is built with textContent (see lib/fatalScreen) because the text
+// it displays is not ours — an error message can quote a third-party payload.
 function showFatal(label: string, detail: unknown) {
-  const err = detail instanceof Error ? detail : new Error(String(detail));
   const el = document.getElementById('root');
-  const html = `<div style="padding:24px;font-family:monospace;color:#b91c1c;background:#fef2f2;min-height:100dvh;white-space:pre-wrap;word-break:break-word">
-<h2 style="font-size:16px;margin:0 0 8px">${label}</h2>
-<div style="font-weight:700;margin-bottom:8px">${err.message}</div>
-<pre style="font-size:11px;line-height:1.4">${err.stack ?? ''}</pre></div>`;
-  if (el) el.innerHTML = html;
+  if (el) renderFatalScreen(el, label, detail);
 }
 // Cross-origin script errors (e.g. from Google's gsi/picker SDKs loaded from
 // accounts.google.com / apis.google.com) arrive as an opaque "Script error."

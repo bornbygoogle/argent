@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { GoogleAuthProvider } from '@/store/GoogleAuthContext';

@@ -13,8 +13,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useToast } from '@/store/ToastContext';
-import { db } from '@/db/db';
 import { exportBackup, importBackup, parseBackupFile } from '@/lib/data';
+import { computeSyncFingerprint } from '@/lib/syncFingerprint';
 import {
   uploadBackupToFolder,
   listBackupsInFolder,
@@ -36,6 +36,8 @@ import {
 
 const PUSH_DEBOUNCE_MS = 5000;
 const KEEP_LAST = 5;
+/** Floor between two foreground/online re-checks of Drive. */
+const PULL_THROTTLE_MS = 60_000;
 
 // Manual-trigger channel: GoogleSync calls requestBackupNow(); the mounted
 // component registers a handler so it runs immediately (no debounce), and the
@@ -53,25 +55,12 @@ export function GoogleAutoBackup() {
   const { t } = useTranslation();
   const toast = useToast();
 
-  // Heartbeat: a string that changes whenever tracked tables' membership shifts.
-  // Folding the newest transaction date also catches in-place edits that keep
-  // row counts constant (amount/date changes).
-  const heartbeat = useLiveQuery(async () => {
-    const [t, a, r, b] = await Promise.all([
-      db.transactions.count(),
-      db.accounts.count(),
-      db.recurrings.count(),
-      db.budgets.count(),
-    ]);
-    let lastTx = 'none';
-    try {
-      const last = await db.transactions.orderBy('date').last();
-      if (last) lastTx = `${last.date}|${last.id}`;
-    } catch {
-      /* ignore — table may be empty */
-    }
-    return `${t}|${a}|${r}|${b}|${lastTx}`;
-  }, [], null);
+  // Heartbeat: a fingerprint of everything the next backup would contain, so it
+  // moves for ANY edit — including in-place ones. Counting rows (what this used
+  // to do) misses a corrected amount, a renamed account, a new category and a
+  // changed budget; every one of those would then never reach Drive.
+  // useLiveQuery re-runs this whenever a table it read mutates.
+  const heartbeat = useLiveQuery(() => computeSyncFingerprint(), [], null);
 
   const lastSeen = useRef<string | null>(null);
   const running = useRef(false);
@@ -83,14 +72,28 @@ export function GoogleAutoBackup() {
   // only once pullOnce() has finished (success, skip, or error).
   const readyToPush = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The in-flight pull, so a manual backup can wait for it instead of no-oping.
+  const pullInFlight = useRef<Promise<void> | null>(null);
+  // When the last pull finished, to throttle the foreground/online re-checks.
+  const lastPullAt = useRef(0);
   // Bumped when the push gate opens, so the push effect re-evaluates and can
   // flush a change that arrived during the (closed-gate) pull window.
   const [gateNonce, setGateNonce] = useState(0);
 
   const pushOnce = useCallback(async (manual = false): Promise<void> => {
-    // Never push before the initial pull has resolved.
-    if (!readyToPush.current) return;
-    if (running.current) return;
+    if (manual) {
+      // A manual "back up now" must never resolve without having uploaded:
+      // the caller turns a resolved promise into "Backup done". Wait for the
+      // opening pull instead of silently doing nothing, and surface a real
+      // error if the sync is still not in a state where it can push.
+      if (pullInFlight.current) await pullInFlight.current;
+      if (!readyToPush.current) throw new Error('google-sync-not-ready');
+      if (running.current) throw new Error('google-sync-busy');
+    } else {
+      // Never push before the initial pull has resolved.
+      if (!readyToPush.current) return;
+      if (running.current) return;
+    }
     running.current = true;
     setBackingUp(true);
     try {
@@ -163,6 +166,10 @@ export function GoogleAutoBackup() {
       if (payload.exportedBy && meta.deviceId && payload.exportedBy === meta.deviceId) return;
 
       await importBackup(payload);
+      // Local content now equals Drive's, so there is nothing to send back.
+      // Without this the push effect sees "data changed" (it did — we just
+      // changed it) and re-uploads the snapshot it has only now downloaded.
+      lastSeen.current = await computeSyncFingerprint();
       await setGoogleMeta({
         lastPulledAt: new Date().toISOString(),
         lastBackupAt: newest.modifiedTime,
@@ -179,6 +186,7 @@ export function GoogleAutoBackup() {
       toast.error(t('settings.google.toastPullFailed'));
     } finally {
       running.current = false;
+      lastPullAt.current = Date.now();
       // Open the push gate only after the pull has resolved (success, skip, or
       // error). This is the crux: an automatic backup must NEVER fire before
       // the restore check has decided whether Drive holds newer data.
@@ -212,7 +220,14 @@ export function GoogleAutoBackup() {
     lastSeen.current = heartbeat;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      void pushOnce(false);
+      // pushOnce() rethrows so a *manual* caller can see the failure; nobody is
+      // awaiting this automatic one. Catch it here, or the rejection escapes to
+      // window.onunhandledrejection and a transient Drive error replaces the
+      // whole app with the fatal screen. Failure is already reported inside
+      // pushOnce (status + toast + console).
+      void pushOnce(false).catch(() => {
+        /* reported by pushOnce; the next change re-arms the retry */
+      });
     }, PUSH_DEBOUNCE_MS);
     return () => {
       if (timer.current) clearTimeout(timer.current);
@@ -233,7 +248,44 @@ export function GoogleAutoBackup() {
     }
     if (pullFired.current) return;
     pullFired.current = true;
-    void pullOnce();
+    pullInFlight.current = pullOnce().finally(() => {
+      pullInFlight.current = null;
+    });
+  }, [status, pullOnce]);
+
+  // REFRESH: the sign-in pull only covers app start. An installed PWA can stay
+  // open for days, during which another device's changes would never arrive.
+  // Re-check Drive when the app returns to the foreground or regains the
+  // network — throttled, because both events fire in bursts.
+  useEffect(() => {
+    if (status !== 'signed-in') return;
+
+    // Importing a remote snapshot on top of a local edit that has not reached
+    // Drive destroys that edit, so this refuses to pull unless the local state
+    // is fully accounted for. A local change passes through four states —
+    // committed to Dexie, observed by the live query, scheduled for upload,
+    // uploading — and each one is checked here:
+    const maybePull = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (running.current) return; // uploading
+      if (timer.current) return; // scheduled
+      if (Date.now() - lastPullAt.current < PULL_THROTTLE_MS) return;
+      // Committed but not yet observed: the live query and the effect that
+      // arms the debounce are both asynchronous, so a just-saved edit can be
+      // in the database while every in-memory marker still says "idle". Read
+      // the fingerprint fresh rather than trusting the rendered one.
+      const fingerprint = await computeSyncFingerprint();
+      if (fingerprint !== lastSeen.current) return;
+      await pullOnce();
+    };
+    const onResume = () => void maybePull();
+
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('online', onResume);
+    return () => {
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('online', onResume);
+    };
   }, [status, pullOnce]);
 
   return null;

@@ -6,7 +6,7 @@ import {
   useMemo,
   useRef,
 } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
 import type { Account, AccountScope } from '@/types/models';
