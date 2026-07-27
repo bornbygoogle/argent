@@ -41,12 +41,40 @@ export default {
       startShape = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     }
 
+    // What actually shipped. `Cannot find module` has two very different
+    // causes — the file was never deployed, or it was deployed as .ts and Node
+    // cannot import that. Listing the directory distinguishes them.
+    let tree: string[] = [];
+    try {
+      const { readdirSync, statSync } = await import('node:fs');
+      const walk = (dir: string, depth = 0): void => {
+        if (depth > 3) return;
+        for (const name of readdirSync(dir)) {
+          const full = `${dir}/${name}`;
+          try {
+            if (statSync(full).isDirectory()) {
+              tree.push(`${full}/`);
+              walk(full, depth + 1);
+            } else {
+              tree.push(full);
+            }
+          } catch {
+            tree.push(`${full} <stat failed>`);
+          }
+        }
+      };
+      walk('/var/task/api');
+    } catch (e) {
+      tree = [e instanceof Error ? e.message : String(e)];
+    }
+
     return Response.json(
       {
         pong: true,
         node: process.version,
         steps,
         startShape,
+        tree,
         env: {
           VITE_GOOGLE_CLIENT_ID: Boolean(process.env.VITE_GOOGLE_CLIENT_ID),
           GOOGLE_CLIENT_SECRET: Boolean(process.env.GOOGLE_CLIENT_SECRET),
