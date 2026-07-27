@@ -17,8 +17,12 @@ const VERSION = 1;
 
 /** Decode + validate SESSION_SECRET. Fails loudly rather than silently truncating. */
 export function loadKey(secret: string | undefined): Buffer {
-  if (!secret) throw new Error('SESSION_SECRET is not set');
-  const key = Buffer.from(secret, 'base64');
+  // This value is normally pasted into a dashboard field, so trim before
+  // deciding it is absent — otherwise a stray newline reports as a 0-byte key
+  // rather than as a missing variable.
+  const clean = secret?.trim();
+  if (!clean) throw new Error('SESSION_SECRET is not set');
+  const key = Buffer.from(clean, 'base64');
   if (key.length !== 32) {
     throw new Error(`SESSION_SECRET must decode to 32 bytes, got ${key.length}`);
   }

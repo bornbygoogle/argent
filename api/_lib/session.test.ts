@@ -15,6 +15,21 @@ describe('loadKey', () => {
     expect(() => loadKey(undefined)).toThrow(/SESSION_SECRET/);
   });
 
+  // Pasting into a dashboard field is the normal way this value arrives, and a
+  // stray newline or space must not read as a different key.
+  it('ignores surrounding whitespace', () => {
+    const raw = randomBytes(32);
+    expect(loadKey(`  ${b64(raw)}\n`).equals(raw)).toBe(true);
+  });
+
+  it('treats a whitespace-only secret as missing, not as a zero-length key', () => {
+    expect(() => loadKey('   \n')).toThrow(/SESSION_SECRET is not set/);
+  });
+
+  it('says how many bytes it actually got, so the fix is obvious', () => {
+    expect(() => loadKey(b64(randomBytes(16)))).toThrow(/got 16/);
+  });
+
   it('throws when the secret is the wrong length', () => {
     expect(() => loadKey(b64(randomBytes(16)))).toThrow(/32 bytes/);
   });

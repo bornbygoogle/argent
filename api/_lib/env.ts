@@ -25,7 +25,7 @@ export function readEnv(source: Record<string, string | undefined> = process.env
   if (!clientId) missing.push('VITE_GOOGLE_CLIENT_ID');
   if (!clientSecret) missing.push('GOOGLE_CLIENT_SECRET');
   if (!appOrigin) missing.push('APP_ORIGIN');
-  if (!source.SESSION_SECRET) missing.push('SESSION_SECRET');
+  if (!source.SESSION_SECRET?.trim()) missing.push('SESSION_SECRET');
   if (missing.length > 0) throw new Error(`Missing server env: ${missing.join(', ')}`);
 
   return {
