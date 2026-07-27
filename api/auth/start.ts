@@ -1,8 +1,4 @@
-import { readEnv } from '../_lib/env';
+import { endpoint } from '../_lib/adapter';
 import { handleStart } from '../_lib/handlers';
 
-export default {
-  async fetch(request: Request): Promise<Response> {
-    return handleStart(request, { env: readEnv() });
-  },
-};
+export default endpoint(handleStart);

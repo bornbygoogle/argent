@@ -93,8 +93,13 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
 
 **Local** — put all five in `.env` (gitignored). `APP_ORIGIN=http://localhost:5173`.
 
-**Vercel** — Settings → Environment Variables. Add the three server variables to **Production and
-Preview**. Set `APP_ORIGIN` to that environment's own URL.
+**Vercel** — Settings → Environment Variables. Add **all five** to **Production and Preview**: the
+two `VITE_` ones are inlined into the browser bundle at build time, and the server functions read
+`VITE_GOOGLE_CLIENT_ID` too. Set `APP_ORIGIN` to that environment's own URL — *not* localhost.
+
+Environment variables are applied when a deployment is built, so an existing deployment keeps the
+values it was built with. **Redeploy after adding or changing any of them**, or the functions keep
+failing exactly as before.
 
 Rotating `SESSION_SECRET` signs every device out; it does not revoke access at Google.
 
@@ -106,7 +111,9 @@ Rotating `SESSION_SECRET` signs every device out; it does not revoke access at G
 |---|---|
 | `redirect_uri_mismatch` on sign-in | Step 3 — redirect URI missing, or `APP_ORIGIN` doesn't match it exactly (scheme, port, no trailing slash). |
 | Asked to reconnect roughly every 7 days | Step 1 — app still in Testing. |
-| `{"error":"Missing server env: …"}` from `/api/auth/token` | Step 5 — named variables absent in that environment. |
+| `{"error":"not-configured","detail":"Missing server env: …"}` (503) from any `/api/auth/*` | Step 5 — the named variables are absent in that environment. |
+| `FUNCTION_INVOCATION_FAILED` (500) from every `/api/auth/*` while the app itself loads | Same cause, but the variables were never added at all *and* the deploy predates the `endpoint()` wrapper. Add them and redeploy. |
+| Variables added but the error persists | Vercel applies environment variables at build time — an existing deployment keeps the old ones. **Redeploy** after adding them. |
 | Redirected to `/settings?google=norefresh` | Google returned no refresh token. The flow sends `prompt=consent` to prevent this; if it recurs, remove the app at [Google Account permissions](https://myaccount.google.com/permissions) and connect again. |
 | `/api/auth/start` returns the app HTML instead of redirecting | The SPA rewrite or the service worker is swallowing `/api`. Check the `api/` exclusion in `vercel.json` and `navigateFallbackDenylist` in `vite.config.ts`. |
 | Sign-in works, backups fail | Picker/Drive issue, not auth — check step 4. |
