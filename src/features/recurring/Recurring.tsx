@@ -19,8 +19,9 @@ import {
   confirmRecurring,
   unconfirmRecurring,
 } from '@/lib/recurring';
+import { splitByDue, dueDateFor, clampedDay } from '@/lib/recurringSchedule';
 import { currentMonth } from '@/lib/date';
-import { formatCurrency, formatSignedCurrency, formatMonth } from '@/lib/format';
+import { formatCurrency, formatSignedCurrency, formatMonth, formatDate } from '@/lib/format';
 import { useToast } from '@/store/ToastContext';
 import type { Account, Cadence, Recurring as RecurringT } from '@/types/models';
 
@@ -46,11 +47,16 @@ export function Recurring() {
     return (a: Account, b: Account) => (idx.get(a.id) ?? 99) - (idx.get(b.id) ?? 99);
   }, [accounts]);
 
-  // Summary — always over the full set.
-  const todo = recurrings.filter((r) => !isConfirmedIn(r, month));
+  // Summary — always over the full set. "To confirm" means due now; what has
+  // not reached its day yet is upcoming and does not read as a task.
+  const unconfirmed = recurrings.filter((r) => !isConfirmedIn(r, month));
+  const { due: todo, upcoming } = splitByDue(unconfirmed, month);
   const done = recurrings.filter((r) => isConfirmedIn(r, month));
   const todoAmount = todo.reduce((acc, r) => acc + r.amount, 0);
   const doneAmount = done.reduce((acc, r) => acc + r.amount, 0);
+
+  const byDueDay = (a: RecurringT, b: RecurringT) =>
+    clampedDay(a.dueDay ?? 1, month) - clampedDay(b.dueDay ?? 1, month);
 
   // Group a list by account, ordered like the account list.
   const group = (list: RecurringT[]) => {
@@ -61,13 +67,14 @@ export function Recurring() {
       m.set(r.accountId, arr);
     }
     return [...m.entries()]
-      .map(([aid, items]) => ({ account: accountMap.get(aid), items }))
+      .map(([aid, items]) => ({ account: accountMap.get(aid), items: [...items].sort(byDueDay) }))
       .filter((g): g is { account: Account; items: RecurringT[] } => !!g.account)
       .sort((a, b) => order(a.account, b.account));
   };
 
   const visible = mode === 'todo' ? todo : mode === 'all' ? recurrings : [];
   const groups = group(visible);
+  const upcomingGroups = mode === 'todo' ? group(upcoming) : [];
 
   // History: flatten confirmed entries across all recurrings, newest month first.
   const history = useMemo(() => {
@@ -90,6 +97,58 @@ export function Recurring() {
       setPending(null);
     }
   };
+
+  // One account's block of rows. Shared by the due list and the upcoming one,
+  // which differ only in where they sit on the screen — an upcoming item is
+  // still confirmable, because paying a bill early is normal.
+  const renderGroup = (g: { account: Account; items: RecurringT[] }) => (
+    <div key={g.account.id}>
+      <div className="section-head">
+        <span className="label">{g.account.name}</span>
+      </div>
+      <div className="card tight">
+        {g.items.map((r) => {
+          const confirmed = isConfirmedIn(r, month);
+          const last = [...r.history].sort((a, b) => (a.month < b.month ? 1 : -1))[0];
+          const modified = last != null && Math.abs(last.amount - r.amount) > 0.005;
+          return (
+            <div className="recur" key={r.id}>
+              <TintedIcon hex={r.color} icon={r.icon} variant="cat" />
+              <div className="r-main" onClick={() => setEditing(r)} style={{ cursor: 'pointer', minWidth: 0 }}>
+                <div className="r-title">{r.label}</div>
+                <div className="r-sub">
+                  {cadenceLabel(t, r.cadence)} · {formatCurrency(r.amount)}
+                  {r.dueDay != null &&
+                    ` · ${t('recurring.dueOn', { date: formatDate(dueDateFor(r, month), 'weekday') })}`}
+                  {modified && (
+                    <>
+                      {' → '}
+                      <span style={{ color: 'var(--primary-600)', fontWeight: 600 }}>{t('recurring.modified')}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <span
+                className={`amount-md ${r.direction === 'income' ? 'amt-in' : 'amt-out'}`}
+                style={{ color: r.direction === 'income' ? 'var(--success-600)' : undefined }}
+              >
+                {formatSignedCurrency(r.direction === 'income' ? r.amount : -r.amount)}
+              </span>
+              <button
+                type="button"
+                className={`confirm-btn${confirmed ? ' done' : ''}`}
+                onClick={() => setPendingConfirm({ r, on: !isConfirmedIn(r, month) })}
+                disabled={pending === r.id}
+              >
+                <Icon name="Check" size={14} strokeWidth={2.5} />
+                {confirmed ? t('recurring.confirmedBtn') : t('recurring.confirmBtn')}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -136,55 +195,20 @@ export function Recurring() {
         />
 
         {mode !== 'history' ? (
-          groups.length === 0 ? (
+          groups.length === 0 && upcomingGroups.length === 0 ? (
             <EmptyState icon="Repeat" title={t('recurring.empty')} hint={t('recurring.emptyHint')} />
           ) : (
-            groups.map((g) => (
-              <div key={g.account.id}>
-                <div className="section-head">
-                  <span className="label">{g.account.name}</span>
-                </div>
-                <div className="card tight">
-                  {g.items.map((r) => {
-                    const confirmed = isConfirmedIn(r, month);
-                    const last = [...r.history].sort((a, b) => (a.month < b.month ? 1 : -1))[0];
-                    const modified = last != null && Math.abs(last.amount - r.amount) > 0.005;
-                    return (
-                      <div className="recur" key={r.id}>
-                        <TintedIcon hex={r.color} icon={r.icon} variant="cat" />
-                        <div className="r-main" onClick={() => setEditing(r)} style={{ cursor: 'pointer', minWidth: 0 }}>
-                          <div className="r-title">{r.label}</div>
-                          <div className="r-sub">
-                            {cadenceLabel(t, r.cadence)} · {formatCurrency(r.amount)}
-                            {modified && (
-                              <>
-                                {' → '}
-                                <span style={{ color: 'var(--primary-600)', fontWeight: 600 }}>{t('recurring.modified')}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <span
-                          className={`amount-md ${r.direction === 'income' ? 'amt-in' : 'amt-out'}`}
-                          style={{ color: r.direction === 'income' ? 'var(--success-600)' : undefined }}
-                        >
-                          {formatSignedCurrency(r.direction === 'income' ? r.amount : -r.amount)}
-                        </span>
-                        <button
-                          type="button"
-                          className={`confirm-btn${confirmed ? ' done' : ''}`}
-                          onClick={() => setPendingConfirm({ r, on: !isConfirmedIn(r, month) })}
-                          disabled={pending === r.id}
-                        >
-                          <Icon name="Check" size={14} strokeWidth={2.5} />
-                          {confirmed ? t('recurring.confirmedBtn') : t('recurring.confirmBtn')}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
+            <>
+              {groups.map((g) => renderGroup(g))}
+              {upcomingGroups.length > 0 && (
+                <>
+                  <div className="section-head" style={{ marginTop: 6 }}>
+                    <span className="label">{t('recurring.upcoming')}</span>
+                  </div>
+                  {upcomingGroups.map((g) => renderGroup(g))}
+                </>
+              )}
+            </>
           )
         ) : history.length === 0 ? (
           <EmptyState icon="Repeat" title={t('recurring.historyEmpty')} />

@@ -13,6 +13,7 @@ import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { useRecurrings, useAccounts } from '@/hooks/selectors';
 import { isConfirmedIn } from '@/lib/recurring';
+import { isDueYet } from '@/lib/recurringSchedule';
 import { currentMonth } from '@/lib/date';
 import {
   CURATED_CURRENCIES,
@@ -102,7 +103,9 @@ export function Settings() {
   const isFr = i18n.language?.startsWith('fr');
 
   const recurrings = useRecurrings();
-  const todoCount = recurrings.filter((r) => !isConfirmedIn(r, currentMonth())).length;
+  const todoCount = recurrings.filter(
+    (r) => !isConfirmedIn(r, currentMonth()) && isDueYet(r, currentMonth()),
+  ).length;
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [clearOpen, setClearOpen] = useState(false);

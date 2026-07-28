@@ -19,6 +19,7 @@ import { accountBalance, isTransfer, totalBalance } from '@/lib/calc';
 import { currentMonth } from '@/lib/date';
 import { formatCurrency, formatSignedCurrency } from '@/lib/format';
 import { isConfirmedIn, confirmRecurring } from '@/lib/recurring';
+import { isDueYet } from '@/lib/recurringSchedule';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Icon } from '@/components/ui/Icon';
@@ -49,7 +50,9 @@ export function Dashboard() {
   const recent = useRecentMovements(scope, 6);
   const recurrings = useRecurrings();
   const month = currentMonth();
-  const todoRecurring = recurrings.filter((r) => !isConfirmedIn(r, month)).slice(0, 4);
+  const todoRecurring = recurrings
+    .filter((r) => !isConfirmedIn(r, month) && isDueYet(r, month))
+    .slice(0, 4);
   const online = useOnlineStatus();
   const { needsReconnect, signIn, busy: googleBusy } = useGoogleAuth();
 

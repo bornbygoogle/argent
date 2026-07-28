@@ -70,7 +70,7 @@ describe('isDueYet', () => {
 
 describe('splitByDue', () => {
   it('partitions and keeps input order inside each group', () => {
-    const list = [
+    const list: { id: string; dueDay?: number }[] = [
       { id: 'a', dueDay: 2 },
       { id: 'b', dueDay: 20 },
       { id: 'c', dueDay: 5 },
@@ -82,7 +82,8 @@ describe('splitByDue', () => {
   });
 
   it('puts day-less entries in the due group', () => {
-    const { due, upcoming } = splitByDue([{ id: 'a' }], '2026-08', '2026-08-01');
+    const dayless: { id: string; dueDay?: number }[] = [{ id: 'a' }];
+    const { due, upcoming } = splitByDue(dayless, '2026-08', '2026-08-01');
     expect(due).toHaveLength(1);
     expect(upcoming).toHaveLength(0);
   });

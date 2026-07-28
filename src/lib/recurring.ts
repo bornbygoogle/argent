@@ -66,7 +66,7 @@ export interface RecurringPatch {
 
 /** Edit a template. Amount changes are forward-only (history keeps old values). */
 export async function updateRecurring(id: string, patch: RecurringPatch): Promise<void> {
-  const next: Record<string, unknown> = {};
+  const next: Partial<Recurring> = {};
   if (patch.label !== undefined) next.label = patch.label.trim() || 'Recurring';
   if (patch.amount !== undefined) next.amount = round2(patch.amount);
   if (patch.cadence !== undefined) next.cadence = patch.cadence;
