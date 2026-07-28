@@ -5,7 +5,8 @@
 import { db } from '@/db/db';
 import { uid } from '@/lib/id';
 import { round2 } from '@/lib/calc';
-import { todayISO, currentMonth } from '@/lib/date';
+import { currentMonth } from '@/lib/date';
+import { dueDateFor } from '@/lib/recurringSchedule';
 import { addTransaction } from '@/lib/transactions';
 import type {
   Cadence,
@@ -13,6 +14,8 @@ import type {
   RecurringDirection,
   RecurringHistoryEntry,
 } from '@/types/models';
+
+export type { Recurring } from '@/types/models';
 
 export interface RecurringInput {
   accountId: string;
@@ -24,6 +27,8 @@ export interface RecurringInput {
   color: string;
   categoryId?: string;
   incomeType?: string;
+  /** Day of the month it falls due, 1–31. Omit for "due from the 1st". */
+  dueDay?: number;
 }
 
 /** Create a recurring template (no transaction yet — the user confirms per month). */
@@ -39,6 +44,7 @@ export async function createRecurring(input: RecurringInput): Promise<string> {
     color: input.color,
     categoryId: input.direction === 'expense' ? input.categoryId : undefined,
     incomeType: input.direction === 'income' ? input.incomeType : undefined,
+    dueDay: input.dueDay,
     createdAt: new Date().toISOString(),
     history: [],
   };
@@ -54,11 +60,13 @@ export interface RecurringPatch {
   color?: string;
   categoryId?: string;
   incomeType?: string;
+  /** `null` clears the day; omitting the key leaves it untouched. */
+  dueDay?: number | null;
 }
 
 /** Edit a template. Amount changes are forward-only (history keeps old values). */
 export async function updateRecurring(id: string, patch: RecurringPatch): Promise<void> {
-  const next: Partial<Recurring> = {};
+  const next: Record<string, unknown> = {};
   if (patch.label !== undefined) next.label = patch.label.trim() || 'Recurring';
   if (patch.amount !== undefined) next.amount = round2(patch.amount);
   if (patch.cadence !== undefined) next.cadence = patch.cadence;
@@ -66,6 +74,10 @@ export async function updateRecurring(id: string, patch: RecurringPatch): Promis
   if (patch.color !== undefined) next.color = patch.color;
   if (patch.categoryId !== undefined) next.categoryId = patch.categoryId;
   if (patch.incomeType !== undefined) next.incomeType = patch.incomeType;
+  // Dexie deletes a property when its update value is `undefined`, which is
+  // what clearing has to do: a `null` left in the row would read as a change
+  // to the sync fingerprint and differ from a recurring that never had a day.
+  if (patch.dueDay !== undefined) next.dueDay = patch.dueDay ?? undefined;
   await db.recurrings.update(id, next);
 }
 
@@ -99,7 +111,7 @@ export async function confirmRecurring(
     categoryId: recurring.direction === 'expense' ? recurring.categoryId : undefined,
     incomeType: recurring.direction === 'income' ? recurring.incomeType : undefined,
     note: recurring.label,
-    date: todayISO(),
+    date: dueDateFor(recurring, month),
   });
   await db.transactions.update(txId, { recurringSourceId: recurring.id });
 
