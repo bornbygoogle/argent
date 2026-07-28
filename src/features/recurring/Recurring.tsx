@@ -21,6 +21,8 @@ import {
 } from '@/lib/recurring';
 import { dueDateFor, clampedDay, occurrenceOf } from '@/lib/recurringSchedule';
 import { currentMonth } from '@/lib/date';
+import { monthlyEquivalent } from '@/lib/budget';
+import { round2 } from '@/lib/calc';
 import { formatCurrency, formatSignedCurrency, formatDate } from '@/lib/format';
 import { useToast } from '@/store/ToastContext';
 import type { Account, Cadence, Recurring as RecurringT } from '@/types/models';
@@ -58,6 +60,18 @@ export function Recurring() {
 
   const byDueDay = (a: RecurringT, b: RecurringT) =>
     clampedDay(a.dueDay ?? 1, month) - clampedDay(b.dueDay ?? 1, month);
+
+  // What an account's listed commitments come to per month. Weekly and yearly
+  // lines are normalised the way the Budget screen already normalises them, so
+  // a weekly 100 counts as 433,33 and the accounts stay comparable; income is
+  // netted off, so the figure reads as this account's real monthly position.
+  const groupTotal = (items: RecurringT[]) =>
+    round2(
+      items.reduce((sum, r) => {
+        const monthly = monthlyEquivalent(r.amount, r.cadence);
+        return sum + (r.direction === 'income' ? monthly : -monthly);
+      }, 0),
+    );
 
   // Group a list by account, ordered like the account list.
   const group = (list: RecurringT[]) => {
@@ -106,6 +120,12 @@ export function Recurring() {
     <div key={g.account.id}>
       <div className="section-head">
         <span className="label">{g.account.name}</span>
+        <span
+          className="label tnum"
+          style={{ color: groupTotal(g.items) >= 0 ? 'var(--success-600)' : 'var(--neutral-500)' }}
+        >
+          {formatSignedCurrency(groupTotal(g.items))}
+        </span>
       </div>
       <div className="card tight">
         {g.items.map((r) => {

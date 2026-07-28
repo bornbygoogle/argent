@@ -10,6 +10,7 @@ import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { Recurring } from '@/features/recurring/Recurring';
 import { db } from '@/db/db';
 import { backfillOccurrences } from '@/lib/recurringMigration';
+import { formatSignedCurrency } from '@/lib/format';
 import type { Account, Recurring as RecurringT } from '@/types/models';
 
 const account = (): Account => ({
@@ -57,6 +58,61 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('per-account totals in the group heading', () => {
+  const heads = () => [...document.querySelectorAll('.section-head')].map((e) => e.textContent ?? '');
+
+  it('nets recurring income against recurring expenses', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0));
+
+    await db.recurrings.bulkAdd([
+      recurring({ id: 'r-1', label: 'Loyer', amount: 750 }),
+      recurring({ id: 'r-2', label: 'Salaire', amount: 2000, direction: 'income' }),
+    ]);
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+    expect(heads().some((h) => h.includes(formatSignedCurrency(1250)))).toBe(true);
+  });
+
+  it('counts a weekly item at its monthly equivalent, not its face value', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0));
+
+    // 100 a week is 433,33 a month — 52 weeks over 12 months, not four weeks.
+    await db.recurrings.add(recurring({ label: 'Courses', amount: 100, cadence: 'hebdo' }));
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Courses')).toBeInTheDocument());
+    expect(heads().some((h) => h.includes(formatSignedCurrency(-433.33)))).toBe(true);
+  });
+
+  it('totals only the rows actually listed under it', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0));
+
+    await db.recurrings.bulkAdd([
+      recurring({ id: 'r-1', label: 'Loyer', amount: 750 }),
+      // Already settled this month, so it is not listed on the To confirm tab
+      // and must not be counted in the figure above it either.
+      recurring({
+        id: 'r-2',
+        label: 'Internet',
+        amount: 40,
+        history: [{ month: '2026-07', amount: 40, transactionId: 'tx-1', occurrence: '2026-07-01' }],
+      }),
+    ]);
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+    expect(screen.queryByText('Internet')).not.toBeInTheDocument();
+    expect(heads().some((h) => h.includes(formatSignedCurrency(-750)))).toBe(true);
+  });
 });
 
 describe('an item logged mid-month, then given a due day of 30', () => {
