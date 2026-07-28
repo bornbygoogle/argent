@@ -75,6 +75,8 @@ export interface Recurring {
   amount: number; // editable forward-only
   cadence: Cadence;
   cadenceMeta?: string;
+  /** Day of the month this falls due, 1–31. Absent = due from the 1st. */
+  dueDay?: number;
   icon: string;
   color: string;
   categoryId?: string;
