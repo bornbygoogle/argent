@@ -26,25 +26,48 @@ export async function occurrenceForLegacyEntry(
   // date is exactly what the entry used to mean, so nothing changes.
   if (!tx?.date) return fallback;
 
-  return lastOccurrenceOnOrBefore(r, tx.date, r.createdAt.slice(0, 10)) ?? fallback;
+  // Deliberately unbounded by `createdAt`: that is the day the template was
+  // typed into the app, not the day the bill came into existence. Clamping to
+  // it forced every payment made before its first due day to claim the current
+  // instalment — which is precisely the conflation this backfill undoes.
+  return lastOccurrenceOnOrBefore(r, tx.date) ?? fallback;
 }
 
-/** Fill in `occurrence` wherever it is missing. Returns how many rows changed. */
+/**
+ * An entry whose instalment falls *after* the payment that supposedly settled
+ * it. That cannot happen: settling early dates the transaction on the
+ * instalment itself, so the two match. It only arises from a wrong attribution,
+ * and recomputing such an entry can never disturb a correct one.
+ */
+async function isMisattributed(entry: RecurringHistoryEntry): Promise<boolean> {
+  if (!entry.occurrence || !entry.transactionId) return false;
+  const tx = await db.transactions.get(entry.transactionId);
+  return !!tx?.date && entry.occurrence > tx.date;
+}
+
+/**
+ * Give every history entry the instalment it actually settled: filling the gap
+ * on entries that predate occurrences, and repairing any that were attributed
+ * wrongly. Returns how many templates changed.
+ */
 export async function backfillOccurrences(): Promise<number> {
   const recurrings = await db.recurrings.toArray();
   let changed = 0;
 
   for (const r of recurrings) {
-    if (r.history.every((h) => h.occurrence !== undefined)) continue;
-
+    let dirty = false;
     const history: RecurringHistoryEntry[] = [];
+
     for (const entry of r.history) {
-      history.push(
-        entry.occurrence !== undefined
-          ? entry
-          : { ...entry, occurrence: await occurrenceForLegacyEntry(r, entry) },
-      );
+      if (entry.occurrence !== undefined && !(await isMisattributed(entry))) {
+        history.push(entry);
+        continue;
+      }
+      history.push({ ...entry, occurrence: await occurrenceForLegacyEntry(r, entry) });
+      dirty = true;
     }
+
+    if (!dirty) continue;
     await db.recurrings.update(r.id, { history });
     changed++;
   }
