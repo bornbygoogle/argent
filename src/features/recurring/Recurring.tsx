@@ -119,10 +119,13 @@ export function Recurring() {
   // instalment is unpaid, whatever its day — paying early is normal, and a bill
   // due later this month is still work the screen must admit to.
   const renderGroup = (g: { account: Account; items: RecurringT[] }) => (
-    <div key={g.account.id}>
+    // The gap is the group's own, not the heading's: a 36px control in the
+    // heading used to sit flush against the card, since .section-head carries
+    // no bottom margin and the list below it starts immediately.
+    <div key={g.account.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="section-head">
         <span className="label">{g.account.name}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
           <span
             className="label tnum"
             style={{ color: monthlyNet(g.items) >= 0 ? 'var(--success-600)' : 'var(--neutral-500)' }}
@@ -130,9 +133,22 @@ export function Recurring() {
             {formatSignedCurrency(monthlyNet(g.items))}
           </span>
           {topUpFor(g.account.id) > 0 && (
+            // Same shape as the dashboard's "Manage" — a section heading is a
+            // quiet label row, and a filled pill in it outshouts the Log
+            // buttons on the rows themselves, which are the real actions here.
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="body-sm"
+              style={{
+                color: 'var(--primary-600)',
+                fontWeight: 600,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                whiteSpace: 'nowrap',
+              }}
               onClick={() =>
                 navigate(
                   `/transfer?to=${encodeURIComponent(g.account.id)}&amount=${topUpFor(g.account.id)}`,
