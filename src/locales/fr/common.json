@@ -332,6 +332,7 @@
     "dueDayHint": "Jour du mois où il tombe. Laissez vide pour le voir dès le 1er.",
     "dueDayNone": "Aucun jour",
     "dueOn": "Le {{date}}",
+    "topUp": "Alimenter {{amount}}",
     "labelPlaceholder": "ex. Loyer, Salaire…",
     "confirmTitle": "Confirmer ce récurrent ?",
     "confirmBody": "Une opération de {{amount}} sera enregistrée sur {{account}}.",

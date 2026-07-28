@@ -3,7 +3,8 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import i18n from '@/i18n';
 import { ToastProvider } from '@/store/ToastContext';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
@@ -39,6 +40,11 @@ const recurring = (over: Partial<RecurringT> = {}): RecurringT => ({
   ...over,
 });
 
+function LocationProbe() {
+  const loc = useLocation();
+  return <span data-testid="loc">{loc.pathname + loc.search}</span>;
+}
+
 const renderScreen = () =>
   render(
     <MemoryRouter>
@@ -58,6 +64,74 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('topping up an account that cannot cover its commitments', () => {
+  const renderWithRoutes = () =>
+    render(
+      <MemoryRouter initialEntries={['/recurring']}>
+        <ToastProvider>
+          <AccountScopeProvider>
+            <Routes>
+              <Route path="/recurring" element={<Recurring />} />
+              <Route
+                path="/transfer"
+                element={<LocationProbe />}
+              />
+            </Routes>
+          </AccountScopeProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    );
+
+  it('offers the shortfall between the account balance and its commitments', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0));
+
+    await db.accounts.clear();
+    await db.accounts.add({ ...account(), name: 'CIC Locatif', openingBalance: 200 });
+    await db.recurrings.bulkAdd([
+      recurring({ id: 'r-1', label: 'Loyer', amount: 750 }),
+      recurring({ id: 'r-2', label: 'Assurance', amount: 42 }),
+      recurring({ id: 'r-3', label: 'Taxe', amount: 120 }),
+    ]);
+
+    renderWithRoutes();
+
+    // 912 owed, 200 held → 712 short.
+    const btn = await screen.findByRole('button', { name: /712/ });
+    expect(btn).toBeInTheDocument();
+  });
+
+  it('opens the transfer screen with the account and the amount already set', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0));
+
+    await db.accounts.clear();
+    await db.accounts.add({ ...account(), name: 'CIC Locatif', openingBalance: 200 });
+    await db.recurrings.add(recurring({ id: 'r-1', label: 'Loyer', amount: 750 }));
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderWithRoutes();
+
+    await user.click(await screen.findByRole('button', { name: /550/ }));
+
+    expect(screen.getByTestId('loc').textContent).toBe('/transfer?to=acc-1&amount=550');
+  });
+
+  it('offers nothing once the balance already covers the commitments', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0));
+
+    await db.accounts.clear();
+    await db.accounts.add({ ...account(), openingBalance: 5000 });
+    await db.recurrings.add(recurring({ id: 'r-1', label: 'Loyer', amount: 750 }));
+
+    renderWithRoutes();
+
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /top up|alimenter/i })).not.toBeInTheDocument();
+  });
 });
 
 describe('per-account totals in the group heading', () => {

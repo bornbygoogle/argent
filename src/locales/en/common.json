@@ -332,6 +332,7 @@
     "dueDayHint": "Day of the month it falls due. Leave empty to see it from the 1st.",
     "dueDayNone": "No day",
     "dueOn": "Due {{date}}",
+    "topUp": "Top up {{amount}}",
     "labelPlaceholder": "e.g. Rent, Salary…",
     "confirmTitle": "Confirm this recurring?",
     "confirmBody": "A {{amount}} transaction will be recorded on {{account}}.",

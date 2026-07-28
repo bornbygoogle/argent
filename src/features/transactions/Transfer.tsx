@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
@@ -44,17 +44,31 @@ export function Transfer() {
   const outLeg = legs?.find((l) => l.transferRole === 'out');
   const inLeg = legs?.find((l) => l.transferRole === 'in');
 
+  // `?to=` and `?amount=` let another screen open this one already filled in —
+  // the recurring page uses it to fund an account that cannot cover its bills.
+  // A destination that no longer exists is ignored rather than trusted.
+  const [searchParams] = useSearchParams();
+  const presetTo = searchParams.get('to') ?? '';
+  const presetAmount = searchParams.get('amount') ?? '';
+
   const defaults = useMemo(() => {
     const first = accounts[0]?.id ?? '';
-    const from =
+    const target = accounts.some((a) => a.id === presetTo) ? presetTo : '';
+    const preferred =
       scope !== 'all' && accounts.some((a) => a.id === scope)
         ? scope
         : settings.lastUsedAccountId && accounts.some((a) => a.id === settings.lastUsedAccountId)
           ? settings.lastUsedAccountId
           : first;
-    const to = accounts.find((a) => a.id !== from)?.id ?? '';
+    // The source must never be the destination, or the screen opens on its own
+    // "pick two different accounts" error.
+    const from =
+      target && preferred === target
+        ? (accounts.find((a) => a.id !== target)?.id ?? '')
+        : preferred;
+    const to = target || (accounts.find((a) => a.id !== from)?.id ?? '');
     return { from, to };
-  }, [accounts, scope, settings.lastUsedAccountId]);
+  }, [accounts, scope, settings.lastUsedAccountId, presetTo]);
 
   // Accounts arrive from a live query, so on first render `defaults` is still
   // empty and useState captures that. Without re-syncing, the transfer screen
@@ -78,7 +92,11 @@ export function Transfer() {
     touchedRef.current = true;
     setToId(id);
   };
-  const [amountStr, setAmountStr] = useState('');
+  // Canonical dot-decimal, the shape the numpad keeps its value in. Anything
+  // that is not a positive number is discarded rather than shown as 0.
+  const [amountStr, setAmountStr] = useState(() =>
+    Number.parseFloat(presetAmount) > 0 ? String(Number.parseFloat(presetAmount)) : '',
+  );
   const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState('');
   const [picker, setPicker] = useState<Picker>(null);

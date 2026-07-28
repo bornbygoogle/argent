@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
@@ -13,6 +14,7 @@ import {
   useRecurrings,
   useAccounts,
   useAccountMap,
+  useAllTransactions,
 } from '@/hooks/selectors';
 import {
   isConfirmedIn,
@@ -21,8 +23,8 @@ import {
 } from '@/lib/recurring';
 import { dueDateFor, clampedDay, occurrenceOf } from '@/lib/recurringSchedule';
 import { currentMonth } from '@/lib/date';
-import { monthlyEquivalent } from '@/lib/budget';
-import { round2 } from '@/lib/calc';
+import { monthlyNet, topUpNeeded } from '@/lib/recurringTotals';
+import { accountBalance } from '@/lib/calc';
 import { formatCurrency, formatSignedCurrency, formatDate } from '@/lib/format';
 import { useToast } from '@/store/ToastContext';
 import type { Account, Cadence, Recurring as RecurringT } from '@/types/models';
@@ -34,10 +36,12 @@ const cadenceLabel = (t: (k: string) => string, c: Cadence): string => t(`recurr
 export function Recurring() {
   const { t } = useTranslation();
   const goBack = useGoBack('/settings');
+  const navigate = useNavigate();
   const toast = useToast();
   const recurrings = useRecurrings();
   const accounts = useAccounts();
   const accountMap = useAccountMap();
+  const allTx = useAllTransactions();
   const month = currentMonth();
   const [mode, setMode] = useState<Mode>('todo');
   const [editing, setEditing] = useState<'new' | RecurringT | null>(null);
@@ -61,17 +65,15 @@ export function Recurring() {
   const byDueDay = (a: RecurringT, b: RecurringT) =>
     clampedDay(a.dueDay ?? 1, month) - clampedDay(b.dueDay ?? 1, month);
 
-  // What an account's listed commitments come to per month. Weekly and yearly
-  // lines are normalised the way the Budget screen already normalises them, so
-  // a weekly 100 counts as 433,33 and the accounts stay comparable; income is
-  // netted off, so the figure reads as this account's real monthly position.
-  const groupTotal = (items: RecurringT[]) =>
-    round2(
-      items.reduce((sum, r) => {
-        const monthly = monthlyEquivalent(r.amount, r.cadence);
-        return sum + (r.direction === 'income' ? monthly : -monthly);
-      }, 0),
-    );
+  // The heading figure covers the rows actually listed, so it always adds up to
+  // what is underneath it. The top-up figure deliberately does not: funding an
+  // account is about its whole commitment, not just this tab's slice.
+  const topUpFor = (accountId: string) => {
+    const account = accountMap.get(accountId);
+    if (!account) return 0;
+    const owned = recurrings.filter((r) => r.accountId === accountId);
+    return topUpNeeded(owned, accountBalance(account, allTx));
+  };
 
   // Group a list by account, ordered like the account list.
   const group = (list: RecurringT[]) => {
@@ -120,11 +122,26 @@ export function Recurring() {
     <div key={g.account.id}>
       <div className="section-head">
         <span className="label">{g.account.name}</span>
-        <span
-          className="label tnum"
-          style={{ color: groupTotal(g.items) >= 0 ? 'var(--success-600)' : 'var(--neutral-500)' }}
-        >
-          {formatSignedCurrency(groupTotal(g.items))}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            className="label tnum"
+            style={{ color: monthlyNet(g.items) >= 0 ? 'var(--success-600)' : 'var(--neutral-500)' }}
+          >
+            {formatSignedCurrency(monthlyNet(g.items))}
+          </span>
+          {topUpFor(g.account.id) > 0 && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() =>
+                navigate(
+                  `/transfer?to=${encodeURIComponent(g.account.id)}&amount=${topUpFor(g.account.id)}`,
+                )
+              }
+            >
+              {t('recurring.topUp', { amount: formatCurrency(topUpFor(g.account.id)) })}
+            </button>
+          )}
         </span>
       </div>
       <div className="card tight">
