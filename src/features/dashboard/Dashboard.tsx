@@ -308,7 +308,7 @@ export function Dashboard() {
                 if (!pendingRecur) return;
                 const row = pendingRecur;
                 setPendingRecur(null);
-                await confirmRecurring(row, month);
+                await confirmRecurring(row);
                 toast.success(t('recurring.confirmedToast'));
               }}
             >

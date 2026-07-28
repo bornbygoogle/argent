@@ -62,9 +62,12 @@ export interface Transaction {
 }
 
 export interface RecurringHistoryEntry {
-  month: string; // 'YYYY-MM'
+  month: string; // 'YYYY-MM' — kept so older backups keep restoring
   amount: number;
   transactionId?: string;
+  /** The due date this payment covers, 'YYYY-MM-DD'. Absent on entries written
+   *  before occurrences were tracked; those read as their month's due date. */
+  occurrence?: string;
 }
 
 export interface Recurring {

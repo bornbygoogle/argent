@@ -19,9 +19,9 @@ import {
   confirmRecurring,
   unconfirmRecurring,
 } from '@/lib/recurring';
-import { dueDateFor, clampedDay } from '@/lib/recurringSchedule';
+import { dueDateFor, clampedDay, occurrenceOf } from '@/lib/recurringSchedule';
 import { currentMonth } from '@/lib/date';
-import { formatCurrency, formatSignedCurrency, formatMonth, formatDate } from '@/lib/format';
+import { formatCurrency, formatSignedCurrency, formatDate } from '@/lib/format';
 import { useToast } from '@/store/ToastContext';
 import type { Account, Cadence, Recurring as RecurringT } from '@/types/models';
 
@@ -78,29 +78,30 @@ export function Recurring() {
 
   // History: flatten confirmed entries across all recurrings, newest month first.
   const history = useMemo(() => {
-    const rows: { month: string; label: string; amount: number; direction: 'expense' | 'income'; color: string; icon: string }[] = [];
+    const rows: { occurrence: string; label: string; amount: number; direction: 'expense' | 'income'; color: string; icon: string }[] = [];
     for (const r of recurrings) {
       for (const h of r.history) {
         if (!h.transactionId) continue;
-        rows.push({ month: h.month, label: r.label, amount: h.amount, direction: r.direction, color: r.color, icon: r.icon });
+        // The instalment settled, not the month the button was pressed.
+        rows.push({ occurrence: occurrenceOf(h, r), label: r.label, amount: h.amount, direction: r.direction, color: r.color, icon: r.icon });
       }
     }
-    return rows.sort((a, b) => (a.month < b.month ? 1 : -1));
+    return rows.sort((a, b) => (a.occurrence < b.occurrence ? 1 : -1));
   }, [recurrings]);
 
   const toggle = async (r: RecurringT) => {
     setPending(r.id);
     try {
-      if (isConfirmedIn(r, month)) await unconfirmRecurring(r, month);
-      else await confirmRecurring(r, month);
+      if (isConfirmedIn(r, month)) await unconfirmRecurring(r, dueDateFor(r, month));
+      else await confirmRecurring(r);
     } finally {
       setPending(null);
     }
   };
 
-  // One account's block of rows. Shared by the due list and the upcoming one,
-  // which differ only in where they sit on the screen — an upcoming item is
-  // still confirmable, because paying a bill early is normal.
+  // One account's block of rows. A row is shown whenever this month's
+  // instalment is unpaid, whatever its day — paying early is normal, and a bill
+  // due later this month is still work the screen must admit to.
   const renderGroup = (g: { account: Account; items: RecurringT[] }) => (
     <div key={g.account.id}>
       <div className="section-head">
@@ -205,11 +206,11 @@ export function Recurring() {
         ) : (
           <div className="card tight">
             {history.map((h, i) => (
-              <div className="row" key={`${h.label}-${h.month}-${i}`}>
+              <div className="row" key={`${h.label}-${h.occurrence}-${i}`}>
                 <TintedIcon hex={h.color} icon={h.icon} variant="cat-sm" />
                 <div className="r-main">
                   <div className="r-title" style={{ fontSize: 14 }}>{h.label}</div>
-                  <div className="r-sub">{formatMonth(h.month)}</div>
+                  <div className="r-sub">{formatDate(h.occurrence, 'weekday')}</div>
                 </div>
                 <span className="amount-md" style={{ fontSize: 14, color: h.direction === 'income' ? 'var(--success-600)' : undefined }}>
                   {formatSignedCurrency(h.direction === 'income' ? h.amount : -h.amount)}

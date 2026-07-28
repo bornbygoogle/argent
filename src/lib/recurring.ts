@@ -5,8 +5,13 @@
 import { db } from '@/db/db';
 import { uid } from '@/lib/id';
 import { round2 } from '@/lib/calc';
-import { currentMonth } from '@/lib/date';
-import { dueDateFor } from '@/lib/recurringSchedule';
+import { currentMonth, todayISO } from '@/lib/date';
+import {
+  dueDateFor,
+  isOccurrencePaidIn,
+  nextUnpaidOccurrence,
+  occurrenceOf,
+} from '@/lib/recurringSchedule';
 import { addTransaction } from '@/lib/transactions';
 import type {
   Cadence,
@@ -85,24 +90,36 @@ export async function deleteRecurring(id: string): Promise<void> {
   await db.recurrings.delete(id);
 }
 
-/** True if the recurring has been confirmed (a transaction exists) for `month`. */
+/**
+ * True when the instalment falling in `month` has been paid.
+ *
+ * Note this asks about the *occurrence* landing in that month, not about any
+ * payment recorded during it: a bill due on the 30th and settled on 2 August
+ * still settles July's instalment, and July must read as done.
+ */
 export function isConfirmedIn(r: Recurring, month: string = currentMonth()): boolean {
-  return r.history.some((h) => h.month === month && !!h.transactionId);
+  return isOccurrencePaidIn(r, month);
 }
 
-const historyEntryFor = (r: Recurring, month: string): RecurringHistoryEntry | undefined =>
-  r.history.find((h) => h.month === month);
+const entryForOccurrence = (
+  r: Recurring,
+  occurrence: string,
+): RecurringHistoryEntry | undefined =>
+  r.history.find((h) => occurrenceOf(h, r) === occurrence);
 
 /**
- * Confirm a recurring for the given month: create its transaction (dated today)
- * and record the history entry. Idempotent — re-confirming returns the existing
- * transaction id without creating a duplicate.
+ * Settle the oldest instalment that is due and still unpaid, creating its
+ * transaction dated on that instalment's own day and recording it in history.
+ *
+ * Idempotent — when the instalment it picks is already settled, the existing
+ * transaction id comes back and nothing is written.
  */
 export async function confirmRecurring(
   recurring: Recurring,
-  month: string = currentMonth(),
+  today: string = todayISO(),
 ): Promise<string | null> {
-  const existing = historyEntryFor(recurring, month);
+  const occurrence = nextUnpaidOccurrence(recurring, today);
+  const existing = entryForOccurrence(recurring, occurrence);
   if (existing?.transactionId) return existing.transactionId;
 
   const txId = await addTransaction(recurring.direction, {
@@ -111,26 +128,31 @@ export async function confirmRecurring(
     categoryId: recurring.direction === 'expense' ? recurring.categoryId : undefined,
     incomeType: recurring.direction === 'income' ? recurring.incomeType : undefined,
     note: recurring.label,
-    date: dueDateFor(recurring, month),
+    date: occurrence,
   });
   await db.transactions.update(txId, { recurringSourceId: recurring.id });
 
   const history: RecurringHistoryEntry[] = [
-    ...recurring.history.filter((h) => h.month !== month),
-    { month, amount: recurring.amount, transactionId: txId },
+    ...recurring.history.filter((h) => occurrenceOf(h, recurring) !== occurrence),
+    {
+      month: occurrence.slice(0, 7),
+      amount: recurring.amount,
+      transactionId: txId,
+      occurrence,
+    },
   ];
   await db.recurrings.update(recurring.id, { history });
   return txId;
 }
 
-/** Undo a month's confirmation: delete the linked transaction + drop the entry. */
+/** Undo one instalment: delete the linked transaction + drop the entry. */
 export async function unconfirmRecurring(
   recurring: Recurring,
-  month: string = currentMonth(),
+  occurrence: string = dueDateFor(recurring, currentMonth()),
 ): Promise<void> {
-  const entry = historyEntryFor(recurring, month);
+  const entry = entryForOccurrence(recurring, occurrence);
   if (!entry?.transactionId) return;
   await db.transactions.delete(entry.transactionId);
-  const history = recurring.history.filter((h) => h.month !== month);
+  const history = recurring.history.filter((h) => occurrenceOf(h, recurring) !== occurrence);
   await db.recurrings.update(recurring.id, { history });
 }

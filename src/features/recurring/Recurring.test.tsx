@@ -9,6 +9,7 @@ import { ToastProvider } from '@/store/ToastContext';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { Recurring } from '@/features/recurring/Recurring';
 import { db } from '@/db/db';
+import { backfillOccurrences } from '@/lib/recurringMigration';
 import type { Account, Recurring as RecurringT } from '@/types/models';
 
 const account = (): Account => ({
@@ -56,6 +57,40 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('an item logged mid-month, then given a due day of 30', () => {
+  it('comes back into To confirm, because that payment settled June’s instalment', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0)); // 28 Jul 2026
+
+    // Logged on 10 July, back when the entry only recorded "July".
+    await db.transactions.add({
+      id: 'tx-old',
+      kind: 'expense',
+      accountId: 'acc-1',
+      amount: 42,
+      date: '2026-07-10',
+      createdAt: '2026-07-10T10:00:00.000Z',
+      updatedAt: '2026-07-10T10:00:00.000Z',
+    });
+    await db.recurrings.add(
+      recurring({
+        label: 'Loyer',
+        dueDay: 30,
+        history: [{ month: '2026-07', amount: 42, transactionId: 'tx-old' }],
+      }),
+    );
+
+    // Before the backfill it reads as "July is done" and stays hidden.
+    expect(await backfillOccurrences()).toBe(1);
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /log/i })).toBeInTheDocument();
+    expect(document.querySelector('.row-between')?.textContent ?? '').toContain('1');
+  });
 });
 
 describe('a due day that has not arrived yet', () => {

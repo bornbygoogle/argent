@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { backfillOccurrences } from '@/lib/recurringMigration';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { GoogleAuthProvider } from '@/store/GoogleAuthContext';
@@ -68,6 +70,15 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // History entries written before instalments were tracked record the month a
+  // payment was logged, not the instalment it settled. Recover that from each
+  // transaction's date once on start; the pass is additive and idempotent.
+  useEffect(() => {
+    backfillOccurrences().catch((err) => {
+      console.error('[recurring] occurrence backfill failed', err);
+    });
+  }, []);
+
   // Single phone-column shell for every route (tab roots + pushed + onboarding).
   return (
     <SettingsProvider>
