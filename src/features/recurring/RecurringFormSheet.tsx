@@ -34,6 +34,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
   const [direction, setDirection] = useState<RecurringDirection>(existing?.direction ?? 'expense');
   const [amountStr, setAmountStr] = useState(existing ? String(existing.amount) : '');
   const [cadence, setCadence] = useState<Cadence>(existing?.cadence ?? 'mensuel');
+  const [dueDayStr, setDueDayStr] = useState(existing?.dueDay ? String(existing.dueDay) : '');
   const [accountId, setAccountId] = useState(existing?.accountId ?? firstAccount?.id ?? '');
   const [categoryId, setCategoryId] = useState(existing?.categoryId ?? categories[0]?.id);
   const [incomeType, setIncomeType] = useState<string>(existing?.incomeType ?? 'Salaire');
@@ -48,6 +49,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
       setDirection(existing.direction);
       setAmountStr(String(existing.amount));
       setCadence(existing.cadence);
+      setDueDayStr(existing.dueDay ? String(existing.dueDay) : '');
       setAccountId(existing.accountId);
       setCategoryId(existing.categoryId ?? categories[0]?.id);
       setIncomeType(existing.incomeType ?? 'Salaire');
@@ -60,8 +62,13 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
   const tileHex = direction === 'expense' ? cat?.color ?? '#64748B' : '#10B981';
   const tileIcon = direction === 'expense' ? cat?.icon ?? 'CircleDashed' : 'Coins';
 
+  // Digits only, and only a real day of the month. A typo like 45 is rejected
+  // rather than quietly clamped to 31 — the user meant something else.
+  const dueDayNum = dueDayStr === '' ? null : Number.parseInt(dueDayStr, 10);
+  const dueDayValid = dueDayNum === null || (dueDayNum >= 1 && dueDayNum <= 31);
+
   const save = async () => {
-    if (busy || !accountId) return;
+    if (busy || !accountId || !dueDayValid) return;
     setBusy(true);
     try {
       const amount = parseNum(amountStr);
@@ -69,13 +76,14 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
         label,
         amount,
         cadence,
+        dueDay: dueDayNum,
         categoryId: direction === 'expense' ? categoryId : undefined,
         incomeType: direction === 'income' ? incomeType : undefined,
         icon: tileIcon,
         color: tileHex,
       };
       if (existing) await updateRecurring(existing.id, common);
-      else await createRecurring({ accountId, direction, ...common });
+      else await createRecurring({ accountId, direction, ...common, dueDay: dueDayNum ?? undefined });
       onClose();
     } finally {
       setBusy(false);
@@ -154,6 +162,39 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
             options={CADENCES.map((c) => ({ value: c, label: t(`recurring.cadence.${c}`) }))}
           />
 
+          {/* due day */}
+          <p className="label" style={{ marginTop: 16, marginBottom: 8 }}>{t('recurring.dueDayLabel')}</p>
+          <div className="card tight" style={{ padding: '4px 0' }}>
+            <div className="row" style={{ padding: '9px 16px' }}>
+              <span style={{ fontSize: 15, color: 'var(--neutral-700)' }}>{t('recurring.dueDayLabel')}</span>
+              <span style={{ flex: 1 }} />
+              <input
+                value={dueDayStr}
+                onChange={(e) => setDueDayStr(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                inputMode="numeric"
+                placeholder={t('recurring.dueDayNone')}
+                aria-label={t('recurring.dueDayLabel')}
+                aria-invalid={!dueDayValid}
+                className="tnum"
+                style={{
+                  width: 110,
+                  height: 32,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                  color: dueDayValid ? 'var(--neutral-900)' : 'var(--danger-600)',
+                  textAlign: 'right',
+                }}
+              />
+            </div>
+          </div>
+          <span className="caption" style={{ display: 'block', marginTop: 6 }}>
+            {t('recurring.dueDayHint')}
+          </span>
+
           {/* category / income type combo box */}
           <div style={{ marginTop: 16 }}>
             {direction === 'expense' ? (
@@ -176,7 +217,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
             )}
           </div>
 
-          <Button full onClick={save} disabled={busy || !label.trim() || !amountStr} style={{ marginTop: 20 }}>
+          <Button full onClick={save} disabled={busy || !label.trim() || !amountStr || !dueDayValid} style={{ marginTop: 20 }}>
             {t('common.save')}
           </Button>
 
