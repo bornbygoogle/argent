@@ -1,7 +1,27 @@
 # Optional due day on recurrings
 
 **Date:** 2026-07-28
-**Status:** approved, not yet implemented
+**Status:** implemented, then amended the same day — see *Revision* below.
+
+## Revision — the day no longer gates what is shown
+
+Built as specified, the gate failed its first contact with real data. With
+several templates moved to a due day of 30 and the date at the 28th, the To
+confirm tab read **0 · 0,00 €** and every row sat under an *Upcoming* heading —
+a screen reporting no work two days before the bills land.
+
+The day therefore **informs and orders; it does not gate**:
+
+- Every unconfirmed template is listed under To confirm, whatever its day, and
+  the summary counts them all. The Upcoming section is gone.
+- The row still shows `Due <date>`, and rows still sort by clamped due day.
+- `confirmRecurring` still dates its transaction on the due day — that was
+  always the substantive half of the feature and is unchanged.
+- `isDueYet` and `splitByDue` are deleted along with the `recurring.upcoming`
+  string; `clampedDay` and `dueDateFor` remain.
+
+The sections below describe the original design. Where they speak of gating,
+Upcoming, or due/not-due groups, this revision supersedes them.
 
 ## Problem
 

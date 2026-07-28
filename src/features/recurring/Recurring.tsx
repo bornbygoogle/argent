@@ -19,7 +19,7 @@ import {
   confirmRecurring,
   unconfirmRecurring,
 } from '@/lib/recurring';
-import { splitByDue, dueDateFor, clampedDay } from '@/lib/recurringSchedule';
+import { dueDateFor, clampedDay } from '@/lib/recurringSchedule';
 import { currentMonth } from '@/lib/date';
 import { formatCurrency, formatSignedCurrency, formatMonth, formatDate } from '@/lib/format';
 import { useToast } from '@/store/ToastContext';
@@ -47,10 +47,11 @@ export function Recurring() {
     return (a: Account, b: Account) => (idx.get(a.id) ?? 99) - (idx.get(b.id) ?? 99);
   }, [accounts]);
 
-  // Summary — always over the full set. "To confirm" means due now; what has
-  // not reached its day yet is upcoming and does not read as a task.
-  const unconfirmed = recurrings.filter((r) => !isConfirmedIn(r, month));
-  const { due: todo, upcoming } = splitByDue(unconfirmed, month);
+  // Summary — always over the full set. The due day orders the list and dates
+  // the transaction; it deliberately does not gate what is shown. A bill due on
+  // the 30th is still this month's work on the 28th, and hiding it until its
+  // day turns the screen into a count of zero while the month fills up.
+  const todo = recurrings.filter((r) => !isConfirmedIn(r, month));
   const done = recurrings.filter((r) => isConfirmedIn(r, month));
   const todoAmount = todo.reduce((acc, r) => acc + r.amount, 0);
   const doneAmount = done.reduce((acc, r) => acc + r.amount, 0);
@@ -74,7 +75,6 @@ export function Recurring() {
 
   const visible = mode === 'todo' ? todo : mode === 'all' ? recurrings : [];
   const groups = group(visible);
-  const upcomingGroups = mode === 'todo' ? group(upcoming) : [];
 
   // History: flatten confirmed entries across all recurrings, newest month first.
   const history = useMemo(() => {
@@ -195,20 +195,10 @@ export function Recurring() {
         />
 
         {mode !== 'history' ? (
-          groups.length === 0 && upcomingGroups.length === 0 ? (
+          groups.length === 0 ? (
             <EmptyState icon="Repeat" title={t('recurring.empty')} hint={t('recurring.emptyHint')} />
           ) : (
-            <>
-              {groups.map((g) => renderGroup(g))}
-              {upcomingGroups.length > 0 && (
-                <>
-                  <div className="section-head" style={{ marginTop: 6 }}>
-                    <span className="label">{t('recurring.upcoming')}</span>
-                  </div>
-                  {upcomingGroups.map((g) => renderGroup(g))}
-                </>
-              )}
-            </>
+            groups.map((g) => renderGroup(g))
           )
         ) : history.length === 0 ? (
           <EmptyState icon="Repeat" title={t('recurring.historyEmpty')} />

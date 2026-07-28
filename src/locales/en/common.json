@@ -331,7 +331,6 @@
     "dueDayLabel": "Due day",
     "dueDayHint": "Day of the month it falls due. Leave empty to see it from the 1st.",
     "dueDayNone": "No day",
-    "upcoming": "Upcoming",
     "dueOn": "Due {{date}}",
     "labelPlaceholder": "e.g. Rent, Salary…",
     "confirmTitle": "Confirm this recurring?",

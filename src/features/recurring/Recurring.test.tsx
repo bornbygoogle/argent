@@ -58,6 +58,42 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe('a due day that has not arrived yet', () => {
+  it('still lists the template under To confirm, it does not hide the month’s work', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0)); // 28 Jul 2026, two days early
+
+    await db.recurrings.bulkAdd([
+      recurring({ id: 'r-1', label: 'Loyer', dueDay: 30 }),
+      recurring({ id: 'r-2', label: 'EDF', dueDay: 30 }),
+    ]);
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+    expect(screen.getByText('EDF')).toBeInTheDocument();
+
+    // Both are confirmable, and neither is exiled to a separate section.
+    expect(screen.getAllByRole('button', { name: /log/i })).toHaveLength(2);
+    const headings = [...document.querySelectorAll('.section-head .label')].map((el) => el.textContent);
+    expect(headings).not.toContain('Upcoming');
+
+    // The count is the month's real workload, not zero.
+    expect(document.querySelector('.row-between')?.textContent ?? '').toContain('2');
+  });
+
+  it('shows the date on the row so the day is still visible', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0));
+
+    await db.recurrings.add(recurring({ label: 'Loyer', dueDay: 30 }));
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+    expect(document.body.textContent).toMatch(/Jul 30/);
+  });
+});
+
 describe('a recurring logged last month, given a due day of 28', () => {
   it('is listed as due again on the 28th of this month', async () => {
     // Only Date is faked — faking the timer queue deadlocks Dexie.
