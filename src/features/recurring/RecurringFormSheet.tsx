@@ -57,6 +57,15 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
+  // useAccounts() is a live query: it is empty on the very first render and
+  // fills in a tick later, so the useState initialiser above captures ''. A new
+  // recurring would keep that empty accountId for good — and save() bails out
+  // on it silently, so the user presses an enabled Save and nothing whatsoever
+  // happens. Adopt the default account as soon as the list actually arrives.
+  useEffect(() => {
+    if (!accountId && firstAccount) setAccountId(firstAccount.id);
+  }, [accountId, firstAccount]);
+
   const account = accounts.find((a) => a.id === accountId);
   const cat = categories.find((c) => c.id === categoryId);
   const tileHex = direction === 'expense' ? cat?.color ?? '#64748B' : '#10B981';
@@ -217,7 +226,14 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
             )}
           </div>
 
-          <Button full onClick={save} disabled={busy || !label.trim() || !amountStr || !dueDayValid} style={{ marginTop: 20 }}>
+          {/* `!accountId` belongs here: save() refuses without an account, and
+              an enabled button that quietly does nothing is worse than a dead one. */}
+          <Button
+            full
+            onClick={save}
+            disabled={busy || !label.trim() || !amountStr || !dueDayValid || !accountId}
+            style={{ marginTop: 20 }}
+          >
             {t('common.save')}
           </Button>
 
