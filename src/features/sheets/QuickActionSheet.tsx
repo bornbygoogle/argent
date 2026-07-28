@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Sheet } from '@/components/ui/Sheet';
+import { useScopedPath } from '@/hooks/useScopedPath';
 import { QATile } from '@/components/ui/QATile';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -23,6 +24,7 @@ const ACTIONS: { key: QuickAction; icon: string; hex: string }[] = [
 export function QuickActionSheet({ open, onClose, onPick }: QuickActionSheetProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const scopedPath = useScopedPath();
   return (
     <Sheet open={open} onClose={onClose} title={t('quickAction.title')}>
       <div className="grid grid-cols-3 gap-2" style={{ paddingBottom: 4 }}>
@@ -44,7 +46,7 @@ export function QuickActionSheet({ open, onClose, onPick }: QuickActionSheetProp
         full
         onClick={() => {
           onClose();
-          navigate('/recurring');
+          navigate(scopedPath('/recurring'));
         }}
         style={{ marginTop: 14, height: 44 }}
       >

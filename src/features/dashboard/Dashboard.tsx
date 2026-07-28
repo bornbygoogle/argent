@@ -20,6 +20,7 @@ import { currentMonth } from '@/lib/date';
 import { formatCurrency, formatSignedCurrency } from '@/lib/format';
 import { isConfirmedIn, confirmRecurring } from '@/lib/recurring';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useScopedPath } from '@/hooks/useScopedPath';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { Icon } from '@/components/ui/Icon';
 import { TopBar } from '@/components/ui/TopBar';
@@ -39,6 +40,7 @@ import type { Recurring } from '@/types/models';
 export function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const scopedPath = useScopedPath();
   const toast = useToast();
   const { scope, setScope } = useAccountScope();
   const accounts = useAccounts();
@@ -149,7 +151,7 @@ export function Dashboard() {
           {hasBudget ? (
             <Runway data={runway} />
           ) : (
-            <button type="button" className="hero-cta" onClick={() => navigate('/budget')}>
+            <button type="button" className="hero-cta" onClick={() => navigate(scopedPath('/budget'))}>
               {t('dashboard.setBudget')}
             </button>
           )}
@@ -196,7 +198,7 @@ export function Dashboard() {
               <span className="h3">{t('recurring.toConfirm')}</span>
               <button
                 type="button"
-                onClick={() => navigate('/recurring')}
+                onClick={() => navigate(scopedPath('/recurring'))}
                 className="body-sm"
                 style={{ color: 'var(--primary-600)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
               >
@@ -244,7 +246,7 @@ export function Dashboard() {
             {recent.length > 0 && (
               <button
                 type="button"
-                onClick={() => navigate('/expenses')}
+                onClick={() => navigate(scopedPath('/expenses'))}
                 className="body-sm"
                 style={{
                   color: 'var(--primary-600)',

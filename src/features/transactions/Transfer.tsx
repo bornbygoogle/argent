@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useScopedPath } from '@/hooks/useScopedPath';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -24,6 +25,7 @@ export function Transfer() {
   const { t } = useTranslation();
   const goBack = useGoBack('/');
   const navigate = useNavigate();
+  const scopedPath = useScopedPath();
   const { groupId } = useParams<{ groupId: string }>();
   const { scope } = useAccountScope();
   const { settings, update } = useSettings();
@@ -169,7 +171,7 @@ export function Transfer() {
               title={t('movements.notFound')}
               hint={t('movements.notFoundHint')}
               action={
-                <Button onClick={() => navigate('/expenses', { replace: true })}>
+                <Button onClick={() => navigate(scopedPath('/expenses'), { replace: true })}>
                   {t('screens.movements')}
                 </Button>
               }

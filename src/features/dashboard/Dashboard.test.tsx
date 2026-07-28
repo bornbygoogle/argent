@@ -3,7 +3,8 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import i18n from '@/i18n';
 import { ToastProvider } from '@/store/ToastContext';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
@@ -62,6 +63,80 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+function LocationProbe() {
+  const loc = useLocation();
+  return <span data-testid="loc">{loc.pathname + loc.search}</span>;
+}
+
+const renderScoped = (url: string) =>
+  render(
+    <MemoryRouter initialEntries={[url]}>
+      <SettingsProvider>
+        <ToastProvider>
+          <GoogleAuthProvider>
+            <AccountScopeProvider>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/expenses" element={<LocationProbe />} />
+                <Route path="/budget" element={<LocationProbe />} />
+                <Route path="/recurring" element={<LocationProbe />} />
+              </Routes>
+            </AccountScopeProvider>
+          </GoogleAuthProvider>
+        </ToastProvider>
+      </SettingsProvider>
+    </MemoryRouter>,
+  );
+
+describe('leaving the dashboard keeps the selected account', () => {
+  it('carries the scope through "See all" into the movements list', async () => {
+    await db.transactions.add({
+      id: 'tx-1',
+      kind: 'expense',
+      accountId: 'acc-1',
+      amount: 12,
+      date: '2026-07-20',
+      createdAt: '2026-07-20T10:00:00.000Z',
+      updatedAt: '2026-07-20T10:00:00.000Z',
+    });
+    const user = userEvent.setup();
+    renderScoped('/?account=acc-1');
+
+    await user.click(await screen.findByRole('button', { name: /see all/i }));
+
+    // Selecting CIC Locatif then tapping See all must not land on All accounts.
+    expect(screen.getByTestId('loc').textContent).toBe('/expenses?account=acc-1');
+  });
+
+  it('carries the scope into the recurring screen', async () => {
+    await db.recurrings.add(rec('r-1', 'Loyer'));
+    const user = userEvent.setup();
+    renderScoped('/?account=acc-1');
+
+    await user.click(await screen.findByRole('button', { name: /manage/i }));
+
+    expect(screen.getByTestId('loc').textContent).toBe('/recurring?account=acc-1');
+  });
+
+  it('adds no query string when no account is selected', async () => {
+    await db.transactions.add({
+      id: 'tx-1',
+      kind: 'expense',
+      accountId: 'acc-1',
+      amount: 12,
+      date: '2026-07-20',
+      createdAt: '2026-07-20T10:00:00.000Z',
+      updatedAt: '2026-07-20T10:00:00.000Z',
+    });
+    const user = userEvent.setup();
+    renderScoped('/');
+
+    await user.click(await screen.findByRole('button', { name: /see all/i }));
+
+    expect(screen.getByTestId('loc').textContent).toBe('/expenses');
+  });
 });
 
 describe('Dashboard — To confirm section', () => {

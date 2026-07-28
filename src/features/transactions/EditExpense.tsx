@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from 'react-router';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useScopedPath } from '@/hooks/useScopedPath';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -12,6 +13,7 @@ export function EditExpense() {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const scopedPath = useScopedPath();
   const goBack = useGoBack('/expenses');
   const tx = useTransaction(id);
 
@@ -42,7 +44,7 @@ export function EditExpense() {
               title={t('movements.notFound')}
               hint={t('movements.notFoundHint')}
               action={
-                <Button onClick={() => navigate('/expenses', { replace: true })}>
+                <Button onClick={() => navigate(scopedPath('/expenses'), { replace: true })}>
                   {t('screens.movements')}
                 </Button>
               }

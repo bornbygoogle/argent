@@ -1,6 +1,7 @@
-import { NavLink, useSearchParams } from 'react-router';
+import { NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '@/components/ui/Icon';
+import { useScopedPath } from '@/hooks/useScopedPath';
 
 interface BottomNavProps {
   /** Center FAB handler (opens quick-action sheet). */
@@ -12,16 +13,9 @@ const slot = (active: boolean) => (active ? 'bn-slot active' : 'bn-slot');
 /** Bottom navigation: Accueil · Stats · [FAB] · Calendrier · Réglages. */
 export function BottomNav({ onAdd }: BottomNavProps) {
   const { t } = useTranslation();
-  const [params] = useSearchParams();
-
   // The account scope is app-wide but lives in the URL, so a bare tab link
   // would silently reset it — and Statistics has no picker to notice it by.
-  // Only `account` travels: params like `?category=` belong to one screen.
-  const account = params.get('account');
-  const to = (pathname: string) =>
-    account
-      ? { pathname, search: `?${new URLSearchParams({ account }).toString()}` }
-      : pathname;
+  const to = useScopedPath();
 
   return (
     <>

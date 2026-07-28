@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useGoBack } from '@/hooks/useGoBack';
+import { useScopedPath } from '@/hooks/useScopedPath';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
@@ -32,6 +33,7 @@ type EditTarget = 'new' | Account;
 export function Accounts() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const scopedPath = useScopedPath();
   const goBack = useGoBack('/settings');
   const { settings, update } = useSettings();
   const accounts = useAccountsIncludingArchived();
@@ -109,11 +111,11 @@ export function Accounts() {
 
         {/* Quick actions */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
-          <button type="button" className="btn btn-secondary" onClick={() => navigate('/transfer')}>
+          <button type="button" className="btn btn-secondary" onClick={() => navigate(scopedPath('/transfer'))}>
             <Icon name="ArrowLeftRight" size={18} />
             {t('screens.transfer')}
           </button>
-          <button type="button" className="btn btn-secondary" onClick={() => navigate('/income')}>
+          <button type="button" className="btn btn-secondary" onClick={() => navigate(scopedPath('/income'))}>
             <Icon name="Euro" size={18} />
             {t('dashboard.income')}
           </button>
