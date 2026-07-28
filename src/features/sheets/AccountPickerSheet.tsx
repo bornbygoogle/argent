@@ -56,11 +56,32 @@ export function AccountPickerSheet({
             }}
           >
             <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
-            <span className="r-main">
-              <span className="r-title">{a.name}</span>
-              <span className="r-sub tnum">{formatCurrency(accountBalance(a, allTx))}</span>
+            {/* Name left, balance right. These were nested in an .r-main span,
+                but the rule that stacks title over subtitle is scoped to .row,
+                which this button is not — so they rendered as one run of text,
+                "CIC Commun6 044,23 €". */}
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 15,
+                fontWeight: 500,
+                color: 'var(--neutral-900)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {a.name}
             </span>
-            {selectedId === a.id && <Icon name="Check" size={18} color="var(--primary-600)" />}
+            <span className="tnum" style={{ fontSize: 15, color: 'var(--neutral-500)' }}>
+              {formatCurrency(accountBalance(a, allTx))}
+            </span>
+            {/* A fixed slot, so the balances stay in one column whether or not
+                a row carries the tick. */}
+            <span style={{ width: 18, display: 'inline-flex', justifyContent: 'flex-end' }}>
+              {selectedId === a.id && <Icon name="Check" size={18} color="var(--primary-600)" />}
+            </span>
           </button>
         ))}
         {choices.length === 0 && (

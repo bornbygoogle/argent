@@ -404,9 +404,24 @@ function AccountLine({
       }}
     >
       <TintedIcon hex={account?.color ?? '#4F46E5'} icon={account?.icon ?? 'Wallet'} variant="acct" />
-      <span className="r-main">
-        <span className="r-sub">{label}</span>
-        <span className="r-title">{account?.name ?? t('form.selectAccount')}</span>
+      {/* Label left, account right, the same shape as the date row below. The
+          old markup nested both in an .r-main span, but the rule that stacks
+          those (`.row .r-title`) is scoped to .row — which this button is not —
+          so the two ran together as "FromCIC Commun". */}
+      <span style={{ fontSize: 15, color: 'var(--neutral-700)' }}>{label}</span>
+      <span style={{ flex: 1 }} />
+      <span
+        style={{
+          fontSize: 15,
+          fontWeight: 600,
+          color: account ? 'var(--neutral-900)' : 'var(--neutral-400)',
+          minWidth: 0,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {account?.name ?? t('form.selectAccount')}
       </span>
       <Icon name="ChevronDown" size={16} color="var(--neutral-400)" />
     </button>
