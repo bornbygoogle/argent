@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { backfillOccurrences } from '@/lib/recurringMigration';
+import { dedupeRecurringMonths } from '@/lib/recurringDedupe';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { GoogleAuthProvider } from '@/store/GoogleAuthContext';
@@ -73,10 +74,20 @@ export default function App() {
   // History entries written before instalments were tracked record the month a
   // payment was logged, not the instalment it settled. Recover that from each
   // transaction's date once on start; the pass is additive and idempotent.
+  // Then trim any month left holding more instalments of one template than it
+  // can — the damage done while repeated due-day edits could reopen a settled
+  // month without limit. Chained rather than run alongside: both passes
+  // read-modify-write the same `history` array, so overlapping them would let
+  // one silently drop the other's writes.
   useEffect(() => {
-    backfillOccurrences().catch((err) => {
-      console.error('[recurring] occurrence backfill failed', err);
-    });
+    backfillOccurrences()
+      .then(() => dedupeRecurringMonths())
+      .then((removed) => {
+        if (removed > 0) console.info('[recurring] removed %d duplicate instalment(s)', removed);
+      })
+      .catch((err) => {
+        console.error('[recurring] startup repair failed', err);
+      });
   }, []);
 
   // Single phone-column shell for every route (tab roots + pushed + onboarding).

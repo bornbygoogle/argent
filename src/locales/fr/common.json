@@ -340,6 +340,7 @@
     "unconfirmBody": "L'opération correspondante sera supprimée.",
     "confirmedToast": "Opération enregistrée",
     "unconfirmedToast": "Confirmation annulée",
+    "monthFullToast": "Ce mois compte déjà 2 opérations pour {{label}}",
     "cadence": {
       "mensuel": "Mensuel",
       "hebdo": "Hebdomadaire",

@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import i18n from '@/i18n';
 import { ToastProvider } from '@/store/ToastContext';
+import { ToastContainer } from '@/components/ui/Toast';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { Recurring } from '@/features/recurring/Recurring';
 import { db } from '@/db/db';
@@ -299,5 +300,82 @@ describe('a recurring logged last month, given a due day of 28', () => {
     await waitFor(() => expect(screen.getByText('Garantie décès TRAN')).toBeInTheDocument());
     const summary = document.querySelector('.row-between')?.textContent ?? '';
     expect(summary).toMatch(/1/); // one to confirm
+  });
+});
+
+describe('a month that already holds its two instalments', () => {
+  const renderWithToasts = () =>
+    render(
+      <MemoryRouter>
+        <ToastProvider>
+          <AccountScopeProvider>
+            <Recurring />
+            <ToastContainer />
+          </AccountScopeProvider>
+        </ToastProvider>
+      </MemoryRouter>,
+    );
+
+  /** Two instalments already settled in August, and the due day moved again —
+   *  so the row reads as unpaid and offers Log a third time. */
+  const seedFullMonth = async () => {
+    await db.transactions.bulkAdd([
+      {
+        id: 'tx-1', kind: 'expense', accountId: 'acc-1', amount: 42,
+        date: '2026-08-05', recurringSourceId: 'r-1',
+        createdAt: '2026-08-05T10:00:00.000Z', updatedAt: '2026-08-05T10:00:00.000Z',
+      },
+      {
+        id: 'tx-2', kind: 'expense', accountId: 'acc-1', amount: 42,
+        date: '2026-08-10', recurringSourceId: 'r-1',
+        createdAt: '2026-08-10T10:00:00.000Z', updatedAt: '2026-08-10T10:00:00.000Z',
+      },
+    ]);
+    await db.recurrings.add(
+      recurring({
+        createdAt: '2026-08-01T00:00:00.000Z',
+        dueDay: 15,
+        history: [
+          { month: '2026-08', amount: 42, transactionId: 'tx-1', occurrence: '2026-08-05' },
+          { month: '2026-08', amount: 42, transactionId: 'tx-2', occurrence: '2026-08-10' },
+        ],
+      }),
+    );
+  };
+
+  const pressLog = async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(await screen.findByRole('button', { name: /log/i }));
+    await user.click(await screen.findByRole('button', { name: /^confirm$/i }));
+  };
+
+  it('says the month is full instead of claiming a transaction was recorded', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 28, 10, 0, 0)); // 28 Aug 2026
+
+    await seedFullMonth();
+    renderWithToasts();
+    await waitFor(() => expect(screen.getByText('Garantie décès TRAN')).toBeInTheDocument());
+
+    await pressLog();
+
+    await waitFor(() =>
+      expect(screen.getByText(/already holds 2 entries/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Transaction recorded')).not.toBeInTheDocument();
+  });
+
+  it('records no third transaction', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 28, 10, 0, 0));
+
+    await seedFullMonth();
+    renderWithToasts();
+    await waitFor(() => expect(screen.getByText('Garantie décès TRAN')).toBeInTheDocument());
+
+    await pressLog();
+
+    await waitFor(() => expect(screen.getByText(/already holds 2 entries/i)).toBeInTheDocument());
+    expect(await db.transactions.count()).toBe(2);
   });
 });

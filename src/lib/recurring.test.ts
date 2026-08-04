@@ -70,6 +70,84 @@ describe('reactivation boundary', () => {
   });
 });
 
+describe('two instalments a month is the ceiling', () => {
+  const inMonth = async (month: string) =>
+    (await db.transactions.toArray()).filter((t) => t.date.startsWith(month));
+
+  it('refuses the third instalment a run of due-day edits would open', async () => {
+    // Editing the due day makes an already-settled month read as unpaid again,
+    // so Log offers itself once more. Two entries in a month is allowed; the
+    // third is what turned this into unbounded duplication.
+    freeze(2026, 7, 25); // 25 Aug 2026
+    const id = await createRecurring({ ...base, dueDay: 5 });
+
+    expect(await confirmRecurring(await load(id))).not.toBeNull();
+    await updateRecurring(id, { dueDay: 10 });
+    expect(await confirmRecurring(await load(id))).not.toBeNull();
+    await updateRecurring(id, { dueDay: 15 });
+    expect(await confirmRecurring(await load(id))).toBeNull();
+    await updateRecurring(id, { dueDay: 20 });
+    expect(await confirmRecurring(await load(id))).toBeNull();
+
+    expect(await inMonth('2026-08')).toHaveLength(2);
+  });
+
+  it('writes nothing at all once the month is full', async () => {
+    freeze(2026, 7, 25);
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    await confirmRecurring(await load(id));
+    await updateRecurring(id, { dueDay: 10 });
+    await confirmRecurring(await load(id));
+
+    const before = await load(id);
+    await updateRecurring(id, { dueDay: 15 });
+    expect(await confirmRecurring(await load(id))).toBeNull();
+
+    // The refusal leaves history untouched — no half-written entry.
+    expect((await load(id)).history).toHaveLength(before.history.length);
+  });
+
+  it('holds the line when presses land concurrently on one stale snapshot', async () => {
+    freeze(2026, 7, 25);
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    const stale = await load(id);
+
+    await Promise.all([
+      confirmRecurring(stale),
+      confirmRecurring(stale),
+      confirmRecurring(stale),
+    ]);
+
+    // All three settle the same instalment, so idempotency should collapse them
+    // to one — and every transaction written must be recorded in history.
+    const written = await inMonth('2026-08');
+    expect(written).toHaveLength(1);
+    expect((await load(id)).history).toHaveLength(1);
+  });
+
+  it('still walks a backlog one instalment per month', async () => {
+    freeze(2026, 3, 10); // created 10 Apr 2026
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    freeze(2026, 7, 25); // now 25 Aug 2026
+    for (let i = 0; i < 6; i++) await confirmRecurring(await load(id));
+
+    const dates = (await db.transactions.toArray()).map((t) => t.date).sort();
+    expect(dates).toEqual(['2026-05-05', '2026-06-05', '2026-07-05', '2026-08-05']);
+  });
+
+  it('does not let a re-confirm of a settled instalment eat into the ceiling', async () => {
+    freeze(2026, 7, 25);
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    const first = await confirmRecurring(await load(id));
+    // Same instalment again — idempotent, so it must not count as a second.
+    expect(await confirmRecurring(await load(id))).toBe(first);
+
+    await updateRecurring(id, { dueDay: 10 });
+    expect(await confirmRecurring(await load(id))).not.toBeNull();
+    expect(await inMonth('2026-08')).toHaveLength(2);
+  });
+});
+
 describe('confirmRecurring transaction date', () => {
   it('uses the due day when confirmed late', async () => {
     freeze(2026, 7, 9); // 9 Aug, three days late

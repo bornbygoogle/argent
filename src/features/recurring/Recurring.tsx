@@ -105,11 +105,19 @@ export function Recurring() {
     return rows.sort((a, b) => (a.occurrence < b.occurrence ? 1 : -1));
   }, [recurrings]);
 
-  const toggle = async (r: RecurringT) => {
+  // 'full' is not a failure to report as one: the row genuinely reads as unpaid
+  // — a due-day edit reopened a month already settled twice — so a press is
+  // reasonable. What it must not do is claim a transaction was recorded.
+  type Outcome = 'confirmed' | 'unconfirmed' | 'full';
+
+  const toggle = async (r: RecurringT): Promise<Outcome> => {
     setPending(r.id);
     try {
-      if (isConfirmedIn(r, month)) await unconfirmRecurring(r, dueDateFor(r, month));
-      else await confirmRecurring(r);
+      if (isConfirmedIn(r, month)) {
+        await unconfirmRecurring(r, dueDateFor(r, month));
+        return 'unconfirmed';
+      }
+      return (await confirmRecurring(r)) === null ? 'full' : 'confirmed';
     } finally {
       setPending(null);
     }
@@ -306,10 +314,18 @@ export function Recurring() {
               full
               onClick={async () => {
                 if (!pendingConfirm) return;
-                const { r, on } = pendingConfirm;
+                const { r } = pendingConfirm;
                 setPendingConfirm(null);
-                await toggle(r);
-                toast.success(on ? t('recurring.confirmedToast') : t('recurring.unconfirmedToast'));
+                const outcome = await toggle(r);
+                if (outcome === 'full') {
+                  toast.error(t('recurring.monthFullToast', { label: r.label }));
+                } else {
+                  toast.success(
+                    outcome === 'confirmed'
+                      ? t('recurring.confirmedToast')
+                      : t('recurring.unconfirmedToast'),
+                  );
+                }
               }}
             >
               {t('common.confirm')}

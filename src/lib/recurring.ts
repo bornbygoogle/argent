@@ -12,6 +12,7 @@ import {
   nextUnpaidOccurrence,
   occurrenceOf,
 } from '@/lib/recurringSchedule';
+import { MAX_PER_MONTH } from '@/lib/recurringDedupe';
 import { addTransaction } from '@/lib/transactions';
 import type {
   Cadence,
@@ -113,36 +114,59 @@ const entryForOccurrence = (
  *
  * Idempotent — when the instalment it picks is already settled, the existing
  * transaction id comes back and nothing is written.
+ *
+ * Returns null when the month is full. Editing a template's due day makes an
+ * already-settled month read as unpaid again, so the row offers itself once
+ * more; two instalments in a month is the tolerated cost of that, and past
+ * MAX_PER_MONTH the month is only collecting duplicates.
  */
 export async function confirmRecurring(
   recurring: Recurring,
   today: string = todayISO(),
 ): Promise<string | null> {
-  const occurrence = nextUnpaidOccurrence(recurring, today);
-  const existing = entryForOccurrence(recurring, occurrence);
-  if (existing?.transactionId) return existing.transactionId;
+  // Everything runs inside one transaction against a freshly read template.
+  // The caller holds a React snapshot, and two presses racing on the same stale
+  // history each wrote their own transaction while only the last entry
+  // survived — leaving copies no screen could reach to un-log.
+  return db.transaction('rw', db.transactions, db.recurrings, async () => {
+    const r = await db.recurrings.get(recurring.id);
+    if (!r) return null;
 
-  const txId = await addTransaction(recurring.direction, {
-    amount: recurring.amount,
-    accountId: recurring.accountId,
-    categoryId: recurring.direction === 'expense' ? recurring.categoryId : undefined,
-    incomeType: recurring.direction === 'income' ? recurring.incomeType : undefined,
-    note: recurring.label,
-    date: occurrence,
+    const occurrence = nextUnpaidOccurrence(r, today);
+    const existing = entryForOccurrence(r, occurrence);
+    if (existing?.transactionId) return existing.transactionId;
+
+    // Count the transactions themselves, not the history entries: a lost entry
+    // must not hand back a slot that a real transaction still occupies.
+    const settled = await db.transactions
+      .where('recurringSourceId')
+      .equals(r.id)
+      .filter((t) => t.date.slice(0, 7) === occurrence.slice(0, 7))
+      .count();
+    if (settled >= MAX_PER_MONTH) return null;
+
+    const txId = await addTransaction(r.direction, {
+      amount: r.amount,
+      accountId: r.accountId,
+      categoryId: r.direction === 'expense' ? r.categoryId : undefined,
+      incomeType: r.direction === 'income' ? r.incomeType : undefined,
+      note: r.label,
+      date: occurrence,
+    });
+    await db.transactions.update(txId, { recurringSourceId: r.id });
+
+    const history: RecurringHistoryEntry[] = [
+      ...r.history.filter((h) => occurrenceOf(h, r) !== occurrence),
+      {
+        month: occurrence.slice(0, 7),
+        amount: r.amount,
+        transactionId: txId,
+        occurrence,
+      },
+    ];
+    await db.recurrings.update(r.id, { history });
+    return txId;
   });
-  await db.transactions.update(txId, { recurringSourceId: recurring.id });
-
-  const history: RecurringHistoryEntry[] = [
-    ...recurring.history.filter((h) => occurrenceOf(h, recurring) !== occurrence),
-    {
-      month: occurrence.slice(0, 7),
-      amount: recurring.amount,
-      transactionId: txId,
-      occurrence,
-    },
-  ];
-  await db.recurrings.update(recurring.id, { history });
-  return txId;
 }
 
 /** Undo one instalment: delete the linked transaction + drop the entry. */
