@@ -52,9 +52,27 @@ export function paidOccurrences(r: Recurring): Set<string> {
   );
 }
 
-/** Has the instalment falling in `month` been paid? */
+/**
+ * The months already carrying a settled instalment.
+ *
+ * A monthly template owes exactly one instalment per month, and `dueDateFor`
+ * always lands inside the month it is asked about — so an occurrence and its
+ * month say the same thing, and the month is the half that survives an edit.
+ */
+export function paidMonths(r: Recurring): Set<string> {
+  return new Set([...paidOccurrences(r)].map((o) => o.slice(0, 7)));
+}
+
+/**
+ * Has the instalment falling in `month` been paid?
+ *
+ * Asked by month rather than by exact date on purpose. Matching the stored
+ * occurrence against `dueDateFor` compared a date written under the *old* due
+ * day with one computed from the *current* one, so every edit of the day made a
+ * settled month read as unpaid and offered itself to be paid again.
+ */
 export function isOccurrencePaidIn(r: Recurring, month: string): boolean {
-  return paidOccurrences(r).has(dueDateFor(r, month));
+  return paidMonths(r).has(month);
 }
 
 /**
@@ -82,7 +100,7 @@ export function lastOccurrenceOnOrBefore(
  * the template is new — it settles this month's, so paying early still works.
  */
 export function nextUnpaidOccurrence(r: Recurring, today: string): string {
-  const paid = paidOccurrences(r);
+  const paid = paidMonths(r);
   const createdOn = r.createdAt.slice(0, 10);
   const endMonth = today.slice(0, 7);
 
@@ -90,8 +108,9 @@ export function nextUnpaidOccurrence(r: Recurring, today: string): string {
   for (let i = 0; i < MAX_MONTHS && month <= endMonth; i++) {
     const occurrence = dueDateFor(r, month);
     // Skip instalments that fall before the template existed, and those not
-    // yet due — the first is not owed, the second is not owed *yet*.
-    if (occurrence >= createdOn && occurrence <= today && !paid.has(occurrence)) {
+    // yet due — the first is not owed, the second is not owed *yet*. A month
+    // already settled is skipped whatever day it was settled on.
+    if (occurrence >= createdOn && occurrence <= today && !paid.has(month)) {
       return occurrence;
     }
     month = nextMonth(month);

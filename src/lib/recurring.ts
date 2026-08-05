@@ -102,11 +102,18 @@ export function isConfirmedIn(r: Recurring, month: string = currentMonth()): boo
   return isOccurrencePaidIn(r, month);
 }
 
-const entryForOccurrence = (
-  r: Recurring,
-  occurrence: string,
-): RecurringHistoryEntry | undefined =>
-  r.history.find((h) => occurrenceOf(h, r) === occurrence);
+/**
+ * The entry that settled the instalment falling in `month`, if one did.
+ *
+ * Resolved by month rather than by exact date: the due day may have moved
+ * since, and the payment stands whatever day it was made against. Read from
+ * the end, so where a month carries more than one — only possible on data
+ * predating the ceiling — undoing takes back the most recent.
+ */
+const paidEntryIn = (r: Recurring, month: string): RecurringHistoryEntry | undefined =>
+  [...r.history]
+    .reverse()
+    .find((h) => !!h.transactionId && occurrenceOf(h, r).slice(0, 7) === month);
 
 /**
  * Settle the oldest instalment that is due and still unpaid, creating its
@@ -133,7 +140,7 @@ export async function confirmRecurring(
     if (!r) return null;
 
     const occurrence = nextUnpaidOccurrence(r, today);
-    const existing = entryForOccurrence(r, occurrence);
+    const existing = paidEntryIn(r, occurrence.slice(0, 7));
     if (existing?.transactionId) return existing.transactionId;
 
     // Count the transactions themselves, not the history entries: a lost entry
@@ -174,9 +181,12 @@ export async function unconfirmRecurring(
   recurring: Recurring,
   occurrence: string = dueDateFor(recurring, currentMonth()),
 ): Promise<void> {
-  const entry = entryForOccurrence(recurring, occurrence);
+  // The caller names the instalment through today's due day, which stopped
+  // matching the stored one the moment that day was edited — so resolve the
+  // month it points at, not the date itself.
+  const entry = paidEntryIn(recurring, occurrence.slice(0, 7));
   if (!entry?.transactionId) return;
   await db.transactions.delete(entry.transactionId);
-  const history = recurring.history.filter((h) => occurrenceOf(h, recurring) !== occurrence);
+  const history = recurring.history.filter((h) => h.transactionId !== entry.transactionId);
   await db.recurrings.update(recurring.id, { history });
 }

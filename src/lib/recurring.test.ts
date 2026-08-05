@@ -12,6 +12,7 @@ import {
 } from '@/lib/recurring';
 import type { Recurring, RecurringInput } from '@/lib/recurring';
 import { currentMonth } from '@/lib/date';
+import { dueDateFor } from '@/lib/recurringSchedule';
 
 const base: RecurringInput = {
   accountId: 'acc-1',
@@ -70,41 +71,126 @@ describe('reactivation boundary', () => {
   });
 });
 
-describe('two instalments a month is the ceiling', () => {
+describe('a due day moved after the month was already settled', () => {
+  const inAugust = async () =>
+    (await db.transactions.toArray()).filter((t) => t.date.startsWith('2026-08'));
+
+  it('leaves that month settled', async () => {
+    freeze(2026, 7, 3); // 3 Aug, paying ahead of a 5th
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    await confirmRecurring(await load(id));
+    expect(isConfirmedIn(await load(id), '2026-08')).toBe(true);
+
+    await updateRecurring(id, { dueDay: 20 });
+
+    // The instalment was paid. Moving the day describes when the *next* one
+    // falls, it does not un-pay the one already settled.
+    expect(isConfirmedIn(await load(id), '2026-08')).toBe(true);
+  });
+
+  it('records nothing further for that month, however often the day moves', async () => {
+    freeze(2026, 7, 3);
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    const first = await confirmRecurring(await load(id));
+
+    for (const day of [10, 15, 20, 25]) {
+      await updateRecurring(id, { dueDay: day });
+      expect(await confirmRecurring(await load(id))).toBe(first);
+    }
+
+    expect(await inAugust()).toHaveLength(1);
+  });
+
+  it('can still be un-logged once the day has moved', async () => {
+    freeze(2026, 7, 3);
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    await confirmRecurring(await load(id));
+    await updateRecurring(id, { dueDay: 20 });
+
+    const r = await load(id);
+    await unconfirmRecurring(r, dueDateFor(r, '2026-08'));
+
+    expect(await db.transactions.count()).toBe(0);
+    expect((await load(id)).history).toHaveLength(0);
+    expect(isConfirmedIn(await load(id), '2026-08')).toBe(false);
+  });
+
+  it('still lets the following month fall due on the new day', async () => {
+    freeze(2026, 7, 3);
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    await confirmRecurring(await load(id));
+    await updateRecurring(id, { dueDay: 20 });
+
+    vi.setSystemTime(new Date(2026, 8, 21, 12, 0, 0)); // 21 Sep
+    expect(isConfirmedIn(await load(id), '2026-09')).toBe(false);
+
+    const txId = await confirmRecurring(await load(id));
+    expect((await db.transactions.get(txId!))?.date).toBe('2026-09-20');
+  });
+});
+
+describe('a recurring is never logged more than twice in a month', () => {
   const inMonth = async (month: string) =>
     (await db.transactions.toArray()).filter((t) => t.date.startsWith(month));
 
-  it('refuses the third instalment a run of due-day edits would open', async () => {
-    // Editing the due day makes an already-settled month read as unpaid again,
-    // so Log offers itself once more. Two entries in a month is allowed; the
-    // third is what turned this into unbounded duplication.
-    freeze(2026, 7, 25); // 25 Aug 2026
+  /**
+   * A month carrying instalments that no history entry names. The concurrent
+   * double-press used to leave exactly this: the losing writes survived as
+   * transactions while only the last entry was kept, so the month reads as
+   * unsettled and offers itself however many copies it already holds.
+   */
+  const withUnnamedInstalments = async (dates: string[]) => {
     const id = await createRecurring({ ...base, dueDay: 5 });
+    await db.transactions.bulkAdd(
+      dates.map((date, i) => ({
+        id: `orphan-${i}`,
+        kind: 'expense' as const,
+        accountId: 'acc-1',
+        amount: 600,
+        date,
+        recurringSourceId: id,
+        createdAt: `${date}T10:00:00.000Z`,
+        updatedAt: `${date}T10:00:00.000Z`,
+      })),
+    );
+    return id;
+  };
 
-    expect(await confirmRecurring(await load(id))).not.toBeNull();
-    await updateRecurring(id, { dueDay: 10 });
-    expect(await confirmRecurring(await load(id))).not.toBeNull();
-    await updateRecurring(id, { dueDay: 15 });
-    expect(await confirmRecurring(await load(id))).toBeNull();
-    await updateRecurring(id, { dueDay: 20 });
-    expect(await confirmRecurring(await load(id))).toBeNull();
+  it('refuses a further instalment once the month already holds two', async () => {
+    freeze(2026, 7, 25); // 25 Aug 2026
+    const id = await withUnnamedInstalments(['2026-08-05', '2026-08-10']);
 
+    expect(await confirmRecurring(await load(id))).toBeNull();
     expect(await inMonth('2026-08')).toHaveLength(2);
   });
 
-  it('writes nothing at all once the month is full', async () => {
+  it('counts what the month really holds, not what history admits to', async () => {
+    // History names none of them, so nothing but a count of the transactions
+    // themselves can see that the month is already at its ceiling.
     freeze(2026, 7, 25);
-    const id = await createRecurring({ ...base, dueDay: 5 });
-    await confirmRecurring(await load(id));
-    await updateRecurring(id, { dueDay: 10 });
-    await confirmRecurring(await load(id));
+    const id = await withUnnamedInstalments(['2026-08-05', '2026-08-10']);
 
-    const before = await load(id);
-    await updateRecurring(id, { dueDay: 15 });
+    expect((await load(id)).history).toHaveLength(0);
+    expect(await confirmRecurring(await load(id))).toBeNull();
+  });
+
+  it('writes nothing at all when it refuses', async () => {
+    freeze(2026, 7, 25);
+    const id = await withUnnamedInstalments(['2026-08-05', '2026-08-10']);
+
     expect(await confirmRecurring(await load(id))).toBeNull();
 
-    // The refusal leaves history untouched — no half-written entry.
-    expect((await load(id)).history).toHaveLength(before.history.length);
+    // No transaction, and no half-written history entry either.
+    expect(await inMonth('2026-08')).toHaveLength(2);
+    expect((await load(id)).history).toHaveLength(0);
+  });
+
+  it('still admits a month that holds only one', async () => {
+    freeze(2026, 7, 25);
+    const id = await withUnnamedInstalments(['2026-08-05']);
+
+    expect(await confirmRecurring(await load(id))).not.toBeNull();
+    expect(await inMonth('2026-08')).toHaveLength(2);
   });
 
   it('holds the line when presses land concurrently on one stale snapshot', async () => {
@@ -135,16 +221,64 @@ describe('two instalments a month is the ceiling', () => {
     expect(dates).toEqual(['2026-05-05', '2026-06-05', '2026-07-05', '2026-08-05']);
   });
 
-  it('does not let a re-confirm of a settled instalment eat into the ceiling', async () => {
+  it('never reaches the ceiling by ordinary use, whatever the due day does', async () => {
+    // The ceiling is a backstop, not a budget. Pressing Log repeatedly and
+    // moving the day between presses settles the month exactly once.
     freeze(2026, 7, 25);
     const id = await createRecurring({ ...base, dueDay: 5 });
     const first = await confirmRecurring(await load(id));
-    // Same instalment again — idempotent, so it must not count as a second.
-    expect(await confirmRecurring(await load(id))).toBe(first);
 
-    await updateRecurring(id, { dueDay: 10 });
-    expect(await confirmRecurring(await load(id))).not.toBeNull();
-    expect(await inMonth('2026-08')).toHaveLength(2);
+    for (const day of [10, 15, 20, 25, 28]) {
+      expect(await confirmRecurring(await load(id))).toBe(first);
+      await updateRecurring(id, { dueDay: day });
+      expect(await confirmRecurring(await load(id))).toBe(first);
+    }
+
+    expect(await inMonth('2026-08')).toHaveLength(1);
+    expect((await load(id)).history).toHaveLength(1);
+  });
+});
+
+describe('a month the repair trimmed down to two', () => {
+  it('reads as settled, and gives them back one at a time, newest first', async () => {
+    // The shape left on real data: two instalments kept by dedupeRecurringMonths,
+    // both named by history. The month is done — and stays done until both are
+    // taken back, so undoing one cannot reopen it for a fresh duplicate.
+    freeze(2026, 7, 25); // 25 Aug 2026
+    const id = await createRecurring({ ...base, dueDay: 15 });
+    await db.transactions.bulkAdd([
+      {
+        id: 'tx-1', kind: 'expense', accountId: 'acc-1', amount: 600,
+        date: '2026-08-05', recurringSourceId: id,
+        createdAt: '2026-08-05T10:00:00.000Z', updatedAt: '2026-08-05T10:00:00.000Z',
+      },
+      {
+        id: 'tx-2', kind: 'expense', accountId: 'acc-1', amount: 600,
+        date: '2026-08-10', recurringSourceId: id,
+        createdAt: '2026-08-10T10:00:00.000Z', updatedAt: '2026-08-10T10:00:00.000Z',
+      },
+    ]);
+    await db.recurrings.update(id, {
+      history: [
+        { month: '2026-08', amount: 600, transactionId: 'tx-1', occurrence: '2026-08-05' },
+        { month: '2026-08', amount: 600, transactionId: 'tx-2', occurrence: '2026-08-10' },
+      ],
+    });
+
+    expect(isConfirmedIn(await load(id), '2026-08')).toBe(true);
+
+    const undo = async () => {
+      const r = await load(id);
+      await unconfirmRecurring(r, dueDateFor(r, '2026-08'));
+    };
+
+    await undo();
+    expect((await db.transactions.toArray()).map((t) => t.id)).toEqual(['tx-1']);
+    expect(isConfirmedIn(await load(id), '2026-08')).toBe(true);
+
+    await undo();
+    expect(await db.transactions.count()).toBe(0);
+    expect(isConfirmedIn(await load(id), '2026-08')).toBe(false);
   });
 });
 

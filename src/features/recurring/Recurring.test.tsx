@@ -316,8 +316,12 @@ describe('a month that already holds its two instalments', () => {
       </MemoryRouter>,
     );
 
-  /** Two instalments already settled in August, and the due day moved again —
-   *  so the row reads as unpaid and offers Log a third time. */
+  /**
+   * August already holds two instalments that history names none of — what the
+   * concurrent double-press left behind, and the one shape that can still put
+   * a row in front of the ceiling. With history empty the month reads as
+   * unsettled, so the row sits in To confirm and offers Log a third time.
+   */
   const seedFullMonth = async () => {
     await db.transactions.bulkAdd([
       {
@@ -332,14 +336,7 @@ describe('a month that already holds its two instalments', () => {
       },
     ]);
     await db.recurrings.add(
-      recurring({
-        createdAt: '2026-08-01T00:00:00.000Z',
-        dueDay: 15,
-        history: [
-          { month: '2026-08', amount: 42, transactionId: 'tx-1', occurrence: '2026-08-05' },
-          { month: '2026-08', amount: 42, transactionId: 'tx-2', occurrence: '2026-08-10' },
-        ],
-      }),
+      recurring({ createdAt: '2026-08-01T00:00:00.000Z', dueDay: 15, history: [] }),
     );
   };
 
