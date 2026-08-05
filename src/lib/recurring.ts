@@ -122,10 +122,9 @@ const paidEntryIn = (r: Recurring, month: string): RecurringHistoryEntry | undef
  * Idempotent — when the instalment it picks is already settled, the existing
  * transaction id comes back and nothing is written.
  *
- * Returns null when the month is full. Editing a template's due day makes an
- * already-settled month read as unpaid again, so the row offers itself once
- * more; two instalments in a month is the tolerated cost of that, and past
- * MAX_PER_MONTH the month is only collecting duplicates.
+ * Returns null when the month is full. A monthly template owes one instalment
+ * per month and no more, so a month already holding one is done — whatever a
+ * due-day edit may have made the row read as.
  */
 export async function confirmRecurring(
   recurring: Recurring,

@@ -1,14 +1,22 @@
-// Repair: trim a month that accumulated more instalments than it can hold.
+// Repair: collapse a month back to the single instalment it owes.
 //
 // Editing a template's due day makes an already-settled month read as unpaid
 // again, so "Log" offers itself a second time for a month that is already done.
 // Repeated edits did that without limit, and each press wrote another real
 // transaction — a month could end up holding four or five copies of one bill.
 //
-// The ceiling is two: one edit re-opening a settled month is a tolerable
-// consequence of changing the day, more is only duplication. Where a month is
-// over, the first and last instalment *by saved date* are the ones worth
-// keeping — they bracket what actually happened — and the ones in between go.
+// The ceiling is one, because that is what the schedule itself says: dueDateFor
+// yields exactly one date per month and paidMonths keys settlement by month, so
+// a second instalment is never an instalment — it is a double charge. An earlier
+// ceiling of two treated one re-log as a tolerable cost of editing the day; it
+// is not. Real data carried 620 € of such "tolerated" copies, every one of them
+// skipped by this pass for sitting exactly at the old limit.
+//
+// Which copy survives: the earliest *by saved date*, since that is the one
+// logged deliberately and the later ones are the re-logs. Except where history
+// names a different copy — keeping a row history does not name would leave the
+// month reading unsettled while still holding its charge, stranding it in
+// "To confirm" with nothing left to log.
 //
 // Deliberately driven by the transactions rather than by history: the losing
 // writes of a concurrent double-press left transactions no history entry names,
@@ -17,7 +25,7 @@ import { db } from '@/db/db';
 import type { Transaction } from '@/types/models';
 
 /** How many instalments of one template may share a month. */
-export const MAX_PER_MONTH = 2;
+export const MAX_PER_MONTH = 1;
 
 /** Oldest saved first. Ties broken on id so a rerun makes the same choice —
  *  the concurrent-press race stamps every row the same millisecond. */
@@ -39,8 +47,7 @@ const groupByMonth = (rows: Transaction[]): Map<string, Transaction[]> => {
 
 /**
  * Delete every instalment past the ceiling, month by month and template by
- * template, keeping the oldest and the latest by saved date. Returns how many
- * transactions were removed.
+ * template, keeping one. Returns how many transactions were removed.
  *
  * Idempotent — once a month is back at or under the ceiling it is left alone,
  * so this is safe to run on every start.
@@ -51,12 +58,14 @@ export async function dedupeRecurringMonths(): Promise<number> {
 
   for (const r of recurrings) {
     const rows = await db.transactions.where('recurringSourceId').equals(r.id).toArray();
+    const named = new Set(r.history.map((h) => h.transactionId).filter(Boolean));
 
     const doomed: string[] = [];
     for (const group of groupByMonth(rows).values()) {
       if (group.length <= MAX_PER_MONTH) continue;
-      // slice(1, -1) is everything but the oldest and the latest.
-      doomed.push(...[...group].sort(bySavedDate).slice(1, -1).map((t) => t.id));
+      const ordered = [...group].sort(bySavedDate);
+      const survivor = ordered.find((t) => named.has(t.id)) ?? ordered[0];
+      doomed.push(...ordered.filter((t) => t.id !== survivor.id).map((t) => t.id));
     }
     if (doomed.length === 0) continue;
 

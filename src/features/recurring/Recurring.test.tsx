@@ -317,24 +317,17 @@ describe('a month that already holds its two instalments', () => {
     );
 
   /**
-   * August already holds two instalments that history names none of — what the
-   * concurrent double-press left behind, and the one shape that can still put
-   * a row in front of the ceiling. With history empty the month reads as
-   * unsettled, so the row sits in To confirm and offers Log a third time.
+   * August already holds its instalment, but history names it not at all — what
+   * the concurrent double-press left behind, and the one shape that can still
+   * put a row in front of the ceiling. With history empty the month reads as
+   * unsettled, so the row sits in To confirm and offers Log again.
    */
   const seedFullMonth = async () => {
-    await db.transactions.bulkAdd([
-      {
-        id: 'tx-1', kind: 'expense', accountId: 'acc-1', amount: 42,
-        date: '2026-08-05', recurringSourceId: 'r-1',
-        createdAt: '2026-08-05T10:00:00.000Z', updatedAt: '2026-08-05T10:00:00.000Z',
-      },
-      {
-        id: 'tx-2', kind: 'expense', accountId: 'acc-1', amount: 42,
-        date: '2026-08-10', recurringSourceId: 'r-1',
-        createdAt: '2026-08-10T10:00:00.000Z', updatedAt: '2026-08-10T10:00:00.000Z',
-      },
-    ]);
+    await db.transactions.add({
+      id: 'tx-1', kind: 'expense', accountId: 'acc-1', amount: 42,
+      date: '2026-08-05', recurringSourceId: 'r-1',
+      createdAt: '2026-08-05T10:00:00.000Z', updatedAt: '2026-08-05T10:00:00.000Z',
+    });
     await db.recurrings.add(
       recurring({ createdAt: '2026-08-01T00:00:00.000Z', dueDay: 15, history: [] }),
     );
@@ -357,12 +350,12 @@ describe('a month that already holds its two instalments', () => {
     await pressLog();
 
     await waitFor(() =>
-      expect(screen.getByText(/already holds 2 entries/i)).toBeInTheDocument(),
+      expect(screen.getByText(/already holds an entry/i)).toBeInTheDocument(),
     );
     expect(screen.queryByText('Transaction recorded')).not.toBeInTheDocument();
   });
 
-  it('records no third transaction', async () => {
+  it('records no second transaction', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 7, 28, 10, 0, 0));
 
@@ -372,7 +365,7 @@ describe('a month that already holds its two instalments', () => {
 
     await pressLog();
 
-    await waitFor(() => expect(screen.getByText(/already holds 2 entries/i)).toBeInTheDocument());
-    expect(await db.transactions.count()).toBe(2);
+    await waitFor(() => expect(screen.getByText(/already holds an entry/i)).toBeInTheDocument());
+    expect(await db.transactions.count()).toBe(1);
   });
 });

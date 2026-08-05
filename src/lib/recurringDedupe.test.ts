@@ -57,7 +57,7 @@ beforeEach(async () => {
 });
 
 describe('dedupeRecurringMonths', () => {
-  it('keeps the oldest and the latest by saved date, deleting what sits between', async () => {
+  it('collapses a month down to the one instalment it owes', async () => {
     await db.transactions.bulkAdd([
       tx('tx-1', '2026-08-05', '2026-08-01T10:00:00.000Z'),
       tx('tx-2', '2026-08-10', '2026-08-02T10:00:00.000Z'),
@@ -66,12 +66,13 @@ describe('dedupeRecurringMonths', () => {
     ]);
     await db.recurrings.add(rec({ history: [] }));
 
-    expect(await dedupeRecurringMonths()).toBe(2);
-    expect(await ids()).toEqual(['tx-1', 'tx-4']);
+    expect(await dedupeRecurringMonths()).toBe(3);
+    expect(await ids()).toEqual(['tx-1']);
   });
 
   it('ranks by saved date, not by the instalment date', async () => {
-    // Saved newest-first: the row dated the 20th was entered before the others.
+    // Saved newest-first: the row dated the 20th was entered before the others,
+    // so it is the deliberate one and the later two are the re-logs.
     await db.transactions.bulkAdd([
       tx('tx-late', '2026-08-20', '2026-08-01T10:00:00.000Z'),
       tx('tx-mid', '2026-08-10', '2026-08-02T10:00:00.000Z'),
@@ -79,8 +80,8 @@ describe('dedupeRecurringMonths', () => {
     ]);
     await db.recurrings.add(rec());
 
-    expect(await dedupeRecurringMonths()).toBe(1);
-    expect(await ids()).toEqual(['tx-early', 'tx-late']);
+    expect(await dedupeRecurringMonths()).toBe(2);
+    expect(await ids()).toEqual(['tx-late']);
   });
 
   it('breaks a saved-date tie deterministically rather than by table order', async () => {
@@ -93,19 +94,21 @@ describe('dedupeRecurringMonths', () => {
     ]);
     await db.recurrings.add(rec());
 
-    expect(await dedupeRecurringMonths()).toBe(1);
-    expect(await ids()).toEqual(['tx-a', 'tx-c']);
+    expect(await dedupeRecurringMonths()).toBe(2);
+    expect(await ids()).toEqual(['tx-a']);
   });
 
-  it('leaves a month holding exactly two alone', async () => {
+  it('trims a month holding two, which is already one too many', async () => {
+    // The shape the old ceiling of two left standing on real data: one genuine
+    // instalment and one re-log, both charged to the balance.
     await db.transactions.bulkAdd([
       tx('tx-1', '2026-08-05', '2026-08-01T10:00:00.000Z'),
       tx('tx-2', '2026-08-20', '2026-08-02T10:00:00.000Z'),
     ]);
     await db.recurrings.add(rec());
 
-    expect(await dedupeRecurringMonths()).toBe(0);
-    expect(await ids()).toEqual(['tx-1', 'tx-2']);
+    expect(await dedupeRecurringMonths()).toBe(1);
+    expect(await ids()).toEqual(['tx-1']);
   });
 
   it('leaves a month holding one alone', async () => {
@@ -125,12 +128,13 @@ describe('dedupeRecurringMonths', () => {
     ]);
     await db.recurrings.add(rec());
 
-    expect(await dedupeRecurringMonths()).toBe(1);
-    expect(await ids()).toEqual(['aug-1', 'aug-3', 'jul-1']);
+    expect(await dedupeRecurringMonths()).toBe(2);
+    expect(await ids()).toEqual(['aug-1', 'jul-1']);
   });
 
   it('weighs each template on its own', async () => {
-    // Two templates, two instalments each in the same month — nothing is over.
+    // Two templates sharing a month: each owes its own instalment, so one
+    // survivor apiece rather than one between them.
     await db.transactions.bulkAdd([
       tx('a-1', '2026-08-05', '2026-08-01T10:00:00.000Z', 'r-1'),
       tx('a-2', '2026-08-10', '2026-08-02T10:00:00.000Z', 'r-1'),
@@ -139,8 +143,8 @@ describe('dedupeRecurringMonths', () => {
     ]);
     await db.recurrings.bulkAdd([rec({ id: 'r-1' }), rec({ id: 'r-2', label: 'Internet' })]);
 
-    expect(await dedupeRecurringMonths()).toBe(0);
-    expect(await ids()).toEqual(['a-1', 'a-2', 'b-1', 'b-2']);
+    expect(await dedupeRecurringMonths()).toBe(2);
+    expect(await ids()).toEqual(['a-1', 'b-1']);
   });
 
   it('ignores transactions that no template claims', async () => {
@@ -171,8 +175,8 @@ describe('dedupeRecurringMonths', () => {
       }),
     );
 
-    expect(await dedupeRecurringMonths()).toBe(1);
-    expect((await load()).history.map((h) => h.transactionId)).toEqual(['tx-1', 'tx-3']);
+    expect(await dedupeRecurringMonths()).toBe(2);
+    expect((await load()).history.map((h) => h.transactionId)).toEqual(['tx-1']);
   });
 
   it('leaves a history entry whose transaction the user deleted by hand', async () => {
@@ -199,9 +203,24 @@ describe('dedupeRecurringMonths', () => {
     ]);
     await db.recurrings.add(rec({ history: [entry('tx-c', '2026-08-05')] }));
 
-    expect(await dedupeRecurringMonths()).toBe(1);
-    expect(await ids()).toEqual(['tx-a', 'tx-c']);
+    expect(await dedupeRecurringMonths()).toBe(2);
+    expect(await ids()).toEqual(['tx-c']);
     expect((await load()).history.map((h) => h.transactionId)).toEqual(['tx-c']);
+  });
+
+  it('keeps the instalment history names over an earlier one it does not', async () => {
+    // Survival is not purely by saved date: keeping the unnamed row would strip
+    // the month of its history entry, so it would read unsettled while still
+    // holding a charge — a row stuck in "To confirm" that can never be logged.
+    await db.transactions.bulkAdd([
+      tx('tx-orphan', '2026-08-05', '2026-08-01T10:00:00.000Z'),
+      tx('tx-known', '2026-08-10', '2026-08-02T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec({ history: [entry('tx-known', '2026-08-10')] }));
+
+    expect(await dedupeRecurringMonths()).toBe(1);
+    expect(await ids()).toEqual(['tx-known']);
+    expect((await load()).history.map((h) => h.transactionId)).toEqual(['tx-known']);
   });
 
   it('is idempotent — a second run writes nothing', async () => {
@@ -213,12 +232,57 @@ describe('dedupeRecurringMonths', () => {
     ]);
     await db.recurrings.add(rec());
 
-    expect(await dedupeRecurringMonths()).toBe(2);
+    expect(await dedupeRecurringMonths()).toBe(3);
     expect(await dedupeRecurringMonths()).toBe(0);
-    expect(await ids()).toEqual(['tx-1', 'tx-4']);
+    expect(await ids()).toEqual(['tx-1']);
   });
 
   it('changes nothing on a clean database', async () => {
     expect(await dedupeRecurringMonths()).toBe(0);
+  });
+
+  it('repairs the doubled months the ceiling of two left on real data', async () => {
+    // Replays the three months found on the "CA" account of a real backup
+    // (2026-08-05): each genuine July instalment logged in July, each duplicate
+    // written weeks later on 4–5 August when a due-day edit reopened the month.
+    // The old ceiling skipped all three for holding exactly two, leaving 620 €
+    // of double charges standing in the balance.
+    const real = [
+      { id: 'coprop', label: 'Charge copropriétaire', amount: 350, keep: '2026-07-05T21:58:56.000Z', dup: '2026-08-04T11:04:16.000Z' },
+      { id: 'coprop2', label: 'Charge copropriétaire 2', amount: 250, keep: '2026-07-05T21:58:57.000Z', dup: '2026-08-04T11:03:37.000Z' },
+      { id: 'livret', label: 'Livret A Harry', amount: 20, keep: '2026-07-07T03:53:28.000Z', dup: '2026-08-05T02:44:16.000Z' },
+    ];
+
+    for (const r of real) {
+      await db.transactions.bulkAdd([
+        { ...tx(`${r.id}-keep`, '2026-07-07', r.keep, r.id), amount: r.amount },
+        { ...tx(`${r.id}-dup`, '2026-07-05', r.dup, r.id), amount: r.amount },
+      ]);
+      await db.recurrings.add(
+        rec({
+          id: r.id,
+          label: r.label,
+          amount: r.amount,
+          dueDay: 5,
+          createdAt: '2026-07-05T00:00:00.000Z',
+          history: [
+            { month: '2026-07', amount: r.amount, transactionId: `${r.id}-keep`, occurrence: '2026-07-01' },
+            { month: '2026-07', amount: r.amount, transactionId: `${r.id}-dup`, occurrence: '2026-07-05' },
+          ],
+        }),
+      );
+    }
+
+    expect(await dedupeRecurringMonths()).toBe(3);
+
+    const survivors = await db.transactions.toArray();
+    expect(survivors.map((t) => t.id).sort()).toEqual(['coprop-keep', 'coprop2-keep', 'livret-keep']);
+    // The double charge the balance was carrying, gone in full.
+    expect(survivors.reduce((a, t) => a + t.amount, 0)).toBe(620);
+
+    // Every month still reads settled, so none offers itself for a fresh copy.
+    for (const r of real) {
+      expect((await load(r.id)).history.map((h) => h.transactionId)).toEqual([`${r.id}-keep`]);
+    }
   });
 });

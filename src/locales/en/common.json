@@ -340,7 +340,7 @@
     "unconfirmBody": "The matching transaction will be removed.",
     "confirmedToast": "Transaction recorded",
     "unconfirmedToast": "Confirmation undone",
-    "monthFullToast": "This month already holds 2 entries for {{label}}",
+    "monthFullToast": "This month already holds an entry for {{label}}",
     "cadence": {
       "mensuel": "Monthly",
       "hebdo": "Weekly",

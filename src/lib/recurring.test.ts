@@ -129,7 +129,7 @@ describe('a due day moved after the month was already settled', () => {
   });
 });
 
-describe('a recurring is never logged more than twice in a month', () => {
+describe('a recurring is never logged more than once in a month', () => {
   const inMonth = async (month: string) =>
     (await db.transactions.toArray()).filter((t) => t.date.startsWith(month));
 
@@ -156,8 +156,16 @@ describe('a recurring is never logged more than twice in a month', () => {
     return id;
   };
 
-  it('refuses a further instalment once the month already holds two', async () => {
+  it('refuses a further instalment once the month already holds one', async () => {
     freeze(2026, 7, 25); // 25 Aug 2026
+    const id = await withUnnamedInstalments(['2026-08-05']);
+
+    expect(await confirmRecurring(await load(id))).toBeNull();
+    expect(await inMonth('2026-08')).toHaveLength(1);
+  });
+
+  it('refuses a month left doubled by data the repair has not swept yet', async () => {
+    freeze(2026, 7, 25);
     const id = await withUnnamedInstalments(['2026-08-05', '2026-08-10']);
 
     expect(await confirmRecurring(await load(id))).toBeNull();
@@ -165,10 +173,10 @@ describe('a recurring is never logged more than twice in a month', () => {
   });
 
   it('counts what the month really holds, not what history admits to', async () => {
-    // History names none of them, so nothing but a count of the transactions
+    // History names it not at all, so nothing but a count of the transactions
     // themselves can see that the month is already at its ceiling.
     freeze(2026, 7, 25);
-    const id = await withUnnamedInstalments(['2026-08-05', '2026-08-10']);
+    const id = await withUnnamedInstalments(['2026-08-05']);
 
     expect((await load(id)).history).toHaveLength(0);
     expect(await confirmRecurring(await load(id))).toBeNull();
@@ -176,21 +184,21 @@ describe('a recurring is never logged more than twice in a month', () => {
 
   it('writes nothing at all when it refuses', async () => {
     freeze(2026, 7, 25);
-    const id = await withUnnamedInstalments(['2026-08-05', '2026-08-10']);
+    const id = await withUnnamedInstalments(['2026-08-05']);
 
     expect(await confirmRecurring(await load(id))).toBeNull();
 
     // No transaction, and no half-written history entry either.
-    expect(await inMonth('2026-08')).toHaveLength(2);
+    expect(await inMonth('2026-08')).toHaveLength(1);
     expect((await load(id)).history).toHaveLength(0);
   });
 
-  it('still admits a month that holds only one', async () => {
+  it('still admits a month that holds none', async () => {
     freeze(2026, 7, 25);
-    const id = await withUnnamedInstalments(['2026-08-05']);
+    const id = await createRecurring({ ...base, dueDay: 5 });
 
     expect(await confirmRecurring(await load(id))).not.toBeNull();
-    expect(await inMonth('2026-08')).toHaveLength(2);
+    expect(await inMonth('2026-08')).toHaveLength(1);
   });
 
   it('holds the line when presses land concurrently on one stale snapshot', async () => {
@@ -239,11 +247,12 @@ describe('a recurring is never logged more than twice in a month', () => {
   });
 });
 
-describe('a month the repair trimmed down to two', () => {
+describe('a month still holding two the repair has not swept yet', () => {
   it('reads as settled, and gives them back one at a time, newest first', async () => {
-    // The shape left on real data: two instalments kept by dedupeRecurringMonths,
-    // both named by history. The month is done — and stays done until both are
-    // taken back, so undoing one cannot reopen it for a fresh duplicate.
+    // Restoring an old backup lands this shape before the startup pass runs:
+    // two instalments in one month, both named by history. The month is done —
+    // and stays done until both are taken back, so undoing one cannot reopen it
+    // for a fresh duplicate.
     freeze(2026, 7, 25); // 25 Aug 2026
     const id = await createRecurring({ ...base, dueDay: 15 });
     await db.transactions.bulkAdd([

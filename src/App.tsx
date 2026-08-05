@@ -74,9 +74,10 @@ export default function App() {
   // History entries written before instalments were tracked record the month a
   // payment was logged, not the instalment it settled. Recover that from each
   // transaction's date once on start; the pass is additive and idempotent.
-  // Then trim any month left holding more instalments of one template than it
-  // can — the damage done while repeated due-day edits could reopen a settled
-  // month without limit. Chained rather than run alongside: both passes
+  // Then collapse any month left holding more than one instalment of a template
+  // back to the single instalment it owes — the damage done while repeated
+  // due-day edits could reopen a settled month, and each re-log added a real
+  // charge to the balance. Chained rather than run alongside: both passes
   // read-modify-write the same `history` array, so overlapping them would let
   // one silently drop the other's writes.
   useEffect(() => {
