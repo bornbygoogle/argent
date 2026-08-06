@@ -318,8 +318,16 @@ export function Dashboard() {
                 if (!pendingRecur) return;
                 const row = pendingRecur;
                 setPendingRecur(null);
-                await confirmRecurring(row);
-                toast.success(t('recurring.confirmedToast'));
+                // A full month comes back null and writes nothing. Reporting
+                // that as "recorded" told the user a charge was paid when it
+                // was not — the one lie a money app must never tell. Same
+                // reading as the Recurring screen's own Log button.
+                const written = await confirmRecurring(row);
+                if (written === null) {
+                  toast.error(t('recurring.monthFullToast', { label: row.label }));
+                } else {
+                  toast.success(t('recurring.confirmedToast'));
+                }
               }}
             >
               {t('common.confirm')}

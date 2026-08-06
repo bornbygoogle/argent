@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import i18n from '@/i18n';
 import { ToastProvider } from '@/store/ToastContext';
+import { ToastContainer } from '@/components/ui/Toast';
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { GoogleAuthProvider } from '@/store/GoogleAuthContext';
 import { SettingsProvider } from '@/store/SettingsContext';
@@ -175,5 +176,92 @@ describe('Dashboard — To confirm section', () => {
 
     await waitFor(() => expect(screen.getByText('Carrefour Banque')).toBeInTheDocument());
     expect(screen.queryByText('Loyer')).not.toBeInTheDocument();
+  });
+});
+
+describe('Dashboard — logging a recurring the month can no longer hold', () => {
+  const renderWithToasts = () =>
+    render(
+      <MemoryRouter>
+        <SettingsProvider>
+          <ToastProvider>
+            <GoogleAuthProvider>
+              <AccountScopeProvider>
+                <Dashboard />
+                <ToastContainer />
+              </AccountScopeProvider>
+            </GoogleAuthProvider>
+          </ToastProvider>
+        </SettingsProvider>
+      </MemoryRouter>,
+    );
+
+  /**
+   * A transaction the template owns but history does not name — what a
+   * concurrent double-press leaves behind, and the one shape that still puts a
+   * row in front of the ceiling. History being empty, the month reads unsettled,
+   * so the row sits in "To confirm" and offers Log again. The same fixture the
+   * Recurring screen's ceiling tests use.
+   */
+  const seedFullMonth = async () => {
+    await db.transactions.add({
+      id: 'tx-1', kind: 'expense', accountId: 'acc-1', amount: 20,
+      date: '2026-08-05', recurringSourceId: 'r-1',
+      createdAt: '2026-08-05T10:00:00.000Z', updatedAt: '2026-08-05T10:00:00.000Z',
+    });
+    await db.recurrings.add(
+      rec('r-1', 'Loyer', { createdAt: '2026-08-01T00:00:00.000Z', dueDay: 15 }),
+    );
+  };
+
+  const pressLog = async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(await screen.findByRole('button', { name: /log/i }));
+    await user.click(await screen.findByRole('button', { name: /^confirm$/i }));
+  };
+
+  it('says the month is full instead of claiming a transaction was recorded', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 28, 10, 0, 0)); // 28 Aug 2026
+
+    await seedFullMonth();
+    renderWithToasts();
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+
+    await pressLog();
+
+    await waitFor(() =>
+      expect(screen.getByText(/already holds an entry/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Transaction recorded')).not.toBeInTheDocument();
+  });
+
+  it('records no second transaction', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 28, 10, 0, 0));
+
+    await seedFullMonth();
+    renderWithToasts();
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+
+    await pressLog();
+
+    await waitFor(async () => expect(await db.transactions.count()).toBe(1));
+  });
+
+  it('still confirms, and says so, when the month has room', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 28, 10, 0, 0));
+
+    await db.recurrings.add(
+      rec('r-1', 'Loyer', { createdAt: '2026-08-01T00:00:00.000Z', dueDay: 15 }),
+    );
+    renderWithToasts();
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+
+    await pressLog();
+
+    await waitFor(() => expect(screen.getByText('Transaction recorded')).toBeInTheDocument());
+    expect(await db.transactions.count()).toBe(1);
   });
 });
