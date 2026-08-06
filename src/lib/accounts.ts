@@ -104,8 +104,21 @@ export async function deleteAccountWithReassign(
       if (legs.length >= 2) await db.transactions.bulkDelete(legs.map((l) => l.id));
     }
 
-    // 4. Move recurrings; the target keeps its own budget, so drop this one's.
-    await db.recurrings.where('accountId').equals(id).modify({ accountId: reassignToId });
+    // 4. Move recurrings — both the account that pays and the one that receives.
+    // Where the two would land on the same account the receiver is dropped: a
+    // charge transferring to itself moves nothing, the write refuses it, and
+    // the row would be stuck unloggable for good. It becomes an ordinary charge.
+    const touched = await db.recurrings
+      .filter((r) => r.accountId === id || r.receiverAccountId === id)
+      .toArray();
+    for (const r of touched) {
+      const accountId = r.accountId === id ? reassignToId : r.accountId;
+      const receiver = r.receiverAccountId === id ? reassignToId : r.receiverAccountId;
+      await db.recurrings.update(r.id, {
+        accountId,
+        receiverAccountId: receiver === accountId ? undefined : receiver,
+      });
+    }
     await db.budgets.where('accountId').equals(id).delete();
 
     // 5. Remove the account.

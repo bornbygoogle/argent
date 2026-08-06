@@ -68,20 +68,30 @@ export function Recurring() {
   // The heading figure covers the rows actually listed, so it always adds up to
   // what is underneath it. The top-up figure deliberately does not: funding an
   // account is about its whole commitment, not just this tab's slice.
+  // An account's commitments are the ones it pays *and* the ones paid into it:
+  // money it is due to receive is money it does not have to find elsewhere.
   const topUpFor = (accountId: string) => {
     const account = accountMap.get(accountId);
     if (!account) return 0;
-    const owned = recurrings.filter((r) => r.accountId === accountId);
-    return topUpNeeded(owned, accountBalance(account, allTx));
+    const owned = recurrings.filter(
+      (r) => r.accountId === accountId || r.receiverAccountId === accountId,
+    );
+    return topUpNeeded(owned, accountBalance(account, allTx), accountId);
   };
 
-  // Group a list by account, ordered like the account list.
-  const group = (list: RecurringT[]) => {
+  // Group a list by account, ordered like the account list. A charge naming a
+  // receiver belongs to two groups — it leaves one account and lands in the
+  // other — so `mirrors` asks for the receiving side to be listed as well.
+  const group = (list: RecurringT[], mirrors: boolean) => {
     const m = new Map<string, RecurringT[]>();
-    for (const r of list) {
-      const arr = m.get(r.accountId) ?? [];
+    const place = (accountId: string, r: RecurringT) => {
+      const arr = m.get(accountId) ?? [];
       arr.push(r);
-      m.set(r.accountId, arr);
+      m.set(accountId, arr);
+    };
+    for (const r of list) {
+      place(r.accountId, r);
+      if (mirrors && r.receiverAccountId) place(r.receiverAccountId, r);
     }
     return [...m.entries()]
       .map(([aid, items]) => ({ account: accountMap.get(aid), items: [...items].sort(byDueDay) }))
@@ -90,7 +100,9 @@ export function Recurring() {
   };
 
   const visible = mode === 'todo' ? todo : mode === 'all' ? recurrings : [];
-  const groups = group(visible);
+  // Only the full list mirrors. "To confirm" is a list of work to do, and the
+  // receiving side is not work — it settles when the payer's row is logged.
+  const groups = group(visible, mode === 'all');
 
   // History: flatten confirmed entries across all recurrings, newest month first.
   const history = useMemo(() => {
@@ -136,9 +148,14 @@ export function Recurring() {
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
           <span
             className="label tnum"
-            style={{ color: monthlyNet(g.items) >= 0 ? 'var(--success-600)' : 'var(--neutral-500)' }}
+            style={{
+              color:
+                monthlyNet(g.items, g.account.id) >= 0
+                  ? 'var(--success-600)'
+                  : 'var(--neutral-500)',
+            }}
           >
-            {formatSignedCurrency(monthlyNet(g.items))}
+            {formatSignedCurrency(monthlyNet(g.items, g.account.id))}
           </span>
           {topUpFor(g.account.id) > 0 && (
             // Same shape as the dashboard's "Manage" — a section heading is a
@@ -173,6 +190,13 @@ export function Recurring() {
           const confirmed = isConfirmedIn(r, month);
           const last = [...r.history].sort((a, b) => (a.month < b.month ? 1 : -1))[0];
           const modified = last != null && Math.abs(last.amount - r.amount) > 0.005;
+          // The same template read from the receiving end: money arriving, and
+          // nothing to press — it is settled from the account that pays it.
+          const incoming = r.accountId !== g.account.id;
+          const arriving = incoming || r.direction === 'income';
+          const counterpart = accountMap.get(
+            incoming ? r.accountId : (r.receiverAccountId ?? ''),
+          );
           return (
             <div className="recur" key={r.id}>
               <TintedIcon hex={r.color} icon={r.icon} variant="cat" />
@@ -180,6 +204,10 @@ export function Recurring() {
                 <div className="r-title">{r.label}</div>
                 <div className="r-sub">
                   {cadenceLabel(t, r.cadence)} · {formatCurrency(r.amount)}
+                  {counterpart &&
+                    ` · ${t(incoming ? 'recurring.incomingFrom' : 'recurring.transferTo', {
+                      account: counterpart.name,
+                    })}`}
                   {r.dueDay != null &&
                     ` · ${t('recurring.dueOn', { date: formatDate(dueDateFor(r, month), 'weekday') })}`}
                   {modified && (
@@ -191,20 +219,22 @@ export function Recurring() {
                 </div>
               </div>
               <span
-                className={`amount-md ${r.direction === 'income' ? 'amt-in' : 'amt-out'}`}
-                style={{ color: r.direction === 'income' ? 'var(--success-600)' : undefined }}
+                className={`amount-md ${arriving ? 'amt-in' : 'amt-out'}`}
+                style={{ color: arriving ? 'var(--success-600)' : undefined }}
               >
-                {formatSignedCurrency(r.direction === 'income' ? r.amount : -r.amount)}
+                {formatSignedCurrency(arriving ? r.amount : -r.amount)}
               </span>
-              <button
-                type="button"
-                className={`confirm-btn${confirmed ? ' done' : ''}`}
-                onClick={() => setPendingConfirm({ r, on: !isConfirmedIn(r, month) })}
-                disabled={pending === r.id}
-              >
-                <Icon name="Check" size={14} strokeWidth={2.5} />
-                {confirmed ? t('recurring.confirmedBtn') : t('recurring.confirmBtn')}
-              </button>
+              {!incoming && (
+                <button
+                  type="button"
+                  className={`confirm-btn${confirmed ? ' done' : ''}`}
+                  onClick={() => setPendingConfirm({ r, on: !isConfirmedIn(r, month) })}
+                  disabled={pending === r.id}
+                >
+                  <Icon name="Check" size={14} strokeWidth={2.5} />
+                  {confirmed ? t('recurring.confirmedBtn') : t('recurring.confirmBtn')}
+                </button>
+              )}
             </div>
           );
         })}
@@ -298,16 +328,30 @@ export function Recurring() {
               : t('recurring.unconfirmTitle')}
           </h2>
           <p className="body-sm" style={{ marginBottom: 20 }}>
+            {/* A charge naming a receiver settles as a transfer touching two
+                accounts, and undoing it takes both legs back. Both halves of
+                that have to be said out loud before the user presses. */}
             {pendingConfirm?.on
-              ? t('recurring.confirmBody', {
-                  amount: formatSignedCurrency(
-                    pendingConfirm.r.direction === 'income'
-                      ? pendingConfirm.r.amount
-                      : -pendingConfirm.r.amount,
-                  ),
-                  account: accountMap.get(pendingConfirm.r.accountId)?.name ?? '',
-                })
-              : t('recurring.unconfirmBody')}
+              ? t(
+                  pendingConfirm.r.receiverAccountId
+                    ? 'recurring.confirmTransferBody'
+                    : 'recurring.confirmBody',
+                  {
+                    amount: formatSignedCurrency(
+                      pendingConfirm.r.direction === 'income'
+                        ? pendingConfirm.r.amount
+                        : -pendingConfirm.r.amount,
+                    ),
+                    account: accountMap.get(pendingConfirm.r.accountId)?.name ?? '',
+                    receiver:
+                      accountMap.get(pendingConfirm.r.receiverAccountId ?? '')?.name ?? '',
+                  },
+                )
+              : t(
+                  pendingConfirm?.r.receiverAccountId
+                    ? 'recurring.unconfirmTransferBody'
+                    : 'recurring.unconfirmBody',
+                )}
           </p>
           <div className="col gap-2">
             <Button

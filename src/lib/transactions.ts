@@ -122,8 +122,14 @@ function buildLeg(
   };
 }
 
-/** Create both legs of a transfer atomically. Returns the transferGroupId. */
-export async function addTransfer(input: TransferInput): Promise<string> {
+/**
+ * The two legs of one transfer, built but not written.
+ *
+ * Exposed so a caller already inside its own Dexie transaction — the recurring
+ * engine settling a charge that names a receiver — writes the same shape this
+ * module does, without nesting a second transaction to get it.
+ */
+export function buildTransferLegs(input: TransferInput): [Transaction, Transaction] {
   if (!input.fromAccountId || !input.toAccountId) {
     throw new Error('Transfer requires both accounts');
   }
@@ -135,13 +141,19 @@ export async function addTransfer(input: TransferInput): Promise<string> {
   const amount = round2(input.amount);
   const date = input.date?.trim() || todayISO();
   const note = input.note?.trim() || undefined;
+  return [
+    buildLeg(groupId, 'out', input.fromAccountId, input.toAccountId, amount, date, note, ts),
+    buildLeg(groupId, 'in', input.toAccountId, input.fromAccountId, amount, date, note, ts),
+  ];
+}
+
+/** Create both legs of a transfer atomically. Returns the transferGroupId. */
+export async function addTransfer(input: TransferInput): Promise<string> {
+  const legs = buildTransferLegs(input);
   await db.transaction('rw', db.transactions, async () => {
-    await db.transactions.bulkAdd([
-      buildLeg(groupId, 'out', input.fromAccountId, input.toAccountId, amount, date, note, ts),
-      buildLeg(groupId, 'in', input.toAccountId, input.fromAccountId, amount, date, note, ts),
-    ]);
+    await db.transactions.bulkAdd(legs);
   });
-  return groupId;
+  return legs[0].transferGroupId as string;
 }
 
 /** Both legs of a transfer by its group id (empty if none). */

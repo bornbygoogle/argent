@@ -81,3 +81,80 @@ describe('RecurringFormSheet — new recurring', () => {
     expect(await db.recurrings.count()).toBe(0);
   });
 });
+
+describe('RecurringFormSheet — the receiving account', () => {
+  const twoAccounts = () =>
+    db.accounts.bulkAdd([account('acc-1', 'Courant'), account('acc-2', 'Épargne')]);
+
+  const receiverRow = () => screen.getByRole('button', { name: /to account/i });
+
+  const fillAndSave = async (user: ReturnType<typeof userEvent.setup>) => {
+    const [label, amount] = textboxes();
+    await user.type(label, 'Virement épargne');
+    await user.type(amount, '200');
+    await user.click(saveButton());
+    await waitFor(async () => expect(await db.recurrings.count()).toBe(1));
+    return (await db.recurrings.toArray())[0];
+  };
+
+  it('starts empty, so an ordinary charge simply debits its account', async () => {
+    await twoAccounts();
+    const user = userEvent.setup();
+    renderSheet();
+    await waitFor(() => expect(screen.getByText('Courant')).toBeInTheDocument());
+
+    expect(receiverRow()).toHaveTextContent(/none/i);
+    expect((await fillAndSave(user)).receiverAccountId).toBeUndefined();
+  });
+
+  it('records the charge against the account the user picks', async () => {
+    await twoAccounts();
+    const user = userEvent.setup();
+    renderSheet();
+    await waitFor(() => expect(screen.getByText('Courant')).toBeInTheDocument());
+
+    await user.click(receiverRow());
+    await user.click(await screen.findByRole('button', { name: /Épargne/ }));
+
+    expect((await fillAndSave(user)).receiverAccountId).toBe('acc-2');
+  });
+
+  it('lets the user take the receiver back off again', async () => {
+    await twoAccounts();
+    const user = userEvent.setup();
+    renderSheet();
+    await waitFor(() => expect(screen.getByText('Courant')).toBeInTheDocument());
+
+    await user.click(receiverRow());
+    await user.click(await screen.findByRole('button', { name: /Épargne/ }));
+    await user.click(receiverRow());
+    await user.click(await screen.findByRole('button', { name: /^none$/i }));
+
+    expect(receiverRow()).toHaveTextContent(/none/i);
+    expect((await fillAndSave(user)).receiverAccountId).toBeUndefined();
+  });
+
+  it('never offers the paying account as its own receiver', async () => {
+    await twoAccounts();
+    const user = userEvent.setup();
+    renderSheet();
+    await waitFor(() => expect(screen.getByText('Courant')).toBeInTheDocument());
+
+    await user.click(receiverRow());
+    // 'Courant' is the payer, so the picker must not list it — the only text
+    // naming it is the account row behind the sheet, which is not a choice.
+    await waitFor(() => expect(screen.getByRole('button', { name: /Épargne/ })).toBeInTheDocument());
+    expect(screen.queryAllByRole('button', { name: /^Courant/ })).toHaveLength(0);
+  });
+
+  it('is offered only for an expense — income arriving is not money being sent on', async () => {
+    await twoAccounts();
+    const user = userEvent.setup();
+    renderSheet();
+    await waitFor(() => expect(screen.getByText('Courant')).toBeInTheDocument());
+
+    expect(receiverRow()).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^income$/i }));
+    expect(screen.queryByRole('button', { name: /to account/i })).not.toBeInTheDocument();
+  });
+});

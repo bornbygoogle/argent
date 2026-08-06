@@ -13,18 +13,22 @@ import {
   occurrenceOf,
 } from '@/lib/recurringSchedule';
 import { MAX_PER_MONTH } from '@/lib/recurringDedupe';
-import { addTransaction } from '@/lib/transactions';
+import { addTransaction, buildTransferLegs } from '@/lib/transactions';
 import type {
   Cadence,
   Recurring,
   RecurringDirection,
   RecurringHistoryEntry,
+  Transaction,
 } from '@/types/models';
 
 export type { Recurring } from '@/types/models';
 
 export interface RecurringInput {
   accountId: string;
+  /** Send the charge to another of the user's accounts instead of simply
+   *  spending it. Omit for the normal case. */
+  receiverAccountId?: string;
   direction: RecurringDirection;
   label: string;
   amount: number;
@@ -37,11 +41,35 @@ export interface RecurringInput {
   dueDay?: number;
 }
 
+/**
+ * The receiver a template may actually keep.
+ *
+ * Two receivers are no receiver at all: one naming the paying account, since a
+ * transfer to itself moves nothing and `buildTransferLegs` refuses it; and one
+ * on an income template, since money arriving is not money being sent on. Both
+ * are normalised away at the write rather than guarded at every read.
+ */
+function sanitiseReceiver(
+  receiverAccountId: string | undefined,
+  accountId: string,
+  direction: RecurringDirection,
+): string | undefined {
+  if (!receiverAccountId) return undefined;
+  if (direction !== 'expense') return undefined;
+  if (receiverAccountId === accountId) return undefined;
+  return receiverAccountId;
+}
+
 /** Create a recurring template (no transaction yet — the user confirms per month). */
 export async function createRecurring(input: RecurringInput): Promise<string> {
   const r: Recurring = {
     id: uid(),
     accountId: input.accountId,
+    receiverAccountId: sanitiseReceiver(
+      input.receiverAccountId,
+      input.accountId,
+      input.direction,
+    ),
     direction: input.direction,
     label: input.label.trim() || 'Recurring',
     amount: round2(input.amount),
@@ -68,6 +96,10 @@ export interface RecurringPatch {
   incomeType?: string;
   /** `null` clears the day; omitting the key leaves it untouched. */
   dueDay?: number | null;
+  /** `null` clears the receiver; omitting the key leaves it untouched.
+   *  Forward-only, like the amount: instalments already settled keep the shape
+   *  they were settled in. */
+  receiverAccountId?: string | null;
 }
 
 /** Edit a template. Amount changes are forward-only (history keeps old values). */
@@ -84,6 +116,15 @@ export async function updateRecurring(id: string, patch: RecurringPatch): Promis
   // what clearing has to do: a `null` left in the row would read as a change
   // to the sync fingerprint and differ from a recurring that never had a day.
   if (patch.dueDay !== undefined) next.dueDay = patch.dueDay ?? undefined;
+  // Same reason as dueDay above: clearing must remove the property, not leave a
+  // null behind. The direction is fixed at creation, so it is read from the row
+  // rather than taken from the patch.
+  if (patch.receiverAccountId !== undefined) {
+    const r = await db.recurrings.get(id);
+    next.receiverAccountId = r
+      ? sanitiseReceiver(patch.receiverAccountId ?? undefined, r.accountId, r.direction)
+      : undefined;
+  }
   await db.recurrings.update(id, next);
 }
 
@@ -114,6 +155,53 @@ const paidEntryIn = (r: Recurring, month: string): RecurringHistoryEntry | undef
   [...r.history]
     .reverse()
     .find((h) => !!h.transactionId && occurrenceOf(h, r).slice(0, 7) === month);
+
+/**
+ * Settle an ordinary charge: one movement on its own account, the shape every
+ * template had before receivers existed. Returns the transaction's id.
+ */
+async function settleAsMovement(r: Recurring, occurrence: string): Promise<string> {
+  const txId = await addTransaction(r.direction, {
+    amount: r.amount,
+    accountId: r.accountId,
+    categoryId: r.direction === 'expense' ? r.categoryId : undefined,
+    incomeType: r.direction === 'income' ? r.incomeType : undefined,
+    note: r.label,
+    date: occurrence,
+  });
+  await db.transactions.update(txId, { recurringSourceId: r.id });
+  return txId;
+}
+
+/**
+ * Settle a charge that names a receiver: a real transfer, both legs at once.
+ * Returns the *outgoing* leg's id, which is the one history names.
+ *
+ * Only that leg carries `recurringSourceId`. Both the month ceiling above and
+ * the startup repair pass in lib/recurringDedupe count instalments by counting
+ * transactions carrying it — tagging the pair would read as a double charge and
+ * get half a transfer deleted, leaving money in the receiver that left nowhere.
+ * The incoming leg is reachable the way every other transfer's is: by group.
+ *
+ * The template's category does not travel. A transfer between the user's own
+ * accounts is not spending in a category, which is exactly why it is worth
+ * recording as a transfer at all.
+ */
+async function settleAsTransfer(
+  r: Recurring,
+  receiverAccountId: string,
+  occurrence: string,
+): Promise<string> {
+  const [out, inn] = buildTransferLegs({
+    fromAccountId: r.accountId,
+    toAccountId: receiverAccountId,
+    amount: r.amount,
+    date: occurrence,
+    note: r.label,
+  });
+  await db.transactions.bulkAdd([{ ...out, recurringSourceId: r.id }, inn]);
+  return out.id;
+}
 
 /**
  * Settle the oldest instalment that is due and still unpaid, creating its
@@ -151,15 +239,10 @@ export async function confirmRecurring(
       .count();
     if (settled >= MAX_PER_MONTH) return null;
 
-    const txId = await addTransaction(r.direction, {
-      amount: r.amount,
-      accountId: r.accountId,
-      categoryId: r.direction === 'expense' ? r.categoryId : undefined,
-      incomeType: r.direction === 'income' ? r.incomeType : undefined,
-      note: r.label,
-      date: occurrence,
-    });
-    await db.transactions.update(txId, { recurringSourceId: r.id });
+    const receiver = sanitiseReceiver(r.receiverAccountId, r.accountId, r.direction);
+    const txId = receiver
+      ? await settleAsTransfer(r, receiver, occurrence)
+      : await settleAsMovement(r, occurrence);
 
     const history: RecurringHistoryEntry[] = [
       ...r.history.filter((h) => occurrenceOf(h, r) !== occurrence),
@@ -185,7 +268,20 @@ export async function unconfirmRecurring(
   // month it points at, not the date itself.
   const entry = paidEntryIn(recurring, occurrence.slice(0, 7));
   if (!entry?.transactionId) return;
-  await db.transactions.delete(entry.transactionId);
-  const history = recurring.history.filter((h) => h.transactionId !== entry.transactionId);
-  await db.recurrings.update(recurring.id, { history });
+  const txId = entry.transactionId;
+  await db.transaction('rw', db.transactions, db.recurrings, async () => {
+    // A settled transfer is two rows. Deleting only the one history names
+    // leaves the receiver holding money no account ever sent.
+    const tx = await db.transactions.get(txId);
+    await db.transactions.bulkDelete(await legIdsOf(tx, txId));
+    const history = recurring.history.filter((h) => h.transactionId !== txId);
+    await db.recurrings.update(recurring.id, { history });
+  });
+}
+
+/** Every row that must go with `txId`: its transfer group, or just itself. */
+async function legIdsOf(tx: Transaction | undefined, txId: string): Promise<string[]> {
+  if (!tx?.transferGroupId) return [txId];
+  const legs = await db.transactions.where('transferGroupId').equals(tx.transferGroupId).toArray();
+  return legs.map((l) => l.id);
 }

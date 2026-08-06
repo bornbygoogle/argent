@@ -63,3 +63,56 @@ describe('topUpNeeded', () => {
     expect(topUpNeeded([rec({ amount: 1200, cadence: 'annuel' })], 0)).toBe(100);
   });
 });
+
+// A charge naming a receiver is one commitment seen from two sides: money
+// leaving the account that pays it, and the same money arriving in the one that
+// receives it. Which side an account is on decides the sign.
+describe('seen from one account', () => {
+  const outgoing = rec({ amount: 200, receiverAccountId: 'acc-savings' });
+
+  it('reads as a charge against the account that pays it', () => {
+    expect(monthlyNet([outgoing], 'acc-1')).toBe(-200);
+  });
+
+  it('reads as money arriving for the account that receives it', () => {
+    expect(monthlyNet([outgoing], 'acc-savings')).toBe(200);
+  });
+
+  it('smooths the arriving side the same way as the paying side', () => {
+    const yearly = rec({ amount: 1200, cadence: 'annuel', receiverAccountId: 'acc-savings' });
+    expect(monthlyNet([yearly], 'acc-savings')).toBe(100);
+    expect(monthlyNet([yearly], 'acc-1')).toBe(-100);
+  });
+
+  it('is unchanged for a template with no receiver at all', () => {
+    expect(monthlyNet([rec({ amount: 750 })], 'acc-1')).toBe(-750);
+  });
+
+  it('falls back to the template’s own direction when no account is named', () => {
+    expect(monthlyNet([outgoing])).toBe(-200);
+  });
+
+  it('nets an account that both pays one charge and receives another', () => {
+    const items = [
+      rec({ id: 'r-out', accountId: 'acc-1', amount: 50 }),
+      rec({ id: 'r-in', accountId: 'acc-other', amount: 200, receiverAccountId: 'acc-1' }),
+    ];
+    expect(monthlyNet(items, 'acc-1')).toBe(150);
+  });
+
+  it('leaves the receiver nothing to top up — the money is on its way in', () => {
+    expect(topUpNeeded([outgoing], 0, 'acc-savings')).toBe(0);
+  });
+
+  it('reduces what the receiver must find by what it is due to be sent', () => {
+    const items = [
+      rec({ id: 'r-bill', accountId: 'acc-savings', amount: 300 }),
+      rec({ id: 'r-in', accountId: 'acc-1', amount: 200, receiverAccountId: 'acc-savings' }),
+    ];
+    expect(topUpNeeded(items, 0, 'acc-savings')).toBe(100);
+  });
+
+  it('still asks the payer for the full commitment', () => {
+    expect(topUpNeeded([outgoing], 0, 'acc-1')).toBe(200);
+  });
+});

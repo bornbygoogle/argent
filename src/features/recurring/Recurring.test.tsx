@@ -369,3 +369,91 @@ describe('a month that already holds its two instalments', () => {
     expect(await db.transactions.count()).toBe(1);
   });
 });
+
+describe('a charge that is sent to another account', () => {
+  const savings = (): Account => ({
+    id: 'acc-2',
+    name: 'Épargne',
+    type: 'épargne',
+    color: '#10B981',
+    icon: 'PiggyBank',
+    openingBalance: 0,
+    order: 1,
+    archived: false,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  });
+
+  const seed = async () => {
+    await db.accounts.add(savings());
+    await db.recurrings.add(
+      recurring({ label: 'Virement épargne', amount: 200, receiverAccountId: 'acc-2' }),
+    );
+  };
+
+  const showAll = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(await screen.findByRole('button', { name: /^all$/i }));
+  };
+
+  const headingFor = (name: string): HTMLElement => {
+    const head = screen.getByText(name).closest('.section-head');
+    if (!head) throw new Error(`no group heading for ${name}`);
+    return head as HTMLElement;
+  };
+
+  it('names its destination on the paying account’s row', async () => {
+    await seed();
+    renderScreen();
+    expect(await screen.findByText(/to Épargne/)).toBeInTheDocument();
+  });
+
+  it('shows up again on the receiving account, as money arriving', async () => {
+    await seed();
+    const user = userEvent.setup();
+    renderScreen();
+    await showAll(user);
+
+    expect(await screen.findByText(/from Courant/)).toBeInTheDocument();
+    // Both sides of one commitment: it costs the payer and credits the receiver.
+    // Raw textContent, not toHaveTextContent: currency formatting uses a
+    // non-breaking space, which the matcher normalises out of the DOM side
+    // only, so the two can never match.
+    expect(headingFor('Courant').textContent).toContain(formatSignedCurrency(-200));
+    expect(headingFor('Épargne').textContent).toContain(formatSignedCurrency(200));
+  });
+
+  it('is settled from the paying side only — the mirror carries no button', async () => {
+    await seed();
+    const user = userEvent.setup();
+    renderScreen();
+    await showAll(user);
+
+    await screen.findByText(/from Courant/);
+    // Two rows, one action: logging it twice would write the transfer twice.
+    expect(screen.getAllByText('Virement épargne')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^log$/i })).toHaveLength(1);
+  });
+
+  it('is one item of work, not two, in the list of what is still to confirm', async () => {
+    await seed();
+    renderScreen();
+
+    await screen.findByText('Virement épargne');
+    expect(screen.getAllByText('Virement épargne')).toHaveLength(1);
+    expect(screen.queryByText(/from Courant/)).not.toBeInTheDocument();
+    // The summary counts commitments, and there is one.
+    expect(screen.getByText(/^1 ·/)).toBeInTheDocument();
+  });
+
+  it('leaves an ordinary charge showing on its own account alone', async () => {
+    await db.accounts.add(savings());
+    await db.recurrings.add(recurring({ label: 'Loyer', amount: 750 }));
+    const user = userEvent.setup();
+    renderScreen();
+    await showAll(user);
+
+    await screen.findByText('Loyer');
+    expect(screen.getAllByText('Loyer')).toHaveLength(1);
+    expect(screen.queryByText(/^to /)).not.toBeInTheDocument();
+    expect(screen.queryByText('Épargne')).not.toBeInTheDocument();
+  });
+});

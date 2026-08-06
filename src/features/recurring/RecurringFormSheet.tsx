@@ -36,9 +36,11 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
   const [cadence, setCadence] = useState<Cadence>(existing?.cadence ?? 'mensuel');
   const [dueDayStr, setDueDayStr] = useState(existing?.dueDay ? String(existing.dueDay) : '');
   const [accountId, setAccountId] = useState(existing?.accountId ?? firstAccount?.id ?? '');
+  const [receiverId, setReceiverId] = useState(existing?.receiverAccountId ?? '');
   const [categoryId, setCategoryId] = useState(existing?.categoryId ?? categories[0]?.id);
   const [incomeType, setIncomeType] = useState<string>(existing?.incomeType ?? 'Salaire');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [receiverPickerOpen, setReceiverPickerOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -51,6 +53,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
       setCadence(existing.cadence);
       setDueDayStr(existing.dueDay ? String(existing.dueDay) : '');
       setAccountId(existing.accountId);
+      setReceiverId(existing.receiverAccountId ?? '');
       setCategoryId(existing.categoryId ?? categories[0]?.id);
       setIncomeType(existing.incomeType ?? 'Salaire');
     }
@@ -67,6 +70,11 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
   }, [accountId, firstAccount]);
 
   const account = accounts.find((a) => a.id === accountId);
+  // A receiver only means anything on an expense, and never the paying account
+  // itself. Both cases are normalised on write too — this keeps the screen from
+  // ever showing a choice the save would silently undo.
+  const receiver = accounts.find((a) => a.id === receiverId && a.id !== accountId);
+  const receiverAccountId = direction === 'expense' ? receiver?.id : undefined;
   const cat = categories.find((c) => c.id === categoryId);
   const tileHex = direction === 'expense' ? cat?.color ?? '#64748B' : '#10B981';
   const tileIcon = direction === 'expense' ? cat?.icon ?? 'CircleDashed' : 'Coins';
@@ -91,8 +99,22 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
         icon: tileIcon,
         color: tileHex,
       };
-      if (existing) await updateRecurring(existing.id, common);
-      else await createRecurring({ accountId, direction, ...common, dueDay: dueDayNum ?? undefined });
+      if (existing) {
+        // `null` clears it, the same shape dueDay uses — an omitted key would
+        // leave a receiver the user has just taken off.
+        await updateRecurring(existing.id, {
+          ...common,
+          receiverAccountId: receiverAccountId ?? null,
+        });
+      } else {
+        await createRecurring({
+          accountId,
+          direction,
+          ...common,
+          dueDay: dueDayNum ?? undefined,
+          receiverAccountId,
+        });
+      }
       onClose();
     } finally {
       setBusy(false);
@@ -162,6 +184,34 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
             </div>
             <Icon name="ChevronDown" size={16} color="var(--neutral-400)" />
           </button>
+
+          {/* receiver — an expense may be sent to another of the user's own
+              accounts instead of simply leaving. Empty is the normal case. */}
+          {direction === 'expense' && (
+            <>
+              <button
+                type="button"
+                className="card tight"
+                onClick={() => setReceiverPickerOpen(true)}
+                aria-label={t('recurring.receiverLabel')}
+                style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                <TintedIcon
+                  hex={receiver?.color ?? '#94A3B8'}
+                  icon={receiver?.icon ?? 'ArrowRightLeft'}
+                  variant="acct"
+                />
+                <div className="r-main">
+                  <div className="r-sub">{t('recurring.receiverLabel')}</div>
+                  <div className="r-title">{receiver?.name ?? t('recurring.receiverNone')}</div>
+                </div>
+                <Icon name="ChevronDown" size={16} color="var(--neutral-400)" />
+              </button>
+              <span className="caption" style={{ display: 'block', marginTop: 6 }}>
+                {t('recurring.receiverHint')}
+              </span>
+            </>
+          )}
 
           {/* cadence */}
           <p className="label" style={{ marginTop: 16, marginBottom: 8 }}>{t('recurring.cadenceLabel')}</p>
@@ -255,6 +305,16 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
         title={t('form.account')}
         selectedId={accountId}
         onPick={setAccountId}
+      />
+
+      <AccountPickerSheet
+        open={receiverPickerOpen}
+        onClose={() => setReceiverPickerOpen(false)}
+        title={t('recurring.receiverPickerTitle')}
+        selectedId={receiverAccountId}
+        excludeId={accountId}
+        noneLabel={t('recurring.receiverNone')}
+        onPick={setReceiverId}
       />
 
       <Sheet open={confirmOpen} onClose={() => setConfirmOpen(false)}>

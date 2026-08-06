@@ -295,13 +295,21 @@ export function Dashboard() {
             {t('recurring.confirmTitle')}
           </h2>
           <p className="body-sm" style={{ marginBottom: 20 }}>
+            {/* A charge naming a receiver is a transfer, not a payment out —
+                saying "recorded on Courant" would hide half of what happens. */}
             {pendingRecur &&
-              t('recurring.confirmBody', {
-                amount: formatSignedCurrency(
-                  pendingRecur.direction === 'income' ? pendingRecur.amount : -pendingRecur.amount,
-                ),
-                account: accountMap.get(pendingRecur.accountId)?.name ?? '',
-              })}
+              t(
+                pendingRecur.receiverAccountId
+                  ? 'recurring.confirmTransferBody'
+                  : 'recurring.confirmBody',
+                {
+                  amount: formatSignedCurrency(
+                    pendingRecur.direction === 'income' ? pendingRecur.amount : -pendingRecur.amount,
+                  ),
+                  account: accountMap.get(pendingRecur.accountId)?.name ?? '',
+                  receiver: accountMap.get(pendingRecur.receiverAccountId ?? '')?.name ?? '',
+                },
+              )}
           </p>
           <div className="col gap-2">
             <Button

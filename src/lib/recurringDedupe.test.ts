@@ -44,6 +44,41 @@ const entry = (id: string, occurrence: string): RecurringHistoryEntry => ({
   occurrence,
 });
 
+/** Both legs of one settled recurring transfer. Only the outgoing leg is
+ *  tagged with the template, exactly as lib/recurring writes it. */
+const pair = (
+  group: string,
+  date: string,
+  savedAt: string,
+  sourceId = 'r-1',
+): [Transaction, Transaction] => [
+  {
+    id: `${group}-out`,
+    kind: 'transfer',
+    accountId: 'acc-1',
+    counterAccountId: 'acc-2',
+    transferGroupId: group,
+    transferRole: 'out',
+    amount: 20,
+    date,
+    recurringSourceId: sourceId,
+    createdAt: savedAt,
+    updatedAt: savedAt,
+  },
+  {
+    id: `${group}-in`,
+    kind: 'transfer',
+    accountId: 'acc-2',
+    counterAccountId: 'acc-1',
+    transferGroupId: group,
+    transferRole: 'in',
+    amount: 20,
+    date,
+    createdAt: savedAt,
+    updatedAt: savedAt,
+  },
+];
+
 const load = async (id = 'r-1') => {
   const r = await db.recurrings.get(id);
   if (!r) throw new Error('missing');
@@ -284,5 +319,65 @@ describe('dedupeRecurringMonths', () => {
     for (const r of real) {
       expect((await load(r.id)).history.map((h) => h.transactionId)).toEqual([`${r.id}-keep`]);
     }
+  });
+});
+
+describe('dedupeRecurringMonths on a charge that settles as a transfer', () => {
+  it('takes the losing pair whole, never leaving a leg behind', async () => {
+    // A double press writes two complete transfers. Only the outgoing legs
+    // carry the template, so the pass sees two instalments — but deleting the
+    // doomed one alone would strand its incoming leg: money in the receiver
+    // that no account ever sent, and nothing left to trace it to.
+    await db.transactions.bulkAdd([
+      ...pair('g-first', '2026-08-05', '2026-08-05T10:00:00.000Z'),
+      ...pair('g-second', '2026-08-05', '2026-08-05T10:00:01.000Z'),
+    ]);
+    await db.recurrings.add(rec({ receiverAccountId: 'acc-2' }));
+
+    expect(await dedupeRecurringMonths()).toBe(2);
+    expect(await ids()).toEqual(['g-first-in', 'g-first-out']);
+  });
+
+  it('balances both accounts back out — the pass never invents or destroys money', async () => {
+    await db.transactions.bulkAdd([
+      ...pair('g-first', '2026-08-05', '2026-08-05T10:00:00.000Z'),
+      ...pair('g-second', '2026-08-05', '2026-08-05T10:00:01.000Z'),
+      ...pair('g-third', '2026-08-05', '2026-08-05T10:00:02.000Z'),
+    ]);
+    await db.recurrings.add(rec({ receiverAccountId: 'acc-2' }));
+
+    await dedupeRecurringMonths();
+    const rows = await db.transactions.toArray();
+    const net = (acc: string) =>
+      rows
+        .filter((t) => t.accountId === acc)
+        .reduce((sum, t) => sum + (t.transferRole === 'in' ? t.amount : -t.amount), 0);
+
+    expect(net('acc-1')).toBe(-20);
+    expect(net('acc-2')).toBe(20);
+  });
+
+  it('leaves a single healthy transfer alone', async () => {
+    await db.transactions.bulkAdd(pair('g-only', '2026-08-05', '2026-08-05T10:00:00.000Z'));
+    await db.recurrings.add(
+      rec({ receiverAccountId: 'acc-2', history: [entry('g-only-out', '2026-08-05')] }),
+    );
+
+    expect(await dedupeRecurringMonths()).toBe(0);
+    expect(await ids()).toEqual(['g-only-in', 'g-only-out']);
+  });
+
+  it('keeps the pair history names, not merely the oldest', async () => {
+    await db.transactions.bulkAdd([
+      ...pair('g-first', '2026-08-05', '2026-08-05T10:00:00.000Z'),
+      ...pair('g-second', '2026-08-05', '2026-08-05T10:00:01.000Z'),
+    ]);
+    await db.recurrings.add(
+      rec({ receiverAccountId: 'acc-2', history: [entry('g-second-out', '2026-08-05')] }),
+    );
+
+    expect(await dedupeRecurringMonths()).toBe(2);
+    expect(await ids()).toEqual(['g-second-in', 'g-second-out']);
+    expect((await load()).history.map((h) => h.transactionId)).toEqual(['g-second-out']);
   });
 });

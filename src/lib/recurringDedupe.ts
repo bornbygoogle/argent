@@ -46,6 +46,25 @@ const groupByMonth = (rows: Transaction[]): Map<string, Transaction[]> => {
 };
 
 /**
+ * The doomed rows plus every leg that travels with them.
+ *
+ * A charge naming a receiver settles as a transfer, and only its outgoing leg
+ * carries the template — so that leg is all this pass can see. Deleting it
+ * alone would leave the incoming leg standing: a credit in the receiver that
+ * no account ever paid, belonging to no template, reachable from no screen.
+ * A duplicate is a duplicate transfer, so it goes whole.
+ */
+async function withTransferSiblings(rows: Transaction[]): Promise<string[]> {
+  const ids = new Set(rows.map((t) => t.id));
+  const groups = [...new Set(rows.map((t) => t.transferGroupId).filter(Boolean))] as string[];
+  for (const group of groups) {
+    const legs = await db.transactions.where('transferGroupId').equals(group).toArray();
+    for (const leg of legs) ids.add(leg.id);
+  }
+  return [...ids];
+}
+
+/**
  * Delete every instalment past the ceiling, month by month and template by
  * template, keeping one. Returns how many transactions were removed.
  *
@@ -60,14 +79,16 @@ export async function dedupeRecurringMonths(): Promise<number> {
     const rows = await db.transactions.where('recurringSourceId').equals(r.id).toArray();
     const named = new Set(r.history.map((h) => h.transactionId).filter(Boolean));
 
-    const doomed: string[] = [];
+    const losers: Transaction[] = [];
     for (const group of groupByMonth(rows).values()) {
       if (group.length <= MAX_PER_MONTH) continue;
       const ordered = [...group].sort(bySavedDate);
       const survivor = ordered.find((t) => named.has(t.id)) ?? ordered[0];
-      doomed.push(...ordered.filter((t) => t.id !== survivor.id).map((t) => t.id));
+      losers.push(...ordered.filter((t) => t.id !== survivor.id));
     }
-    if (doomed.length === 0) continue;
+    if (losers.length === 0) continue;
+
+    const doomed = await withTransferSiblings(losers);
 
     const removed = new Set(doomed);
     // History entries are dropped only for the transactions this pass deleted.

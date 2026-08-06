@@ -12,6 +12,10 @@ interface AccountPickerSheetProps {
   title: string;
   selectedId?: string;
   excludeId?: string;
+  /** When set, the list opens with a row that picks *no* account, reported as
+   *  an empty id. Omit it and the choice stays mandatory, as it is for a
+   *  transfer's own two ends. */
+  noneLabel?: string;
   onPick: (accountId: string) => void;
 }
 
@@ -35,6 +39,7 @@ export function AccountPickerSheet({
   title,
   selectedId,
   excludeId,
+  noneLabel,
   onPick,
 }: AccountPickerSheetProps) {
   const { t } = useTranslation();
@@ -45,6 +50,26 @@ export function AccountPickerSheet({
   return (
     <Sheet open={open} onClose={onClose} title={title}>
       <div className="col" style={{ paddingBottom: 8 }}>
+        {noneLabel !== undefined && (
+          <button
+            type="button"
+            style={rowBtn}
+            onClick={() => {
+              onPick('');
+              onClose();
+            }}
+          >
+            <TintedIcon hex="#94A3B8" icon="Ban" variant="acct" />
+            <span
+              style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: 'var(--neutral-900)' }}
+            >
+              {noneLabel}
+            </span>
+            <span style={{ width: 18, display: 'inline-flex', justifyContent: 'flex-end' }}>
+              {!selectedId && <Icon name="Check" size={18} color="var(--primary-600)" />}
+            </span>
+          </button>
+        )}
         {choices.map((a) => (
           <button
             key={a.id}

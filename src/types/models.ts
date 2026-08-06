@@ -73,6 +73,11 @@ export interface RecurringHistoryEntry {
 export interface Recurring {
   id: string;
   accountId: string;
+  /** Where the money goes. Absent — the normal case — means it simply leaves
+   *  the account. When set, settling the charge moves it to that account of the
+   *  user's own instead, as a real transfer. Expense-direction only, and never
+   *  equal to `accountId`: a transfer to itself moves nothing. */
+  receiverAccountId?: string;
   direction: RecurringDirection;
   label: string;
   amount: number; // editable forward-only
