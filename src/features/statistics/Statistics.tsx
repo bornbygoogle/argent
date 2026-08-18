@@ -3,12 +3,19 @@ import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
 import { Icon } from '@/components/ui/Icon';
 import { Segmented } from '@/components/ui/Segmented';
+import { Select, type SelectOption } from '@/components/ui/Select';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useAccountScope } from '@/store/AccountScopeContext';
-import { useScopedTransactions, useCategoryMap } from '@/hooks/selectors';
+import {
+  useScopedTransactions,
+  useCategories,
+  useCategoryMap,
+  useSubcategoriesByCategory,
+  useSubcategoryMap,
+} from '@/hooks/selectors';
 import { byCategory } from '@/lib/calc';
-import { topMerchants } from '@/lib/stats';
-import { categoryLabel } from '@/lib/labels';
+import { bySubcategory, filterByCategory, topMerchants, UNSPECIFIED_SUB } from '@/lib/stats';
+import { categoryLabel, subcategoryLabel } from '@/lib/labels';
 import {
   currentMonth,
   prevMonth,
@@ -34,11 +41,45 @@ const isoDaysAgo = (n: number): string => {
 export function Statistics() {
   const { t } = useTranslation();
   const { scope } = useAccountScope();
+  const categories = useCategories();
   const categoryMap = useCategoryMap();
+  const subsByCategory = useSubcategoriesByCategory();
+  const subcategoryMap = useSubcategoryMap();
   const scoped = useScopedTransactions(scope);
   const [period, setPeriod] = useState<Period>('month');
+  // '' = no narrowing. A sub-category only ever qualifies its own parent, so
+  // changing the category always clears it.
+  const [catId, setCatId] = useState('');
+  const [subId, setSubId] = useState('');
+  const [allCats, setAllCats] = useState(false);
 
-  const expenses = useMemo(() => scoped.filter((tx) => tx.kind === 'expense'), [scoped]);
+  const allExpenses = useMemo(() => scoped.filter((tx) => tx.kind === 'expense'), [scoped]);
+  const expenses = useMemo(
+    () => filterByCategory(allExpenses, catId || undefined, subId || undefined),
+    [allExpenses, catId, subId],
+  );
+
+  const catOptions: SelectOption[] = [
+    { id: '', label: t('stats.allCategories'), icon: 'LayoutGrid' },
+    ...categories.map((c) => ({ id: c.id, label: categoryLabel(t, c), icon: c.icon, color: c.color })),
+  ];
+  const selectedCat = catId ? categoryMap.get(catId) : undefined;
+  const ownSubs = catId ? (subsByCategory.get(catId) ?? []) : [];
+  const subOptions: SelectOption[] = [
+    { id: '', label: t('stats.allSubcategories'), icon: 'LayoutGrid', color: selectedCat?.color },
+    ...ownSubs.map((s) => ({
+      id: s.id,
+      label: subcategoryLabel(s),
+      icon: selectedCat?.icon,
+      color: selectedCat?.color,
+    })),
+    { id: UNSPECIFIED_SUB, label: t('stats.noSubcategory'), icon: 'CircleDashed' },
+  ];
+
+  const pickCategory = (id: string) => {
+    setCatId(id);
+    setSubId('');
+  };
 
   // Current + previous period sets + bar buckets.
   const view = useMemo(() => {
@@ -89,8 +130,15 @@ export function Statistics() {
   const pct = prevTotal > 0 ? Math.abs(savings) / prevTotal : 0;
   const good = savings >= 0;
 
-  const cats = byCategory(view.inCur).slice(0, 5);
-  const maxCat = cats[0]?.total ?? 0;
+  const allSlices = byCategory(view.inCur);
+  const cats = allCats ? allSlices : allSlices.slice(0, 5);
+  const maxCat = allSlices[0]?.total ?? 0;
+  // Only inside a category, and only while it is still a breakdown: once a
+  // single sub-category is picked the card would just restate the headline.
+  const catSlices = catId && !subId ? bySubcategory(view.inCur, catId) : [];
+  // A lone unspecified bucket is the category restated, not a breakdown.
+  const subSlices = catSlices.some((s) => s.subcategoryId) ? catSlices : [];
+  const maxSub = subSlices[0]?.total ?? 0;
   const merchants = topMerchants(view.inCur, 3);
   const maxBucket = Math.max(1, ...view.buckets.map((b) => b.total));
 
@@ -120,8 +168,35 @@ export function Statistics() {
           ]}
         />
 
-        {expenses.length === 0 ? (
+        {allExpenses.length > 0 && (
+          <>
+            <Select
+              value={catId}
+              options={catOptions}
+              onChange={pickCategory}
+              label={t('stats.category')}
+              emptyIcon="LayoutGrid"
+            />
+            {catId && ownSubs.length > 0 && (
+              <Select
+                value={subId}
+                options={subOptions}
+                onChange={setSubId}
+                label={t('stats.subcategory')}
+                emptyIcon="LayoutGrid"
+              />
+            )}
+          </>
+        )}
+
+        {allExpenses.length === 0 ? (
           <EmptyState icon="ChartColumnIncreasing" title={t('stats.empty')} hint={t('stats.emptyHint')} />
+        ) : expenses.length === 0 ? (
+          <EmptyState
+            icon="ChartColumnIncreasing"
+            title={t('stats.emptyFilter')}
+            hint={t('stats.emptyFilterHint')}
+          />
         ) : (
           <>
             {/* trend */}
@@ -198,8 +273,33 @@ export function Statistics() {
               </div>
             </div>
 
+            {/* breakdown of the selected category, in place of the category list */}
+            {subSlices.length > 0 && (
+              <div>
+                <div className="section-head" style={{ marginBottom: 8 }}>
+                  <span className="label">{t('stats.topSubcategories')}</span>
+                </div>
+                <div className="card tight">
+                  {subSlices.map((s) => {
+                    const sub = s.subcategoryId ? subcategoryMap.get(s.subcategoryId) : undefined;
+                    return (
+                      <div className="row" style={{ alignItems: 'center' }} key={s.subcategoryId ?? UNSPECIFIED_SUB}>
+                        <span className="r-title" style={{ flex: 1, fontSize: 14 }}>
+                          {sub ? subcategoryLabel(sub) : t('stats.noSubcategory')}
+                        </span>
+                        <div style={{ flex: 1.4, height: 8, background: 'var(--neutral-100)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.round((s.total / maxSub) * 100)}%`, height: '100%', background: selectedCat?.color ?? '#64748B' }} />
+                        </div>
+                        <span className="amount-md" style={{ fontSize: 13, width: 64, textAlign: 'right' }}>{formatCurrency(s.total)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* top categories */}
-            {cats.length > 0 && (
+            {!catId && cats.length > 0 && (
               <div>
                 <div className="section-head" style={{ marginBottom: 8 }}>
                   <span className="label">{t('stats.topCategories')}</span>
@@ -219,6 +319,19 @@ export function Statistics() {
                       </div>
                     );
                   })}
+                  {allSlices.length > 5 && (
+                    <button
+                      type="button"
+                      className="row"
+                      onClick={() => setAllCats((v) => !v)}
+                      style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '10px 4px' }}
+                    >
+                      <span className="r-title" style={{ flex: 1, fontSize: 13, color: 'var(--primary-600)', fontWeight: 600, textAlign: 'left' }}>
+                        {allCats ? t('stats.showLess') : t('stats.showAll', { count: allSlices.length })}
+                      </span>
+                      <Icon name={allCats ? 'ChevronUp' : 'ChevronDown'} size={16} color="var(--primary-600)" />
+                    </button>
+                  )}
                 </div>
               </div>
             )}

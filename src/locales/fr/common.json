@@ -436,6 +436,16 @@
     "insightBadBody": "Vous avez dépensé {{pct}} % de plus que la période précédente.",
     "topCategories": "Top catégories",
     "topMerchants": "Top commerçants",
+    "category": "Catégorie",
+    "subcategory": "Sous-catégorie",
+    "allCategories": "Toutes les catégories",
+    "allSubcategories": "Toutes les sous-catégories",
+    "noSubcategory": "Sans sous-catégorie",
+    "topSubcategories": "Top sous-catégories",
+    "showAll": "Voir les {{count}} catégories",
+    "showLess": "Voir moins",
+    "emptyFilter": "Aucune dépense pour ce filtre",
+    "emptyFilterHint": "Essayez une autre catégorie ou une autre période.",
     "visits": {
       "one": "{{count}} visite",
       "other": "{{count}} visites"

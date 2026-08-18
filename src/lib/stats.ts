@@ -62,3 +62,50 @@ export function topMerchants(expenses: Transaction[], limit = 3): MerchantStat[]
 export function spentTotal(ts: Transaction[]): number {
   return ts.reduce((acc, t) => acc + (t.kind === 'expense' ? t.amount : 0), 0);
 }
+
+/** Stands in for "this category's spend that carries no sub-category" — a real
+ *  bucket in the breakdown, so it needs an id a picker can select. */
+export const UNSPECIFIED_SUB = '__no-sub__';
+
+export interface SubcategorySlice {
+  /** null = the unspecified bucket. */
+  subcategoryId: string | null;
+  total: number;
+  share: number;
+}
+
+/** Totals per sub-category inside one category, largest first. Expenses of that
+ *  category with no sub-category collapse into a single `null` slice. */
+export function bySubcategory(expenses: Transaction[], categoryId: string): SubcategorySlice[] {
+  const totals = new Map<string | null, number>();
+  let whole = 0;
+  for (const t of expenses) {
+    if (t.kind !== 'expense' || t.categoryId !== categoryId) continue;
+    const key = t.subcategoryId ?? null;
+    totals.set(key, (totals.get(key) ?? 0) + t.amount);
+    whole += t.amount;
+  }
+  return [...totals.entries()]
+    .map(([subcategoryId, total]) => ({
+      subcategoryId,
+      total,
+      share: whole > 0 ? total / whole : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+}
+
+/** Narrow a set of movements to one category, optionally to one of its
+ *  sub-categories (or to [UNSPECIFIED_SUB], its unclassified spend). Absent
+ *  arguments simply don't filter. */
+export function filterByCategory(
+  txs: Transaction[],
+  categoryId?: string,
+  subcategoryId?: string,
+): Transaction[] {
+  if (!categoryId && !subcategoryId) return txs;
+  return txs.filter((t) => {
+    if (categoryId && t.categoryId !== categoryId) return false;
+    if (!subcategoryId) return true;
+    return subcategoryId === UNSPECIFIED_SUB ? !t.subcategoryId : t.subcategoryId === subcategoryId;
+  });
+}

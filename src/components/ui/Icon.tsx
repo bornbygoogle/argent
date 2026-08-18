@@ -1,7 +1,7 @@
 import {
   // nav / chrome
   Home, BarChart3, ChartColumnIncreasing, Plus, Calendar, CalendarDays, Settings,
-  ChevronLeft, ChevronRight, ChevronDown, Bell, X, Check, EllipsisVertical,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Bell, X, Check, EllipsisVertical,
   // money / accounts
   Wallet, PiggyBank, Banknote, CreditCard, Euro, CircleDollarSign, Coins,
   Briefcase, Gift, TrendingUp, Landmark,
@@ -29,7 +29,7 @@ import type { ComponentType } from 'react';
 const ICONS: Record<string, ComponentType<LucideProps>> = {
   // nav / chrome
   Home, BarChart3, ChartColumnIncreasing, Plus, Calendar, CalendarDays, Settings,
-  ChevronLeft, ChevronRight, ChevronDown, Bell, X, Check, EllipsisVertical,
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Bell, X, Check, EllipsisVertical,
   // money / accounts
   Wallet, PiggyBank, Banknote, CreditCard, Euro, CircleDollarSign, Coins,
   Briefcase, Gift, TrendingUp, Landmark,

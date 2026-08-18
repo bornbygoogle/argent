@@ -436,6 +436,16 @@
     "insightBadBody": "You spent {{pct}}% more than the previous period.",
     "topCategories": "Top categories",
     "topMerchants": "Top merchants",
+    "category": "Category",
+    "subcategory": "Subcategory",
+    "allCategories": "All categories",
+    "allSubcategories": "All subcategories",
+    "noSubcategory": "No subcategory",
+    "topSubcategories": "Top subcategories",
+    "showAll": "Show all {{count}} categories",
+    "showLess": "Show less",
+    "emptyFilter": "No spend for this filter",
+    "emptyFilterHint": "Try another category or another period.",
     "visits": {
       "one": "{{count}} visit",
       "other": "{{count}} visits"
