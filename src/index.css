@@ -413,7 +413,7 @@ h1,h2,h3,h4{font-weight:600}
    "High" appeared darker than "Over" and the legend had to be consulted
    every time. This ramp climbs through the signal family into red, which
    orders correctly at a glance and keeps the palette coherent. */
-.cal{height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;font-family:var(--font-figure);font-variant-numeric:tabular-nums}
+.cal{position:relative;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;font-family:var(--font-figure);font-variant-numeric:tabular-nums}
 .cal.empty{background:transparent;border:1px solid var(--neutral-200);color:var(--neutral-400)}
 .cal.future{background:var(--neutral-100);color:var(--neutral-400)}
 .cal.dim{background:transparent;color:var(--neutral-300)}
@@ -422,6 +422,13 @@ h1,h2,h3,h4{font-weight:600}
 .cal.high{background:var(--heat-3);color:var(--heat-3-fg)}
 .cal.over{background:var(--heat-over);color:var(--heat-over-fg)}
 .cal.today{outline:2px solid var(--neutral-900);outline-offset:1px}
+/* A charge falling due, marked under the figure rather than beside it: the
+   number keeps the cell's centre, and the dot reads as a property of the day.
+   Absolute so it costs the cell no height — the grid rows must stay square.
+   On an over-budget cell the danger red is the background itself, so the dot
+   borrows that cell's own foreground or it would disappear into it. */
+.cal-dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--danger-500)}
+.cal.over .cal-dot{background:var(--heat-over-fg)}
 
 /* spinner (sync toast / loading) */
 @keyframes spin{to{transform:rotate(360deg)}}

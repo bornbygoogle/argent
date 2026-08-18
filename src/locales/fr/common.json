@@ -485,6 +485,7 @@
     "mod": "Moyen",
     "high": "Élevé",
     "over": "Dépassé",
+    "recurringDay": "Prélèvement",
     "monthTotal": "Total du mois",
     "of": "sur",
     "carried": "reporté de {{m}}",

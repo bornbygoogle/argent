@@ -117,3 +117,30 @@ export function nextUnpaidOccurrence(r: Recurring, today: string): string {
   }
   return dueDateFor(r, endMonth);
 }
+
+/**
+ * The days of `month` on which expense templates fall due — what the calendar
+ * marks.
+ *
+ * Read through `dueDateFor`, so a day the month cannot hold clamps exactly as
+ * every other reading of the schedule does. Cadence changes only which months
+ * are marked, never how many days inside one: a template materialises a single
+ * instalment per month whatever it reads (see dedupeRecurringMonths), so a
+ * weekly charge marks the same one day a monthly charge does. An annual charge
+ * is the exception worth making — it falls once a year, in the month it was
+ * taken out, and marking it monthly would claim eleven charges that never come.
+ *
+ * Months before the template existed are left bare: the charge was not owed
+ * then, and a dot in a past month is a bill the user never had.
+ */
+export function recurringDueDays(recurrings: Recurring[], month: string): Set<number> {
+  const days = new Set<number>();
+  for (const r of recurrings) {
+    if (r.direction !== 'expense') continue;
+    const born = r.createdAt.slice(0, 7);
+    if (month < born) continue;
+    if (r.cadence === 'annuel' && month.slice(5, 7) !== born.slice(5, 7)) continue;
+    days.add(Number(dueDateFor(r, month).slice(8, 10)));
+  }
+  return days;
+}

@@ -485,6 +485,7 @@
     "mod": "Moderate",
     "high": "High",
     "over": "Over",
+    "recurringDay": "Recurring",
     "monthTotal": "Month total",
     "of": "of",
     "carried": "carried from {{m}}",

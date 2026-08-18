@@ -10,10 +10,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useAccountScope } from '@/store/AccountScopeContext';
 import {
   useScopedTransactions,
+  useScopedRecurrings,
   useCategoryMap,
   useAutoBudget,
   useVariableExpenses,
 } from '@/hooks/selectors';
+import { recurringDueDays } from '@/lib/recurringSchedule';
 import { byCategory } from '@/lib/calc';
 import {
   dailyExpenses,
@@ -81,6 +83,10 @@ export function MonthlyOverview() {
   const [yNum, mNum] = month.split('-').map(Number);
   const firstWeekday = mondayIndex(new Date(yNum, mNum - 1, 1));
   const dailyBudget = monthlyBudget > 0 ? monthlyBudget / dim : 0;
+
+  // Days carrying a commitment, in the same scope the rest of the screen reads.
+  const recurrings = useScopedRecurrings(scope);
+  const dueDays = useMemo(() => recurringDueDays(recurrings, month), [recurrings, month]);
 
   const cells: { kind: 'blank' | 'day' | 'trail'; day?: number; level?: HeatLevel | 'future' }[] = [];
   for (let i = 0; i < firstWeekday; i++) cells.push({ kind: 'blank' });
@@ -160,7 +166,10 @@ export function MonthlyOverview() {
               if (cell.kind === 'trail') return <span key={i} className="cal dim">{cell.day}</span>;
               const isTodayCell = isCurrent && cell.day === today;
               return (
-                <span key={i} className={`cal ${cell.level}${isTodayCell ? ' today' : ''}`}>{cell.day}</span>
+                <span key={i} className={`cal ${cell.level}${isTodayCell ? ' today' : ''}`}>
+                  {cell.day}
+                  {dueDays.has(cell.day!) && <i className="cal-dot" />}
+                </span>
               );
             })}
           </div>
@@ -173,6 +182,8 @@ export function MonthlyOverview() {
             <Legend color="var(--heat-2)" label={t('overview.mod')} />
             <Legend color="var(--heat-3)" label={t('overview.high')} />
             <Legend color="var(--heat-over)" label={t('overview.over')} />
+            {/* The marker is not a heat level, so it reads as its own shape. */}
+            <Legend color="var(--danger-500)" label={t('overview.recurringDay')} dot />
           </div>
         </div>
 
@@ -272,10 +283,11 @@ export function MonthlyOverview() {
   );
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
+function Legend({ color, label, dot = false }: { color: string; label: string; dot?: boolean }) {
+  const size = dot ? 6 : 10;
   return (
     <span className="caption" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <i style={{ width: 10, height: 10, borderRadius: 3, background: color, display: 'inline-block' }} />
+      <i style={{ width: size, height: size, borderRadius: dot ? '50%' : 3, background: color, display: 'inline-block' }} />
       {label}
     </span>
   );
