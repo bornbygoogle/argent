@@ -6,6 +6,7 @@ import { useAccountScope } from '@/store/AccountScopeContext';
 import { createAccount } from '@/lib/accounts';
 import { ACCOUNT_TYPE_DEFAULTS } from '@/db/seed';
 import { Icon } from '@/components/ui/Icon';
+import { Field } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
 import { TintedIcon } from '@/components/ui/TintedIcon';
 import type { AccountType } from '@/types/models';
@@ -174,16 +175,17 @@ export function Onboarding() {
           {t('onboarding.step1Hint')}
         </p>
 
-        <p className="label" style={{ marginBottom: 6 }}>
-          {t('onboarding.accountName')}
-        </p>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t('onboarding.accountNamePlaceholder')}
-          className="input"
-          style={{ width: '100%', marginBottom: 20 }}
-        />
+        <div style={{ marginBottom: 20 }}>
+          <Field label={t('onboarding.accountName')}>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('onboarding.accountNamePlaceholder')}
+              className="input"
+              style={{ width: '100%' }}
+            />
+          </Field>
+        </div>
 
         <p className="label" style={{ marginBottom: 6 }}>
           {t('onboarding.accountType')}
@@ -225,6 +227,7 @@ export function Onboarding() {
             value={balance}
             onChange={(e) => setBalance(e.target.value.replace(/[^0-9,.-]/g, ''))}
             inputMode="decimal"
+            aria-label={t('onboarding.openingBalance')}
             placeholder="0,00"
             className="input tnum"
             style={{ width: '100%', fontSize: 18, paddingRight: 40 }}

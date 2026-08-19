@@ -17,4 +17,24 @@ describe('Icon', () => {
     const { container } = render(<Icon name="NotAnIcon" />);
     expect(container.querySelector('svg')?.getAttribute('class')).toContain('circle-dashed');
   });
+
+  /**
+   * Almost every icon here sits beside its own visible text label, so a screen
+   * reader announcing it just repeats that label. Decorative is the sane
+   * default; the standalone cases opt in to a name instead.
+   */
+  it('hides a decorative icon from the accessibility tree by default', () => {
+    const { container } = render(<Icon name="Wallet" />);
+
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('names an icon that stands alone, and stops hiding it', () => {
+    const { container } = render(<Icon name="Wallet" label="Accounts" />);
+    const svg = container.querySelector('svg')!;
+
+    expect(svg).toHaveAttribute('role', 'img');
+    expect(svg).toHaveAttribute('aria-label', 'Accounts');
+    expect(svg).not.toHaveAttribute('aria-hidden');
+  });
 });

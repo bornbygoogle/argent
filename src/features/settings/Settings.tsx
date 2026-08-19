@@ -395,6 +395,7 @@ export function Settings() {
             value={clearTyped}
             onChange={(e) => setClearTyped(e.target.value)}
             placeholder={clearWord}
+            aria-label={t('settings.clearTypePrompt', { word: clearWord })}
             autoCapitalize="characters"
             autoCorrect="off"
             spellCheck={false}
@@ -462,6 +463,7 @@ export function Settings() {
                 style={{ flex: 1, minWidth: 0 }}
                 value={addCode}
                 onChange={(e) => setAddCode(e.target.value.toUpperCase().slice(0, 3))}
+                aria-label={t('currency.add')}
                 placeholder={t('currency.codePlaceholder')}
                 autoCapitalize="characters"
                 autoCorrect="off"

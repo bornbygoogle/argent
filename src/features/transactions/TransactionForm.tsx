@@ -383,13 +383,13 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={t('form.notePlaceholder')}
+              aria-label={t('form.note')}
               style={{
                 flex: 1,
                 minWidth: 0,
                 height: 32,
                 background: 'transparent',
                 border: 'none',
-                outline: 'none',
                 fontSize: 15,
                 fontFamily: 'inherit',
                 color: 'var(--neutral-900)',
@@ -430,7 +430,6 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
               style={{
                 background: 'transparent',
                 border: 'none',
-                outline: 'none',
                 fontSize: 15,
                 fontWeight: 500,
                 fontFamily: 'inherit',

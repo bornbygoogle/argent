@@ -249,6 +249,7 @@ export function Budget() {
             step={5}
             value={threshold}
             onChange={(e) => setThreshold(Number(e.target.value))}
+            aria-label={t('budget.alertThreshold')}
             style={{ width: '100%', marginTop: 14, accentColor: 'var(--primary-600)' }}
           />
           <span className="caption" style={{ marginTop: 10, display: 'block' }}>
@@ -357,6 +358,7 @@ function LimitSheet({
             value={str}
             onChange={(e) => setStr(cleanNum(e.target.value))}
             inputMode="decimal"
+            aria-label={t('common.amount')}
             placeholder="0,00"
             className="input tnum"
             style={{ width: '100%', fontSize: 18, paddingRight: 40 }}

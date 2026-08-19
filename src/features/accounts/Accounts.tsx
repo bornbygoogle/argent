@@ -4,6 +4,7 @@ import { useGoBack } from '@/hooks/useGoBack';
 import { useScopedPath } from '@/hooks/useScopedPath';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
+import { Field } from '@/components/ui/Field';
 import { Icon } from '@/components/ui/Icon';
 import { Hero } from '@/components/ui/Hero';
 import { TintedIcon } from '@/components/ui/TintedIcon';
@@ -231,16 +232,17 @@ function AccountFormSheet({
   return (
     <Sheet open onClose={onClose} title={t(existing ? 'accounts.edit' : 'accounts.add')}>
       <div style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
-        <p className="label" style={{ marginBottom: 6 }}>
-          {t('onboarding.accountName')}
-        </p>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t('onboarding.accountNamePlaceholder')}
-          className="input"
-          style={{ width: '100%', marginBottom: 20 }}
-        />
+        <div style={{ marginBottom: 20 }}>
+          <Field label={t('onboarding.accountName')}>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('onboarding.accountNamePlaceholder')}
+              className="input"
+              style={{ width: '100%' }}
+            />
+          </Field>
+        </div>
 
         <p className="label" style={{ marginBottom: 6 }}>
           {t('onboarding.accountType')}
@@ -282,6 +284,7 @@ function AccountFormSheet({
             value={balance}
             onChange={(e) => setBalance(e.target.value.replace(/[^0-9,.-]/g, ''))}
             inputMode="decimal"
+            aria-label={t('onboarding.openingBalance')}
             placeholder="0,00"
             className="input tnum"
             style={{ width: '100%', fontSize: 18, paddingRight: 40 }}

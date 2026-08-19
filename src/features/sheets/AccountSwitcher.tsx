@@ -69,6 +69,7 @@ export function AccountSwitcher({ open, onClose, scope, onPick }: AccountSwitche
             className="input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            aria-label={t('accounts.searchPlaceholder')}
             placeholder={t('accounts.searchPlaceholder')}
             autoCapitalize="none"
             autoCorrect="off"

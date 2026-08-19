@@ -50,9 +50,20 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
 
 interface IconProps extends LucideProps {
   name: string;
+  /**
+   * Accessible name, for the rare icon that carries meaning on its own.
+   * Leave it off for the common case — an icon sitting beside its own visible
+   * text — so a screen reader doesn't read the same thing twice.
+   */
+  label?: string;
 }
 
-export function Icon({ name, ...props }: IconProps) {
+export function Icon({ name, label, ...props }: IconProps) {
   const Cmp = ICONS[name] ?? CircleDashed;
-  return <Cmp {...props} />;
+  // Decorative by default: an unnamed glyph next to visible text is noise in
+  // the accessibility tree. Naming it opts into being announced instead.
+  const semantics = label
+    ? { role: 'img' as const, 'aria-label': label }
+    : { 'aria-hidden': true as const };
+  return <Cmp {...semantics} {...props} />;
 }

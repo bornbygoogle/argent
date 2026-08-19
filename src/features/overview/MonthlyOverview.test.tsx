@@ -79,3 +79,50 @@ describe('MonthlyOverview recurring markers', () => {
     expect(await screen.findByText('Recurring')).toBeInTheDocument();
   });
 });
+
+/**
+ * The donut's two <text> nodes were left behind when the palette moved from
+ * cold slate to the warm "Ink & Signal" ramp. Hardcoded #0F172A measured
+ * 1.01:1 against the dark card — the month total, invisible — and #94A3B8
+ * measured 2.56:1 on the light card. The legend beside them was already on
+ * tokens, which is why nobody noticed. These keep both on tokens, where the
+ * theme can follow them.
+ */
+describe('MonthlyOverview donut labels', () => {
+  const today = new Date();
+  const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const seedOneCategorisedExpense = async () => {
+    await db.categories.add({
+      id: 'cat-1', name: 'Courses', icon: 'ShoppingCart',
+      color: '#2F8F62', isDefault: false, sortOrder: 0,
+    });
+    await db.transactions.add({
+      id: 'tx-1', kind: 'expense', accountId: 'acc-1', amount: 42,
+      categoryId: 'cat-1', date: iso,
+      createdAt: `${iso}T00:00:00.000Z`, updatedAt: `${iso}T00:00:00.000Z`,
+    });
+  };
+
+  const donutText = () => [...document.querySelectorAll('svg text')];
+
+  it('paints both donut labels from theme tokens, never a fixed hex', async () => {
+    await seedOneCategorisedExpense();
+    renderOverview();
+
+    await waitFor(() => expect(donutText().length).toBeGreaterThan(0));
+
+    for (const node of donutText()) {
+      expect(node.getAttribute('fill')).toMatch(/^var\(--/);
+    }
+  });
+
+  it('gives the month total the same ink as every other headline figure', async () => {
+    await seedOneCategorisedExpense();
+    renderOverview();
+
+    await waitFor(() => expect(donutText().length).toBeGreaterThan(0));
+
+    expect(donutText()[0].getAttribute('fill')).toBe('var(--neutral-900)');
+  });
+});

@@ -78,6 +78,11 @@
   --font:'Inter','Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
   /* Figures only. Never body text. */
   --font-figure:'Space Grotesk','Inter',system-ui,sans-serif;
+
+  /* Keyboard focus. Ink, not the signal — gold is spent on the
+     remaining-to-spend figure and nothing else may claim it. Ink measures
+     18.7:1 on a card and 17.2:1 on the page ground. */
+  --focus-ring:#14120F;
 }
 
 /* ---------- Dark theme ----------
@@ -127,11 +132,26 @@ html.dark{
   --shadow-md:0 6px 16px rgba(0,0,0,.5);
   --shadow-lg:0 16px 40px rgba(0,0,0,.6);
   --shadow-fab:0 10px 24px rgba(0,0,0,.55);
+  /* Bone on ink: 14.7:1 on a card, 15.9:1 on the page ground. */
+  --focus-ring:#EDE9E3;
+
   background:#0A0908;
 }
 html.dark body{ background:#0A0908; }
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+
+/* ---------- Keyboard focus ----------
+   Every control here is a custom class with `border:none`, so nothing
+   inherits a usable ring from the user agent. One global rule rather than a
+   per-component list: a new control cannot be added without a focus state.
+   :focus-visible, not :focus, so a pointer tap doesn't leave a ring behind.
+   The offset is load-bearing — an ink ring drawn ON the ink FAB measures
+   1.00:1, i.e. nothing. Pushed 2px out it sits on the ground and reads. */
+:focus-visible{
+  outline:2px solid var(--focus-ring);
+  outline-offset:2px;
+}
 html,body{font-family:var(--font);background:#E6E1D8;color:var(--neutral-900)}
 /* Without Tailwind Preflight, normalize button/heading fonts so unclassed buttons don't drop to the system font. */
 button{font-family:inherit}

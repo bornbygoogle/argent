@@ -32,7 +32,8 @@
     "optional": "Optionnel",
     "other": "Autre",
     "amount": "Montant",
-    "skip": "Passer"
+    "skip": "Passer",
+    "label": "Libellé"
   },
   "numpad": {
     "backspace": "Effacer",

@@ -117,7 +117,7 @@ export function MonthlyOverview() {
     const offset = -acc;
     acc += dash;
     const cat = categoryMap.get(c.categoryId);
-    return { color: cat?.color ?? '#64748B', dash, offset, label: cat ? categoryLabel(t, cat) : t('common.other'), share: c.share };
+    return { color: cat?.color ?? 'var(--neutral-400)', dash, offset, label: cat ? categoryLabel(t, cat) : t('common.other'), share: c.share };
   });
 
   const scopeOptions = [
@@ -253,10 +253,10 @@ export function MonthlyOverview() {
                     />
                   ))}
                 </g>
-                <text x={60} y={58} textAnchor="middle" fontSize={15} fontWeight={700} fill="#0F172A">
+                <text x={60} y={58} textAnchor="middle" fontSize={15} fontWeight={700} fill="var(--neutral-900)">
                   {Math.round(curTotal).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}€
                 </text>
-                <text x={60} y={74} textAnchor="middle" fontSize={9} fill="#94A3B8">
+                <text x={60} y={74} textAnchor="middle" fontSize={9} fill="var(--neutral-400)">
                   {formatMonth(month).slice(0, 4).toLowerCase()}
                 </text>
               </svg>

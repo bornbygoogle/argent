@@ -154,7 +154,8 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder={t('recurring.labelPlaceholder')}
-                style={{ flex: 1, minWidth: 0, height: 32, background: 'transparent', border: 'none', outline: 'none', fontSize: 15, fontFamily: 'inherit', color: 'var(--neutral-900)' }}
+                aria-label={t('common.label')}
+                style={{ flex: 1, minWidth: 0, height: 32, background: 'transparent', border: 'none', fontSize: 15, fontFamily: 'inherit', color: 'var(--neutral-900)' }}
               />
             </div>
             <div className="divider" />
@@ -166,9 +167,10 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
                   value={amountStr}
                   onChange={(e) => setAmountStr(cleanNum(e.target.value))}
                   inputMode="decimal"
+                  aria-label={t('common.amount')}
                   placeholder="0,00"
                   className="tnum"
-                  style={{ width: 110, height: 32, background: 'transparent', border: 'none', outline: 'none', fontSize: 16, fontWeight: 600, fontFamily: 'inherit', color: 'var(--neutral-900)', textAlign: 'right', paddingRight: 16 }}
+                  style={{ width: 110, height: 32, background: 'transparent', border: 'none', fontSize: 16, fontWeight: 600, fontFamily: 'inherit', color: 'var(--neutral-900)', textAlign: 'right', paddingRight: 16 }}
                 />
                 <span className="muted" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontWeight: 500 }}>€</span>
               </div>
@@ -240,7 +242,6 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
                   height: 32,
                   background: 'transparent',
                   border: 'none',
-                  outline: 'none',
                   fontSize: 16,
                   fontWeight: 600,
                   fontFamily: 'inherit',

@@ -32,7 +32,8 @@
     "optional": "Optional",
     "other": "Other",
     "amount": "Amount",
-    "skip": "Skip"
+    "skip": "Skip",
+    "label": "Label"
   },
   "numpad": {
     "backspace": "Backspace",
