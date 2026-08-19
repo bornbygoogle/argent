@@ -16,7 +16,7 @@ export function Placeholder({ titleKey, icon = 'CircleDashed' }: PlaceholderProp
         className="col text-center"
         style={{ alignItems: 'center', justifyContent: 'center', flex: 1, gap: 12 }}
       >
-        <TintedIcon hex="#94A3B8" icon={icon} variant="cat" alpha={0.12} />
+        <TintedIcon color="var(--neutral-400)" icon={icon} variant="cat" alpha={0.12} />
         <h2 className="h2">{t(`screens.${titleKey}`)}</h2>
         <p className="body-sm" style={{ maxWidth: 280 }}>
           {t('common.comingSoonHint')}

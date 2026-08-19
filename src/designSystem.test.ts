@@ -130,3 +130,111 @@ describe('form controls', () => {
     expect(nameless).toEqual([]);
   });
 });
+
+/**
+ * A control that changes state in 0ms reads as a dead control — the user taps,
+ * nothing acknowledges it, and they tap again. `cursor:pointer` is the
+ * stylesheet's own declaration that something is tappable, so deriving the
+ * list from it means a new control cannot be added without a press state.
+ */
+describe('press feedback', () => {
+  /** Selectors this stylesheet declares tappable, via `cursor:pointer`. */
+  function tappable(): string[] {
+    const found = new Set<string>();
+    for (const m of css.matchAll(/(^|\n)([^{}\n]+)\{([^}]*)\}/g)) {
+      const [selector, body] = [m[2].trim(), m[3]];
+      if (/cursor\s*:\s*pointer/.test(body) && selector.startsWith('.')) found.add(selector);
+    }
+    return [...found];
+  }
+
+  it('finds the tappable selectors, so an empty pass cannot look green', () => {
+    expect(tappable().length).toBeGreaterThan(8);
+  });
+
+  it('acknowledges a press on every tappable control', () => {
+    const silent = tappable().filter((sel) => !css.includes(`${sel}:active`));
+
+    expect(silent).toEqual([]);
+  });
+
+  it('times the acknowledgement to be felt but not waited on', () => {
+    const fade = /--press-fade\s*:\s*(\d+)ms/.exec(css)?.[1];
+
+    // 80-150ms: below it the change is missed, above it the control feels slow.
+    expect(Number(fade)).toBeGreaterThanOrEqual(80);
+    expect(Number(fade)).toBeLessThanOrEqual(150);
+  });
+});
+
+/**
+ * A hex copied out of the token table is the worst kind of colour bug: it
+ * looks right in the theme it was copied from and silently stops following
+ * the other one. MovementRow held #6B655C and #2F8F62 — --neutral-500 and
+ * --success-500, frozen at their light values — so every row icon kept a
+ * light-theme tint on a dark ground.
+ */
+describe('theme tokens', () => {
+  /** Every --token value declared for either theme, normalised to #rrggbb. */
+  function tokenValues(): Map<string, string[]> {
+    const byValue = new Map<string, string[]>();
+    for (const m of css.matchAll(/(--[a-z0-9-]+)\s*:\s*(#[0-9A-Fa-f]{3,6})\s*;/g)) {
+      const v = expand(m[2]);
+      byValue.set(v, [...(byValue.get(v) ?? []), m[1]]);
+    }
+    return byValue;
+  }
+
+  const expand = (hex: string): string => {
+    const h = hex.replace('#', '').toLowerCase();
+    return '#' + (h.length === 3 ? [...h].map((c) => c + c).join('') : h);
+  };
+
+  it('knows what the tokens are, so an empty pass cannot look green', () => {
+    expect(tokenValues().size).toBeGreaterThan(20);
+  });
+
+  it('is never bypassed by a component hardcoding a token value', () => {
+    const tokens = tokenValues();
+    const offenders: string[] = [];
+
+    for (const [file, body] of sourceFiles()) {
+      // The crash screen is deliberately literal: it has to render even when
+      // the stylesheet is the thing that failed.
+      if (file.endsWith('ErrorBoundary.tsx')) continue;
+      body.split('\n').forEach((line, i) => {
+        for (const m of line.matchAll(/#[0-9A-Fa-f]{3,6}\b/g)) {
+          const names = tokens.get(expand(m[0]));
+          if (names) offenders.push(`${file}:${i + 1} ${m[0]} is ${names.join('/')}`);
+        }
+      });
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * The bottom inset was pasted inline in eleven places at three different
+ * values, one of them (20px) off the 4/8px grid, while the .pb-safe utility
+ * written for exactly this sat unused. Spacing that varies per screen for no
+ * reason is the kind of drift nobody sees in one file and everybody feels
+ * across the app.
+ */
+describe('safe-area insets', () => {
+  it('are declared in the stylesheet, not pasted into components', () => {
+    const inline = sourceFiles()
+      .filter(([, body]) => body.includes('safe-area-inset'))
+      .map(([file]) => file);
+
+    expect(inline).toEqual([]);
+  });
+
+  it('offer only on-grid steps', () => {
+    const steps = [...css.matchAll(/padding-bottom:calc\((\d+)px \+ env\(safe-area-inset-bottom\)\)/g)]
+      .map((m) => Number(m[1]));
+
+    expect(steps.length).toBeGreaterThan(0);
+    for (const step of steps) expect(step % 8).toBe(0);
+  });
+});

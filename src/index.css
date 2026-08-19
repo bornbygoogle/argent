@@ -79,6 +79,10 @@
   /* Figures only. Never body text. */
   --font-figure:'Space Grotesk','Inter',system-ui,sans-serif;
 
+  /* Press feedback timing. 120ms sits inside the 80-150ms window: fast
+     enough to feel instant, slow enough to be perceived at all. */
+  --press-fade:120ms;
+
   /* Keyboard focus. Ink, not the signal — gold is spent on the
      remaining-to-spend figure and nothing else may claim it. Ink measures
      18.7:1 on a card and 17.2:1 on the page ground. */
@@ -151,6 +155,25 @@ html.dark body{ background:#0A0908; }
 :focus-visible{
   outline:2px solid var(--focus-ring);
   outline-offset:2px;
+}
+
+/* ---------- Press feedback ----------
+   A control that changes state in 0ms reads as a dead one: the user taps,
+   nothing acknowledges it, and they tap again. One shared rule rather than a
+   per-component list, so a new tappable class cannot ship without it.
+
+   Opacity, not a transform — it never alters the element's bounds, so nothing
+   around it jitters mid-tap. :not(:disabled) keeps a dead control looking
+   dead. .icon-btn and .numpad .key keep their own background tint instead:
+   fading a transparent button only fades its icon, which is weaker feedback.
+   The reduced-motion block below collapses the transition for everything. */
+.hero-cta,.btn,.chip,.fab,.bn-slot,.toggle,.acct-chip,.seg>button,.confirm-btn,.qa,.toast{
+  transition:opacity var(--press-fade) ease-out;
+}
+.hero-cta:active,.btn:active:not(:disabled),.chip:active,.fab:active,.bn-slot:active,
+.toggle:active,.acct-chip:active,.seg>button:active,.confirm-btn:active,.qa:active,
+.toast:active{
+  opacity:.82;
 }
 html,body{font-family:var(--font);background:#E6E1D8;color:var(--neutral-900)}
 /* Without Tailwind Preflight, normalize button/heading fonts so unclassed buttons don't drop to the system font. */
@@ -309,6 +332,14 @@ h1,h2,h3,h4{font-weight:600}
 .chip-row::-webkit-scrollbar{display:none}
 
 /* ---------- Category icon tile ---------- */
+/* Tinted tiles. --tint comes from TintedIcon and may be a stored category hex
+   or a theme token; --tint-a is its share of the background. Where color-mix
+   is unsupported the tile simply loses its wash — the icon keeps its colour,
+   so nothing becomes unreadable. */
+.cat,.acct-icon{
+  background:color-mix(in srgb, var(--tint,transparent) var(--tint-a,12%), transparent);
+  color:var(--tint,inherit);
+}
 .cat{width:40px;height:40px;border-radius:var(--radius-full);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .cat.sm{width:32px;height:32px}
 
@@ -480,6 +511,12 @@ body{overscroll-behavior-y:none}
 .tnum{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
 .pt-safe{padding-top:env(safe-area-inset-top)}
 .pb-safe{padding-bottom:env(safe-area-inset-bottom)}
+/* Bottom inset for content that ends at the screen edge — sheet bodies, screen
+   footers. Two steps only, both on the 4/8px grid, so the rhythm is the same
+   on every screen instead of 8/16/20 chosen per file. The device's own
+   gesture-area inset is added on top. */
+.pb-inset{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.pb-inset-sm{padding-bottom:calc(8px + env(safe-area-inset-bottom))}
 .no-scrollbar::-webkit-scrollbar{display:none}
 .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
 

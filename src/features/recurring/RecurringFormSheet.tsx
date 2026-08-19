@@ -76,7 +76,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
   const receiver = accounts.find((a) => a.id === receiverId && a.id !== accountId);
   const receiverAccountId = direction === 'expense' ? receiver?.id : undefined;
   const cat = categories.find((c) => c.id === categoryId);
-  const tileHex = direction === 'expense' ? cat?.color ?? '#64748B' : '#10B981';
+  const tileHex = direction === 'expense' ? cat?.color ?? 'var(--neutral-500)' : 'var(--success-500)';
   const tileIcon = direction === 'expense' ? cat?.icon ?? 'CircleDashed' : 'Coins';
 
   // Digits only, and only a real day of the month. A typo like 45 is rejected
@@ -135,7 +135,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
   return (
     <>
       <Sheet open onClose={confirmOpen ? () => {} : onClose} title={t(existing ? 'recurring.edit' : 'recurring.new')}>
-        <div style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+        <div className="pb-inset">
           {/* direction */}
           <Segmented<RecurringDirection>
             value={direction}
@@ -149,7 +149,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
           {/* label + amount */}
           <div className="card tight" style={{ marginTop: 12, padding: '4px 0' }}>
             <div className="row" style={{ padding: '9px 16px' }}>
-              <TintedIcon hex={tileHex} icon={tileIcon} variant="acct" />
+              <TintedIcon color={tileHex} icon={tileIcon} variant="acct" />
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -179,7 +179,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
 
           {/* account */}
           <button type="button" className="card tight" onClick={() => setPickerOpen(true)} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
-            <TintedIcon hex={account?.color ?? '#4F46E5'} icon={account?.icon ?? 'Wallet'} variant="acct" />
+            <TintedIcon color={account?.color ?? '#4F46E5'} icon={account?.icon ?? 'Wallet'} variant="acct" />
             <div className="r-main">
               <div className="r-sub">{t('form.account')}</div>
               <div className="r-title">{account?.name ?? t('form.selectAccount')}</div>
@@ -199,7 +199,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
                 style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 <TintedIcon
-                  hex={receiver?.color ?? '#94A3B8'}
+                  color={receiver?.color ?? 'var(--neutral-400)'}
                   icon={receiver?.icon ?? 'ArrowRightLeft'}
                   variant="acct"
                 />

@@ -199,7 +199,7 @@ export function Recurring() {
           );
           return (
             <div className="recur" key={r.id}>
-              <TintedIcon hex={r.color} icon={r.icon} variant="cat" />
+              <TintedIcon color={r.color} icon={r.icon} variant="cat" />
               <div className="r-main" onClick={() => setEditing(r)} style={{ cursor: 'pointer', minWidth: 0 }}>
                 <div className="r-title">{r.label}</div>
                 <div className="r-sub">
@@ -298,7 +298,7 @@ export function Recurring() {
           <div className="card tight">
             {history.map((h, i) => (
               <div className="row" key={`${h.label}-${h.occurrence}-${i}`}>
-                <TintedIcon hex={h.color} icon={h.icon} variant="cat-sm" />
+                <TintedIcon color={h.color} icon={h.icon} variant="cat-sm" />
                 <div className="r-main">
                   <div className="r-title" style={{ fontSize: 14 }}>{h.label}</div>
                   <div className="r-sub">{formatDate(h.occurrence, 'weekday')}</div>

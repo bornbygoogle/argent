@@ -59,7 +59,7 @@ export function AccountPickerSheet({
               onClose();
             }}
           >
-            <TintedIcon hex="#94A3B8" icon="Ban" variant="acct" />
+            <TintedIcon color="var(--neutral-400)" icon="Ban" variant="acct" />
             <span
               style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: 'var(--neutral-900)' }}
             >
@@ -80,7 +80,7 @@ export function AccountPickerSheet({
               onClose();
             }}
           >
-            <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
+            <TintedIcon color={a.color} icon={a.icon} variant="acct" />
             {/* Name left, balance right. These were nested in an .r-main span,
                 but the rule that stacks title over subtitle is scoped to .row,
                 which this button is not — so they rendered as one run of text,

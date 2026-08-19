@@ -127,7 +127,7 @@ export function Categories() {
                 <div className="card tight">
                   {defaults.map((c) => (
                     <div className="row" key={c.id} onClick={() => setEditing(c)} style={{ cursor: 'pointer' }}>
-                      <TintedIcon hex={c.color} icon={c.icon} variant="cat" />
+                      <TintedIcon color={c.color} icon={c.icon} variant="cat" />
                       <div className="r-main">
                         <div className="r-title">{categoryLabel(t, c)}</div>
                         <div className="r-sub">{subFor(c)}</div>
@@ -148,7 +148,7 @@ export function Categories() {
                 <div className="card tight">
                   {customs.map((c) => (
                     <div className="row" key={c.id} onClick={() => setEditing(c)} style={{ cursor: 'pointer' }}>
-                      <TintedIcon hex={c.color} icon={c.icon} variant="cat" />
+                      <TintedIcon color={c.color} icon={c.icon} variant="cat" />
                       <div className="r-main">
                         <div className="r-title">{categoryLabel(t, c)}</div>
                         <div className="r-sub">{subFor(c)}</div>
@@ -232,7 +232,7 @@ function CategoryFormSheet({
   return (
     <>
       <Sheet open onClose={confirmOpen ? () => {} : onClose} title={t(existing ? 'categories.edit' : 'categories.add')}>
-        <div style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+        <div className="pb-inset">
           <p className="label" style={{ marginBottom: 6 }}>{t('categories.name')}</p>
           <input
             value={name}
@@ -262,7 +262,7 @@ function CategoryFormSheet({
                 style={{
                   width: 32, height: 32, borderRadius: '50%', background: c, cursor: 'pointer',
                   border: color === c ? '3px solid var(--neutral-900)' : '3px solid transparent',
-                  boxShadow: color === c ? '0 0 0 1px #fff inset' : 'none',
+                  boxShadow: color === c ? '0 0 0 1px var(--white) inset' : 'none',
                 }}
               />
             ))}
@@ -289,7 +289,7 @@ function CategoryFormSheet({
           {/* preview — shows the exact display format a movement will use */}
           <div className="card tight" style={{ marginBottom: 20 }}>
             <div className="row" style={{ padding: '4px 0' }}>
-              <TintedIcon hex={color} icon={icon} variant="cat" />
+              <TintedIcon color={color} icon={icon} variant="cat" />
               <div className="r-main">
                 <div className="r-title">
                   {name || t('categories.namePlaceholder')}

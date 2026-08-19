@@ -54,7 +54,7 @@ export function Select({
   label,
   sheetTitle,
   placeholder = '—',
-  emptyColor = '#94A3B8',
+  emptyColor = 'var(--neutral-400)',
   emptyIcon = 'Tag',
   variant = 'default',
 }: SelectProps) {
@@ -70,7 +70,7 @@ export function Select({
         onClick={() => setOpen(true)}
         style={{ width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
       >
-        <TintedIcon hex={selected?.color ?? emptyColor} icon={selected?.icon ?? emptyIcon} variant="cat-sm" />
+        <TintedIcon color={selected?.color ?? emptyColor} icon={selected?.icon ?? emptyIcon} variant="cat-sm" />
         <div className="r-main">
           <div className="r-sub">{label}</div>
           <div className="r-title">{selected ? selected.label : placeholder}</div>
@@ -91,7 +91,7 @@ export function Select({
                 setOpen(false);
               }}
             >
-              <TintedIcon hex={o.color ?? emptyColor} icon={o.icon ?? emptyIcon} variant="cat-sm" />
+              <TintedIcon color={o.color ?? emptyColor} icon={o.icon ?? emptyIcon} variant="cat-sm" />
               <span className="r-main">
                 <span className="r-title">{o.label}</span>
               </span>

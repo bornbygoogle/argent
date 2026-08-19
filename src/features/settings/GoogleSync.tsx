@@ -129,7 +129,7 @@ export function GoogleSync() {
 
       {status === 'signed-out' ? (
         <div className="row">
-          <TintedIcon hex="#4F46E5" icon="CloudUpload" variant="acct" />
+          <TintedIcon color="#4F46E5" icon="CloudUpload" variant="acct" />
           <span className="r-main">
             <span className="r-title">{t('settings.google.title')}</span>
             <span className="r-sub">{t('settings.google.signInHint')}</span>
@@ -141,7 +141,7 @@ export function GoogleSync() {
       ) : (
         <>
           <div className="row">
-            <TintedIcon hex="#10B981" icon="Cloud" variant="acct" />
+            <TintedIcon color="#10B981" icon="Cloud" variant="acct" />
             <span className="r-main">
               <span className="r-title">{t('settings.google.title')}</span>
               <span className="r-sub">{t('settings.google.signedInAs', { email: email ?? '' })}</span>
@@ -150,7 +150,7 @@ export function GoogleSync() {
 
           {/* Automatic backup status — runs in the background + manual trigger. */}
           <div className="row" style={{ flexWrap: 'wrap' }}>
-            <TintedIcon hex="#4F46E5" icon="CloudUpload" variant="acct" />
+            <TintedIcon color="#4F46E5" icon="CloudUpload" variant="acct" />
             <span className="r-main">
               <span className="r-title">{t('settings.google.autoBackupTitle')}</span>
               <span className="r-sub">
@@ -176,7 +176,7 @@ export function GoogleSync() {
 
           {/* Restore latest — the cross-device sync action. */}
           <div className="row" style={{ flexWrap: 'wrap' }}>
-            <TintedIcon hex="#10B981" icon="Download" variant="acct" />
+            <TintedIcon color="#10B981" icon="Download" variant="acct" />
             <span className="r-main">
               <span className="r-title">{t('settings.google.restoreLatest')}</span>
               <span className="r-sub">{t('settings.google.restoreLatestHint')}</span>
@@ -189,7 +189,7 @@ export function GoogleSync() {
           </div>
 
           <div className="row">
-            <TintedIcon hex="#64748B" icon="LogOut" variant="acct" />
+            <TintedIcon color="#64748B" icon="LogOut" variant="acct" />
             <span className="r-main">
               <span className="r-title">{t('settings.google.signOut')}</span>
             </span>
@@ -202,7 +202,7 @@ export function GoogleSync() {
 
       {/* Destructive restore confirm: replaces ALL local data. */}
       <Sheet open={!!confirm} onClose={() => setConfirm(null)} title={t('settings.google.restoreLatest')}>
-        <div className="text-center" style={{ paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}>
+        <div className="text-center pb-inset-sm">
           <p className="body-sm" style={{ marginBottom: 16 }}>
             {confirm ? t('settings.google.restoreConfirmName', { name: confirm.name }) : ''}
           </p>

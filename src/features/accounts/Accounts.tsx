@@ -64,7 +64,7 @@ export function Accounts() {
 
       <div className="content" style={{ paddingBottom: 24, gap: 16 }}>
         <Hero label={t('dashboard.balance')}>
-          <div className="amount" style={{ color: '#fff', fontSize: 34, marginTop: 4 }}>
+          <div className="amount" style={{ color: 'var(--hero-fg)', fontSize: 34, marginTop: 4 }}>
             {formatCurrency(netWorth)}
           </div>
           <div className="caption" style={{ color: 'rgba(255,255,255,.85)', marginTop: 6 }}>
@@ -176,7 +176,7 @@ function AccountCard({
     <div className="card" onClick={onClick} style={{ cursor: 'pointer', opacity: dimmed ? 0.6 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Icon name="GripVertical" size={18} color="var(--neutral-300)" />
-        <TintedIcon hex={account.color} icon={account.icon} variant="acct" />
+        <TintedIcon color={account.color} icon={account.icon} variant="acct" />
         <div className="r-main">
           <div className="r-title">{account.name}</div>
           <div className="r-sub">{t(`accountType.${account.type}`)}</div>
@@ -231,7 +231,7 @@ function AccountFormSheet({
 
   return (
     <Sheet open onClose={onClose} title={t(existing ? 'accounts.edit' : 'accounts.add')}>
-      <div style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+      <div className="pb-inset">
         <div style={{ marginBottom: 20 }}>
           <Field label={t('onboarding.accountName')}>
             <input
@@ -269,7 +269,7 @@ function AccountFormSheet({
                   textAlign: 'left',
                 }}
               >
-                <TintedIcon hex={d.color} icon={d.icon} variant="acct" />
+                <TintedIcon color={d.color} icon={d.icon} variant="acct" />
                 <span style={{ fontSize: 13, fontWeight: 500 }}>{t(`accountType.${ty}`)}</span>
               </button>
             );
@@ -357,7 +357,7 @@ function DeleteAccountSheet({
 
   return (
     <Sheet open onClose={onClose} title={t('accounts.delete')}>
-      <div style={{ paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
+      <div className="pb-inset">
         <div
           className="cat"
           style={{ background: 'var(--danger-50)', color: 'var(--danger-600)', margin: '0 auto 12px' }}
@@ -377,7 +377,7 @@ function DeleteAccountSheet({
               className="row"
               style={{ padding: '10px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
             >
-              <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
+              <TintedIcon color={a.color} icon={a.icon} variant="acct" />
               <span className="r-main">
                 <span className="r-title">{a.name}</span>
                 <span className="r-sub">{t(`accountType.${a.type}`)}</span>

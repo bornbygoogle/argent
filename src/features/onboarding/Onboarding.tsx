@@ -55,7 +55,7 @@ export function Onboarding() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#fff',
+              color: 'var(--on-primary)',
             }}
           >
             <Icon name="Euro" size={16} strokeWidth={2.4} />
@@ -89,7 +89,7 @@ export function Onboarding() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#fff',
+                color: 'var(--on-primary)',
               }}
             >
               <Icon name="Plus" size={44} strokeWidth={2.2} />
@@ -100,7 +100,7 @@ export function Onboarding() {
                 position: 'absolute',
                 top: 18,
                 left: 6,
-                background: '#fff',
+                background: 'var(--white)',
                 borderRadius: 14,
                 boxShadow: 'var(--shadow-md)',
                 padding: '8px 12px',
@@ -109,7 +109,7 @@ export function Onboarding() {
                 gap: 6,
               }}
             >
-              <TintedIcon hex="#10B981" icon="ShoppingCart" variant="cat-sm" />
+              <TintedIcon color="#10B981" icon="ShoppingCart" variant="cat-sm" />
               <span style={{ fontSize: 12, fontWeight: 600 }}>−8,40&nbsp;€</span>
             </div>
             <div
@@ -117,7 +117,7 @@ export function Onboarding() {
                 position: 'absolute',
                 bottom: 24,
                 right: 0,
-                background: '#fff',
+                background: 'var(--white)',
                 borderRadius: 14,
                 boxShadow: 'var(--shadow-md)',
                 padding: '8px 12px',
@@ -126,7 +126,7 @@ export function Onboarding() {
                 gap: 6,
               }}
             >
-              <TintedIcon hex="#F59E0B" icon="Utensils" variant="cat-sm" />
+              <TintedIcon color="#F59E0B" icon="Utensils" variant="cat-sm" />
               <span style={{ fontSize: 12, fontWeight: 600 }}>−14,00&nbsp;€</span>
             </div>
           </div>
@@ -212,7 +212,7 @@ export function Onboarding() {
                   textAlign: 'left',
                 }}
               >
-                <TintedIcon hex={d.color} icon={d.icon} variant="acct" />
+                <TintedIcon color={d.color} icon={d.icon} variant="acct" />
                 <span style={{ fontSize: 14, fontWeight: 500 }}>{t(`accountType.${ty}`)}</span>
               </button>
             );
@@ -245,7 +245,7 @@ export function Onboarding() {
         </div>
       </div>
 
-      <div style={{ padding: 16, paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+      <div className="pb-inset" style={{ paddingTop: 16, paddingLeft: 16, paddingRight: 16 }}>
         <Button full onClick={finish} disabled={busy}>
           {t('onboarding.create')}
         </Button>

@@ -99,14 +99,14 @@ export function InstallPrompt() {
 
   return (
     <Sheet open={open} onClose={() => setOpen(false)}>
-      <div style={{ paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}>
+      <div className="pb-inset-sm">
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
           <div
             style={{
               width: 72, height: 72, borderRadius: 20,
               background: 'linear-gradient(135deg,var(--primary-600),var(--primary-500))',
               boxShadow: 'var(--shadow-fab)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', marginBottom: 14,
+              color: 'var(--on-primary)', marginBottom: 14,
             }}
           >
             <Icon name="Download" size={36} strokeWidth={2.2} />

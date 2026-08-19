@@ -277,7 +277,7 @@ export function Budget() {
           right: 0,
           bottom: 0,
           padding: '12px 16px 28px',
-          background: 'linear-gradient(transparent,#fff 30%)',
+          background: 'linear-gradient(transparent,var(--white) 30%)',
         }}
       >
         <button type="button" className="btn btn-primary btn-block" onClick={save} disabled={busy || !hydrated}>
@@ -318,7 +318,7 @@ function CategoryLimitRow({
 }) {
   return (
     <div className="row" onClick={onClick} style={{ cursor: 'pointer' }}>
-      <TintedIcon hex={category.color} icon={category.icon} variant="cat-sm" />
+      <TintedIcon color={category.color} icon={category.icon} variant="cat-sm" />
       <div className="r-main">
         <div className="r-title" style={{ fontSize: 14 }}>{label}</div>
         {limit > 0 && <Progress value={ratio} color={color} height={6} className="mt-2" />}
@@ -352,7 +352,7 @@ function LimitSheet({
 
   return (
     <Sheet open onClose={onClose} title={cat ? categoryLabel(t, cat) : t('budget.categoryLimits')}>
-      <div style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+      <div className="pb-inset">
         <div style={{ position: 'relative', marginBottom: 20 }}>
           <input
             value={str}

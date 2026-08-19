@@ -68,7 +68,7 @@ function NavRow({
   const navigate = useNavigate();
   return (
     <button type="button" className="row" style={rowBtn} onClick={() => (to ? navigate(to) : onClick?.())}>
-      <TintedIcon hex={tint} icon={icon} variant="acct" />
+      <TintedIcon color={tint} icon={icon} variant="acct" />
       <span className="r-main">
         <span className="r-title" style={titleTone === 'danger' ? { color: 'var(--danger-600)' } : undefined}>
           {title}
@@ -217,7 +217,7 @@ export function Settings() {
               onClick={() => setDefaultIncomeOpen(true)}
             />
             <div className="row" style={{ flexWrap: 'wrap' }}>
-              <TintedIcon hex="#4F46E5" icon="Moon" variant="acct" />
+              <TintedIcon color="#4F46E5" icon="Moon" variant="acct" />
               <span className="r-main">
                 <span className="r-title">{t('settings.theme')}</span>
               </span>
@@ -234,7 +234,7 @@ export function Settings() {
               </div>
             </div>
             <div className="row" style={{ flexWrap: 'wrap' }}>
-              <TintedIcon hex="#10B981" icon="Languages" variant="acct" />
+              <TintedIcon color="#10B981" icon="Languages" variant="acct" />
               <span className="r-main">
                 <span className="r-title">{t('settings.language')}</span>
               </span>
@@ -380,7 +380,7 @@ export function Settings() {
 
       {/* Destructive-wipe confirm: user must type the confirmation word. */}
       <Sheet open={clearOpen} onClose={() => setClearOpen(false)} title={t('settings.clearAll')}>
-        <div className="text-center" style={{ paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}>
+        <div className="text-center pb-inset-sm">
           <div
             className="cat"
             style={{ background: 'var(--danger-50)', color: 'var(--danger-600)', margin: '0 auto 12px' }}
@@ -420,7 +420,7 @@ export function Settings() {
 
       {/* Currency picker: curated quick-pick + add a custom ISO code. */}
       <Sheet open={currencyOpen} onClose={() => setCurrencyOpen(false)} title={t('settings.currency')}>
-        <div className="col" style={{ gap: 16, paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}>
+        <div className="col pb-inset-sm" style={{ gap: 16 }}>
           <div className="col">
             {allCurrencies.map((code) => {
               const active = code === settings.currency;
@@ -504,7 +504,7 @@ export function Settings() {
                 setDefaultExpenseOpen(false);
               }}
             >
-              <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
+              <TintedIcon color={a.color} icon={a.icon} variant="acct" />
               <span className="r-main">
                 <span className="r-title">{a.name}</span>
                 <span className="r-sub">{t(`accountType.${a.type}`)}</span>
@@ -557,7 +557,7 @@ export function Settings() {
                 setDefaultIncomeOpen(false);
               }}
             >
-              <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
+              <TintedIcon color={a.color} icon={a.icon} variant="acct" />
               <span className="r-main">
                 <span className="r-title">{a.name}</span>
                 <span className="r-sub">{t(`accountType.${a.type}`)}</span>

@@ -184,7 +184,7 @@ export function Dashboard() {
                 className="ql-tile"
                 onClick={() => navigate(`/add?category=${encodeURIComponent(c.id)}`)}
               >
-                <TintedIcon hex={c.color} icon={c.icon} variant="cat-sm" />
+                <TintedIcon color={c.color} icon={c.icon} variant="cat-sm" />
                 <span className="ql-lbl">{c.name}</span>
               </button>
             ))}
@@ -210,7 +210,7 @@ export function Dashboard() {
                 const acct = accountMap.get(r.accountId);
                 return (
                   <div className="recur" key={r.id}>
-                    <TintedIcon hex={r.color} icon={r.icon} variant="cat-sm" />
+                    <TintedIcon color={r.color} icon={r.icon} variant="cat-sm" />
                     <div className="r-main">
                       <div className="r-title">{r.label}</div>
                       <div className="r-sub">

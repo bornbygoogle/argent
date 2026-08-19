@@ -476,7 +476,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
               className="row"
               style={{ padding: '10px 4px', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              <TintedIcon hex={a.color} icon={a.icon} variant="acct" />
+              <TintedIcon color={a.color} icon={a.icon} variant="acct" />
               <span className="r-main">
                 <span className="r-title">{a.name}</span>
                 <span className="r-sub">{t(`accountType.${a.type}`)}</span>

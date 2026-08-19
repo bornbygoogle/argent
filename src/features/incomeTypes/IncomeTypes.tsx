@@ -95,7 +95,7 @@ export function IncomeTypes() {
           <div className="card tight">
             {incomeTypes.map((it) => (
               <div className="row" key={it.id} onClick={() => setEditing(it)} style={{ cursor: 'pointer' }}>
-                <TintedIcon hex={it.color ?? DEFAULT_COLOR} icon={it.icon ?? DEFAULT_ICON} variant="cat" />
+                <TintedIcon color={it.color ?? DEFAULT_COLOR} icon={it.icon ?? DEFAULT_ICON} variant="cat" />
                 <div className="r-main">
                   <div className="r-title">{incomeTypeLabel(t, it)}</div>
                   <div className="r-sub">{subFor(it)}</div>
@@ -183,7 +183,7 @@ function IncomeTypeFormSheet({
   return (
     <>
       <Sheet open onClose={confirmOpen ? () => {} : onClose} title={t(existing ? 'incomeTypes.edit' : 'incomeTypes.add')}>
-        <div style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+        <div className="pb-inset">
           <p className="label" style={{ marginBottom: 6 }}>{t('incomeTypes.name')}</p>
           <input
             value={label}
@@ -213,7 +213,7 @@ function IncomeTypeFormSheet({
                 style={{
                   width: 32, height: 32, borderRadius: '50%', background: c, cursor: 'pointer',
                   border: color === c ? '3px solid var(--neutral-900)' : '3px solid transparent',
-                  boxShadow: color === c ? '0 0 0 1px #fff inset' : 'none',
+                  boxShadow: color === c ? '0 0 0 1px var(--white) inset' : 'none',
                 }}
               />
             ))}
@@ -240,7 +240,7 @@ function IncomeTypeFormSheet({
           {/* preview — shows the exact display format a movement will use */}
           <div className="card tight" style={{ marginBottom: 20 }}>
             <div className="row" style={{ padding: '4px 0' }}>
-              <TintedIcon hex={color} icon={icon} variant="cat" />
+              <TintedIcon color={color} icon={icon} variant="cat" />
               <div className="r-main">
                 <div className="r-title">
                   {label || t('incomeTypes.namePlaceholder')}

@@ -402,7 +402,7 @@ function AccountLine({
         fontFamily: 'inherit',
       }}
     >
-      <TintedIcon hex={account?.color ?? '#4F46E5'} icon={account?.icon ?? 'Wallet'} variant="acct" />
+      <TintedIcon color={account?.color ?? '#4F46E5'} icon={account?.icon ?? 'Wallet'} variant="acct" />
       {/* Label left, account right, the same shape as the date row below. The
           old markup nested both in an .r-main span, but the rule that stacks
           those (`.row .r-title`) is scoped to .row — which this button is not —

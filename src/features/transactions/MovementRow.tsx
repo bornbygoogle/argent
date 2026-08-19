@@ -38,7 +38,11 @@ export function MovementRow({
   const expense = isExpense(tx);
 
   const icon = transfer ? 'ArrowLeftRight' : expense ? category?.icon ?? 'ShoppingCart' : 'Banknote';
-  const tint = transfer ? '#6B655C' : expense ? category?.color ?? '#8B857C' : '#2F8F62';
+  const tint = transfer
+    ? 'var(--neutral-500)'
+    : expense
+      ? category?.color ?? 'var(--neutral-400)'
+      : 'var(--success-500)';
 
   const label = transfer
     ? transferLabel(t, tx, counterAccount)
@@ -61,7 +65,7 @@ export function MovementRow({
 
   return (
     <Row
-      icon={<TintedIcon hex={tint} icon={icon} variant="cat" />}
+      icon={<TintedIcon color={tint} icon={icon} variant="cat" />}
       title={
         showTransferMark ? (
           <>
