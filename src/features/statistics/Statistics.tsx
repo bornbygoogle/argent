@@ -288,7 +288,7 @@ export function Statistics() {
                           {sub ? subcategoryLabel(sub) : t('stats.noSubcategory')}
                         </span>
                         <div style={{ flex: 1.4, height: 8, background: 'var(--neutral-100)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-                          <div style={{ width: `${Math.round((s.total / maxSub) * 100)}%`, height: '100%', background: selectedCat?.color ?? '#64748B' }} />
+                          <div style={{ width: `${Math.round((s.total / maxSub) * 100)}%`, height: '100%', background: selectedCat?.color ?? 'var(--accent-ink)' }} />
                         </div>
                         <span className="amount-md" style={{ fontSize: 13, width: 64, textAlign: 'right' }}>{formatCurrency(s.total)}</span>
                       </div>
@@ -313,7 +313,7 @@ export function Statistics() {
                           {cat ? categoryLabel(t, cat) : t('common.other')}
                         </span>
                         <div style={{ flex: 1.4, height: 8, background: 'var(--neutral-100)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-                          <div style={{ width: `${Math.round((c.total / maxCat) * 100)}%`, height: '100%', background: cat?.color ?? '#64748B' }} />
+                          <div style={{ width: `${Math.round((c.total / maxCat) * 100)}%`, height: '100%', background: cat?.color ?? 'var(--accent-ink)' }} />
                         </div>
                         <span className="amount-md" style={{ fontSize: 13, width: 64, textAlign: 'right' }}>{formatCurrency(c.total)}</span>
                       </div>

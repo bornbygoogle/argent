@@ -13,7 +13,7 @@ interface AccountChipProps {
 export function AccountChip({ dot = 'tri', name, onClick, chevron = true, className = '' }: AccountChipProps) {
   const dotStyle =
     dot === 'tri'
-      ? { background: 'linear-gradient(90deg,#4F46E5,#10B981,#F59E0B)' }
+      ? { background: 'linear-gradient(90deg,var(--accent-plum),var(--accent-green),var(--accent-clay))' }
       : { background: dot };
   return (
     <button type="button" className={['acct-chip', className].join(' ').trim()} onClick={onClick}>

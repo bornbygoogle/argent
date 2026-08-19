@@ -195,14 +195,14 @@ export function Settings() {
           <div className="card tight">
             <NavRow
               icon="CircleDollarSign"
-              tint="#64748B"
+              tint="var(--accent-ink)"
               title={t('settings.currency')}
               value={activeCurrencyLabel}
               onClick={() => setCurrencyOpen(true)}
             />
             <NavRow
               icon="ArrowDownRight"
-              tint="#EF4444"
+              tint="var(--accent-red)"
               title={t('settings.defaultExpenseAccount')}
               sub={t('settings.defaultExpenseAccountHint')}
               value={defaultExpenseLabel ?? t('settings.defaultAccountNone')}
@@ -210,14 +210,14 @@ export function Settings() {
             />
             <NavRow
               icon="ArrowUpRight"
-              tint="#10B981"
+              tint="var(--accent-green)"
               title={t('settings.defaultIncomeAccount')}
               sub={t('settings.defaultIncomeAccountHint')}
               value={defaultIncomeLabel ?? t('settings.defaultAccountNone')}
               onClick={() => setDefaultIncomeOpen(true)}
             />
             <div className="row" style={{ flexWrap: 'wrap' }}>
-              <TintedIcon color="#4F46E5" icon="Moon" variant="acct" />
+              <TintedIcon color="var(--accent-plum)" icon="Moon" variant="acct" />
               <span className="r-main">
                 <span className="r-title">{t('settings.theme')}</span>
               </span>
@@ -234,7 +234,7 @@ export function Settings() {
               </div>
             </div>
             <div className="row" style={{ flexWrap: 'wrap' }}>
-              <TintedIcon color="#10B981" icon="Languages" variant="acct" />
+              <TintedIcon color="var(--accent-green)" icon="Languages" variant="acct" />
               <span className="r-main">
                 <span className="r-title">{t('settings.language')}</span>
               </span>
@@ -264,29 +264,29 @@ export function Settings() {
           <div className="card tight">
             <NavRow
               icon="LayoutGrid"
-              tint="#4F46E5"
+              tint="var(--accent-plum)"
               title={t('settings.categories')}
               value={counts ? `${counts.categories}` : undefined}
               to="/categories"
             />
             <NavRow
               icon="Coins"
-              tint="#10B981"
+              tint="var(--accent-green)"
               title={t('settings.incomeTypes')}
               value={counts ? `${counts.incomeTypes}` : undefined}
               to="/income-types"
             />
             <NavRow
               icon="Wallet"
-              tint="#4F46E5"
+              tint="var(--accent-plum)"
               title={t('settings.accounts')}
               value={counts ? `${counts.accounts}` : undefined}
               to="/accounts"
             />
-            <NavRow icon="PiggyBank" tint="#10B981" title={t('settings.budget')} to="/budget" />
+            <NavRow icon="PiggyBank" tint="var(--accent-green)" title={t('settings.budget')} to="/budget" />
             <NavRow
               icon="Repeat"
-              tint="#F59E0B"
+              tint="var(--accent-clay)"
               title={t('settings.recurring')}
               sub={todoCount > 0 ? t('settings.recurringToConfirm', { count: todoCount }) : undefined}
               subTone={todoCount > 0 ? 'warning' : undefined}
@@ -318,7 +318,7 @@ export function Settings() {
           <div className="card tight">
             <NavRow
               icon="Download"
-              tint="#64748B"
+              tint="var(--accent-ink)"
               title={t('settings.export')}
               sub={t('settings.exportHint')}
               chevron={false}
@@ -326,14 +326,14 @@ export function Settings() {
             />
             <NavRow
               icon="Upload"
-              tint="#64748B"
+              tint="var(--accent-ink)"
               title={t('settings.import')}
               sub={t('settings.importHint')}
               onClick={() => fileRef.current?.click()}
             />
             <NavRow
               icon="Trash2"
-              tint="#EF4444"
+              tint="var(--accent-red)"
               title={t('settings.clearAll')}
               titleTone="danger"
               chevron={false}
@@ -351,10 +351,10 @@ export function Settings() {
             <span className="label">{t('settings.about')}</span>
           </div>
           <div className="card tight">
-            <NavRow icon="Info" tint="#64748B" title={t('settings.version')} value="1.0.0" chevron={false} />
+            <NavRow icon="Info" tint="var(--accent-ink)" title={t('settings.version')} value="1.0.0" chevron={false} />
             <NavRow
               icon="ShieldCheck"
-              tint="#10B981"
+              tint="var(--accent-green)"
               title={t('settings.privacy')}
               sub={t('settings.privacyHint')}
               chevron={false}

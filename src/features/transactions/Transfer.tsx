@@ -4,6 +4,7 @@ import { useGoBack } from '@/hooks/useGoBack';
 import { useScopedPath } from '@/hooks/useScopedPath';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
+import type { CSSProperties } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { Numpad, displayAmount, parseAmount } from '@/components/ui/Numpad';
 import { Sheet } from '@/components/ui/Sheet';
@@ -267,7 +268,7 @@ export function Transfer() {
         {/* Date + note */}
         <div className="card tight" style={{ padding: '4px 0', marginTop: 8 }}>
           <label className="row" style={{ padding: '9px 16px', cursor: 'pointer' }}>
-            <MetaTile icon="Calendar" tint="#4F46E5" />
+            <MetaTile icon="Calendar" tint="var(--accent-plum)" />
             <span style={{ fontSize: 15, color: 'var(--neutral-700)' }}>{t('form.date')}</span>
             <span style={{ flex: 1 }} />
             <input
@@ -287,7 +288,7 @@ export function Transfer() {
           </label>
           <div className="divider" />
           <div className="row" style={{ padding: '9px 16px' }}>
-            <MetaTile icon="Type" tint="#64748B" />
+            <MetaTile icon="Type" tint="var(--accent-ink)" />
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -364,13 +365,11 @@ export function Transfer() {
 }
 
 function MetaTile({ icon, tint }: { icon: string; tint: string }) {
-  const r = parseInt(tint.slice(1, 3), 16);
-  const g = parseInt(tint.slice(3, 5), 16);
-  const b = parseInt(tint.slice(5, 7), 16);
+  // --tint is mixed by the .acct-icon rule, so any CSS colour works here.
   return (
     <span
       className="acct-icon"
-      style={{ width: 28, height: 28, borderRadius: 8, background: `rgba(${r},${g},${b},.12)`, color: tint }}
+      style={{ width: 28, height: 28, borderRadius: 8, '--tint': tint } as CSSProperties}
     >
       <Icon name={icon} size={16} strokeWidth={2} />
     </span>
@@ -402,7 +401,7 @@ function AccountLine({
         fontFamily: 'inherit',
       }}
     >
-      <TintedIcon color={account?.color ?? '#4F46E5'} icon={account?.icon ?? 'Wallet'} variant="acct" />
+      <TintedIcon color={account?.color ?? 'var(--accent-plum)'} icon={account?.icon ?? 'Wallet'} variant="acct" />
       {/* Label left, account right, the same shape as the date row below. The
           old markup nested both in an .r-main span, but the rule that stacks
           those (`.row .r-title`) is scoped to .row — which this button is not —

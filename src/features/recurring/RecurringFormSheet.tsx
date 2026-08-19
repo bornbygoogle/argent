@@ -179,7 +179,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
 
           {/* account */}
           <button type="button" className="card tight" onClick={() => setPickerOpen(true)} style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
-            <TintedIcon color={account?.color ?? '#4F46E5'} icon={account?.icon ?? 'Wallet'} variant="acct" />
+            <TintedIcon color={account?.color ?? 'var(--accent-plum)'} icon={account?.icon ?? 'Wallet'} variant="acct" />
             <div className="r-main">
               <div className="r-sub">{t('form.account')}</div>
               <div className="r-title">{account?.name ?? t('form.selectAccount')}</div>
@@ -272,7 +272,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
                 placeholder={t('form.selectIncomeType')}
                 value={incomeType}
                 onChange={setIncomeType}
-                options={incomeTypes.map((it) => ({ id: it.key, label: incomeTypeLabel(t, it), icon: it.icon ?? 'Coins', color: it.color ?? '#10B981' }))}
+                options={incomeTypes.map((it) => ({ id: it.key, label: incomeTypeLabel(t, it), icon: it.icon ?? 'Coins', color: it.color ?? 'var(--accent-green)' }))}
               />
             )}
           </div>

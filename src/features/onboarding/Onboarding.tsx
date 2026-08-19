@@ -109,7 +109,7 @@ export function Onboarding() {
                 gap: 6,
               }}
             >
-              <TintedIcon color="#10B981" icon="ShoppingCart" variant="cat-sm" />
+              <TintedIcon color="var(--accent-green)" icon="ShoppingCart" variant="cat-sm" />
               <span style={{ fontSize: 12, fontWeight: 600 }}>−8,40&nbsp;€</span>
             </div>
             <div
@@ -126,7 +126,7 @@ export function Onboarding() {
                 gap: 6,
               }}
             >
-              <TintedIcon color="#F59E0B" icon="Utensils" variant="cat-sm" />
+              <TintedIcon color="var(--accent-clay)" icon="Utensils" variant="cat-sm" />
               <span style={{ fontSize: 12, fontWeight: 600 }}>−14,00&nbsp;€</span>
             </div>
           </div>

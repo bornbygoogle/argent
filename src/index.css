@@ -79,6 +79,17 @@
   /* Figures only. Never body text. */
   --font-figure:'Space Grotesk','Inter',system-ui,sans-serif;
 
+  /* Decorative accents. Settings rows and sync icons carry a little variety so
+     they stay scannable, but warm and theme-aware rather than the indigo and
+     emerald left over from before the re-skin. Deliberately NOT the signal:
+     gold answers "what can I still spend?" and nothing else may claim it.
+     Each clears 3:1 on both the card and the page ground. The warm one is
+     clay, not amber: every amber close enough to read on both grounds landed
+     on the signal gold itself in dark, and a decorative row icon must never
+     wear the colour that answers "what can I still spend?". */
+  --accent-ink:#6B655C; --accent-green:#2F8F62; --accent-clay:#A85F3C;
+  --accent-red:#C0503F; --accent-plum:#8A5A7A;
+
   /* Press feedback timing. 120ms sits inside the 80-150ms window: fast
      enough to feel instant, slow enough to be perceived at all. */
   --press-fade:120ms;
@@ -136,6 +147,10 @@ html.dark{
   --shadow-md:0 6px 16px rgba(0,0,0,.5);
   --shadow-lg:0 16px 40px rgba(0,0,0,.6);
   --shadow-fab:0 10px 24px rgba(0,0,0,.55);
+  /* Accents lifted for the dark ground, same warm family. */
+  --accent-ink:#A39C92; --accent-green:#4FBF8B; --accent-clay:#D9926E;
+  --accent-red:#D9705E; --accent-plum:#C99BB8;
+
   /* Bone on ink: 14.7:1 on a card, 15.9:1 on the page ground. */
   --focus-ring:#EDE9E3;
 
@@ -155,6 +170,27 @@ html.dark body{ background:#0A0908; }
 :focus-visible{
   outline:2px solid var(--focus-ring);
   outline-offset:2px;
+}
+
+/* ---------- Touch targets ----------
+   This installs to a homescreen and is used one-handed, so 44pt applies even
+   though WCAG's web minimum is 24px. The visual size of these is a design
+   decision — a 44px chip would wreck the density of a filter row — so only the
+   hit box grows. Absolutely positioned, so it moves nothing around it, and
+   ::before because ::after is already the toggle's knob. Chips live in a
+   single horizontally-scrolling row, so growing them vertically cannot overlap
+   a neighbour. */
+.chip,.hero-cta,.toggle,.acct-chip,.seg>button,.confirm-btn,.btn-sm{
+  position:relative;
+}
+.chip::before,.hero-cta::before,.toggle::before,.acct-chip::before,
+.seg>button::before,.confirm-btn::before,.btn-sm::before{
+  content:'';
+  position:absolute;
+  left:0;right:0;
+  top:50%;
+  height:44px;
+  transform:translateY(-50%);
 }
 
 /* ---------- Press feedback ----------
@@ -219,7 +255,7 @@ h1,h2,h3,h4{font-weight:600}
    the thing done most often, so it gets the shortest path on the screen. */
 .quicklog{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .ql-tile{
-  display:flex;flex-direction:column;align-items:center;gap:6px;
+  display:flex;flex-direction:column;align-items:center;min-height:44px;gap:6px;
   padding:10px 4px;border-radius:var(--radius-lg);cursor:pointer;
   background:var(--white);border:1px solid var(--neutral-200);
   font-family:var(--font);
@@ -370,7 +406,7 @@ h1,h2,h3,h4{font-weight:600}
 
 /* ---------- Bottom nav ---------- */
 .bottomnav{position:absolute;left:0;right:0;bottom:0;height:72px;background:var(--white);border-top:1px solid var(--neutral-200);display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding-bottom:8px;z-index:10}
-.bn-slot{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--neutral-400);cursor:pointer;text-decoration:none}
+.bn-slot{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:44px;gap:3px;color:var(--neutral-400);cursor:pointer;text-decoration:none}
 .bn-slot.active{color:var(--primary-600)}
 .bn-slot.fab-slot{color:transparent}
 .bn-label{font-size:10px;font-weight:500}
@@ -387,9 +423,13 @@ h1,h2,h3,h4{font-weight:600}
 .input{height:48px;background:var(--neutral-100);border:1px solid var(--neutral-200);border-radius:var(--radius-md);padding:0 14px;font-size:16px;font-family:var(--font);color:var(--neutral-900)}
 
 /* ---------- Toggle ---------- */
-.toggle{width:44px;height:24px;border-radius:var(--radius-full);background:var(--neutral-300);position:relative;flex-shrink:0;border:none;cursor:pointer}
+/* The off track was --neutral-300, so close to the card that the white knob
+   measured 1.88:1 on it in light; and the knob was a literal #fff, which on
+   the bone that --primary-600 becomes in dark left the ON state showing no
+   knob at all (1.21:1). Both now clear 4.9:1 in every state and theme. */
+.toggle{width:44px;height:24px;border-radius:var(--radius-full);background:var(--neutral-400);position:relative;flex-shrink:0;border:none;cursor:pointer}
 .toggle.on{background:var(--primary-600)}
-.toggle::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--white);box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
 .toggle.on::after{left:22px}
 
 /* ---------- Banners / toasts ---------- */
@@ -450,7 +490,7 @@ h1,h2,h3,h4{font-weight:600}
 .confirm-btn.done{background:var(--success-50);color:var(--success-600)}
 
 /* quick-action tiles */
-.qa{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 6px;border-radius:var(--radius-lg);background:var(--neutral-50);cursor:pointer;border:none;font-family:var(--font)}
+.qa{display:flex;flex-direction:column;align-items:center;min-height:44px;gap:8px;padding:16px 6px;border-radius:var(--radius-lg);background:var(--neutral-50);cursor:pointer;border:none;font-family:var(--font)}
 .qa .qa-ic{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--white)}
 .qa .qa-lbl{font-size:13px;font-weight:600;color:var(--neutral-700)}
 

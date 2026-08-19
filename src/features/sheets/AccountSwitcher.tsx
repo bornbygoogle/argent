@@ -87,7 +87,7 @@ export function AccountSwitcher({ open, onClose, scope, onPick }: AccountSwitche
         <button type="button" style={rowBtn} onClick={() => pick('all')}>
           <span
             className="acct-icon"
-            style={{ background: 'linear-gradient(90deg,#4F46E5,#10B981,#F59E0B)', color: 'var(--hero-fg)' }}
+            style={{ background: 'linear-gradient(90deg,var(--accent-plum),var(--accent-green),var(--accent-clay))', color: 'var(--hero-fg)' }}
           >
             <Icon name="Wallet" size={18} strokeWidth={2} />
           </span>

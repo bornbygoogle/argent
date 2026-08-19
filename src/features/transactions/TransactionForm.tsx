@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { useGoBack } from '@/hooks/useGoBack';
 import { useTranslation } from 'react-i18next';
 import { TopBar } from '@/components/ui/TopBar';
+import type { CSSProperties } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { Numpad, displayAmount, parseAmount } from '@/components/ui/Numpad';
 import { Sheet } from '@/components/ui/Sheet';
@@ -266,7 +267,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
             style={{ minHeight: 44 }}
             onClick={() => setAcctOpen(true)}
           >
-            <span className="acct-dot" style={{ background: selectedAccount?.color ?? '#4F46E5' }} />
+            <span className="acct-dot" style={{ background: selectedAccount?.color ?? 'var(--accent-plum)' }} />
             <span style={{ fontSize: 13, fontWeight: 600 }}>
               {selectedAccount?.name ?? t('form.selectAccount')}
             </span>
@@ -343,7 +344,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
                 id: it.key,
                 label: incomeTypeLabel(t, it),
                 icon: it.icon ?? 'Coins',
-                color: it.color ?? '#10B981',
+                color: it.color ?? 'var(--accent-green)',
               }))}
             />
             {/* Only income types that actually have sub-types show the second
@@ -362,7 +363,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
                     id: s.id,
                     label: incomeSubtypeLabel(s),
                     icon: 'CornerDownRight',
-                    color: incomeTypes.find((it) => it.key === incomeType)?.color ?? '#10B981',
+                    color: incomeTypes.find((it) => it.key === incomeType)?.color ?? 'var(--accent-green)',
                   })),
                 ]}
               />
@@ -375,7 +376,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
           <div className="row" style={{ padding: '9px 16px' }}>
             <span
               className="acct-icon"
-              style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(100,116,139,.12)', color: '#64748B' }}
+              style={{ width: 28, height: 28, borderRadius: 8, '--tint': 'var(--accent-ink)' } as CSSProperties}
             >
               <Icon name="Type" size={16} strokeWidth={2} />
             </span>
@@ -416,7 +417,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
           <label className="row" style={{ padding: '9px 16px', cursor: 'pointer' }}>
             <span
               className="acct-icon"
-              style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(79,70,229,.12)', color: '#4F46E5' }}
+              style={{ width: 28, height: 28, borderRadius: 8, '--tint': 'var(--accent-plum)' } as CSSProperties}
             >
               <Icon name="Calendar" size={16} strokeWidth={2} />
             </span>
