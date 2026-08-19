@@ -258,7 +258,7 @@ export function Recurring() {
         }
       />
 
-      <div className="content" style={{ paddingBottom: 24, gap: 14 }}>
+      <main className="content" style={{ paddingBottom: 24, gap: 14 }}>
         {/* summary */}
         <div className="card tight row-between">
           <div>
@@ -314,7 +314,7 @@ export function Recurring() {
         <span className="caption" style={{ textAlign: 'center', display: 'block' }}>
           {t('recurring.modifiedHint')}
         </span>
-      </div>
+      </main>
 
       {editing !== null && (
         <RecurringFormSheet target={editing} onClose={() => setEditing(null)} />

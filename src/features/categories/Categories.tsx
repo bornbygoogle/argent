@@ -101,7 +101,7 @@ export function Categories() {
         }
       />
 
-      <div className="content" style={{ paddingBottom: 24, gap: 16 }}>
+      <main className="content" style={{ paddingBottom: 24, gap: 16 }}>
         {/* summary */}
         <div className="card tight row-between">
           <div>
@@ -161,7 +161,7 @@ export function Categories() {
             )}
           </>
         )}
-      </div>
+      </main>
 
       {editing !== null && (
         <CategoryFormSheet

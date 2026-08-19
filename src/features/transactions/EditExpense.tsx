@@ -37,7 +37,7 @@ export function EditExpense() {
             </button>
           }
         />
-        <div className="content">
+        <main className="content">
           {missing ? (
             <EmptyState
               icon="Search"
@@ -52,7 +52,7 @@ export function EditExpense() {
           ) : (
             <EmptyState icon="Search" title={t('common.loading')} />
           )}
-        </div>
+        </main>
       </>
     );
   }

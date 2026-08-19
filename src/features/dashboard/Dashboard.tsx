@@ -103,6 +103,7 @@ export function Dashboard() {
   return (
     <>
       <TopBar
+        screenName={t('screens.dashboard')}
         left={
           <AccountChip
             dot={scope === 'all' ? 'tri' : activeAccount?.color}
@@ -113,7 +114,7 @@ export function Dashboard() {
         right={<SyncPill />}
       />
 
-      <div className="content" style={{ paddingBottom: 96, gap: 14 }}>
+      <main className="content" style={{ paddingBottom: 96, gap: 14 }}>
         {!online && (
           <Banner tone="warn" icon="WifiOff">
             {t('dashboard.offline')}
@@ -195,7 +196,7 @@ export function Dashboard() {
         {todoRecurring.length > 0 && (
           <div>
             <div className="section-head" style={{ marginBottom: 4 }}>
-              <span className="h3">{t('recurring.toConfirm')}</span>
+              <h2 className="h3">{t('recurring.toConfirm')}</h2>
               <button
                 type="button"
                 onClick={() => navigate(scopedPath('/recurring'))}
@@ -242,7 +243,7 @@ export function Dashboard() {
         {/* Recent movements */}
         <div>
           <div className="section-head" style={{ marginBottom: 4 }}>
-            <span className="h3">{t('dashboard.recent')}</span>
+            <h2 className="h3">{t('dashboard.recent')}</h2>
             {recent.length > 0 && (
               <button
                 type="button"
@@ -284,7 +285,7 @@ export function Dashboard() {
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       <AccountSwitcher open={scopeOpen} onClose={() => setScopeOpen(false)} scope={scope} onPick={setScope} />
       <InstallPrompt />

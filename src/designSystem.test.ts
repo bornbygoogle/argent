@@ -374,3 +374,68 @@ describe('toggle knob', () => {
     expect(contrast(knob, on), 'knob on the on track').toBeGreaterThanOrEqual(3);
   });
 });
+
+/**
+ * Structure a screen reader navigates by: one landmark to jump into, and a
+ * level-1 heading naming where you are. Every screen rendered its title into a
+ * plain div and its body into a plain div, so there was neither.
+ */
+describe('screen structure', () => {
+
+  /**
+   * The source of the whole `<TopBar … />` element. A regex cannot do this:
+   * the bars nest JSX in their slots (left={<button …>}), so "up to the first
+   * >" stops inside a slot, while "any title= in the file" happily matches a
+   * Sheet's title three hundred lines away. Walk the braces instead.
+   */
+  function topBarElement(body: string): string {
+    const start = body.indexOf('<TopBar');
+    if (start < 0) return '';
+    let depth = 0;
+    for (let i = start; i < body.length; i++) {
+      const c = body[i];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      else if (c === '>' && depth === 0) return body.slice(start, i + 1);
+    }
+    return body.slice(start);
+  }
+
+  /** Feature files that render a whole screen (they own a TopBar). */
+  const screens = () => sourceFiles().filter(([, body]) => body.includes('<TopBar'));
+
+  it('finds the screens, so an empty pass cannot look green', () => {
+    expect(screens().length).toBeGreaterThan(10);
+  });
+
+  it('wraps each screen body in a main landmark', () => {
+    const noLandmark = screens()
+      .filter(([, body]) => !/<main[\s>]/.test(body))
+      .map(([file]) => file);
+
+    expect(noLandmark).toEqual([]);
+  });
+
+  it('gives each screen a name, visible in the bar or for assistive tech alone', () => {
+    // Either TopBar renders the heading (title / screenName) or the screen
+    // supplies its own <h1> — Statistics already shows its name in the bar, and
+    // a second hidden copy would just be announced twice.
+    const unnamed = screens()
+      .filter(([, body]) => !/(title|screenName)=/.test(topBarElement(body)) && !/<h1[\s>]/.test(body))
+      .map(([file]) => file);
+
+    expect(unnamed).toEqual([]);
+  });
+
+  it('never hardcodes a user-facing string past i18n', () => {
+    const hardcoded: string[] = [];
+
+    for (const [file, body] of sourceFiles()) {
+      body.split('\n').forEach((line, i) => {
+        if (/aria-label="[A-Za-z]/.test(line)) hardcoded.push(`${file}:${i + 1}`);
+      });
+    }
+
+    expect(hardcoded).toEqual([]);
+  });
+});

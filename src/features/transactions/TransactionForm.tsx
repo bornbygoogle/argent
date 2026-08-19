@@ -255,7 +255,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
         }
       />
 
-      <div className="content" style={{ padding: '8px 16px 0', gap: 8 }}>
+      <main className="content" style={{ padding: '8px 16px 0', gap: 8 }}>
         {/* Account picker */}
         <div className="card tight row-between" style={{ padding: '8px 12px' }}>
           <span className="body-sm" style={{ fontWeight: 600, color: 'var(--neutral-700)' }}>
@@ -456,7 +456,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
             })}
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Numpad pinned at the bottom of the screen column */}
       <div style={{ padding: '10px 16px 28px', flexShrink: 0 }}>

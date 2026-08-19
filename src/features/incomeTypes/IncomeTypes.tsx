@@ -76,7 +76,7 @@ export function IncomeTypes() {
         }
       />
 
-      <div className="content" style={{ paddingBottom: 24, gap: 16 }}>
+      <main className="content" style={{ paddingBottom: 24, gap: 16 }}>
         {/* summary */}
         <div className="card tight row-between">
           <div>
@@ -109,7 +109,7 @@ export function IncomeTypes() {
         <span className="caption" style={{ textAlign: 'center', display: 'block' }}>
           {t('incomeTypes.hint')}
         </span>
-      </div>
+      </main>
 
       {editing !== null && (
         <IncomeTypeFormSheet

@@ -149,7 +149,7 @@ export function Statistics() {
   return (
     <>
       <TopBar
-        left={<span className="tb-title">{t('screens.statistics')}</span>}
+        left={<h1 className="tb-title">{t('screens.statistics')}</h1>}
         right={
           <button type="button" className="icon-btn" onClick={handleExport} aria-label={t('settings.export')}>
             <Icon name="Download" size={22} />
@@ -157,7 +157,7 @@ export function Statistics() {
         }
       />
 
-      <div className="content" style={{ paddingBottom: 96, gap: 14 }}>
+      <main className="content" style={{ paddingBottom: 96, gap: 14 }}>
         <Segmented<Period>
           value={period}
           onChange={setPeriod}
@@ -358,7 +358,7 @@ export function Statistics() {
             )}
           </>
         )}
-      </div>
+      </main>
     </>
   );
 }

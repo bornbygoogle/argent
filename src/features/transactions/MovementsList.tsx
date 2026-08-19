@@ -76,7 +76,7 @@ export function MovementsList() {
         }
       />
 
-      <div className="content" style={{ gap: 14, paddingBottom: 24 }}>
+      <main className="content" style={{ gap: 14, paddingBottom: 24 }}>
         {/* Scope + filter */}
         <div className="col gap-2">
           <AccountChip
@@ -146,7 +146,7 @@ export function MovementsList() {
             ))}
           </>
         )}
-      </div>
+      </main>
 
       <AccountSwitcher
         open={scopeOpen}

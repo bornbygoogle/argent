@@ -186,7 +186,7 @@ export function Settings() {
     <>
       <TopBar title={t('screens.settings')} />
 
-      <div className="content" style={{ paddingBottom: 96, gap: 20 }}>
+      <main className="content" style={{ paddingBottom: 96, gap: 20 }}>
         {/* Preferences */}
         <section>
           <div className="section-head" style={{ marginBottom: 8 }}>
@@ -364,7 +364,7 @@ export function Settings() {
             {t('app.name')} · {t('settings.offlineNote')}
           </p>
         </section>
-      </div>
+      </main>
 
       {/* Hidden file picker for JSON import. */}
       <input

@@ -140,7 +140,7 @@ export function Budget() {
         }
       />
 
-      <div className="content" style={{ paddingBottom: 96, gap: 14 }}>
+      <main className="content" style={{ paddingBottom: 96, gap: 14 }}>
         {/* account scope */}
         <AccountChip
           dot={scope === 'all' ? 'tri' : scopeAccount?.color}
@@ -267,7 +267,7 @@ export function Budget() {
             <Toggle checked={rollover} onChange={setRollover} aria-label={t('budget.rollover')} />
           </div>
         </div>
-      </div>
+      </main>
 
       {/* sticky save */}
       <div

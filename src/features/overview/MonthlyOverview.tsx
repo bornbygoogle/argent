@@ -148,7 +148,7 @@ export function MonthlyOverview() {
         }
       />
 
-      <div className="content" style={{ paddingBottom: 96, gap: 14 }}>
+      <main className="content" style={{ paddingBottom: 96, gap: 14 }}>
         {/* scope */}
         <Segmented value={scope} options={scopeOptions} onChange={(v) => setScope(v)} />
 
@@ -278,7 +278,7 @@ export function MonthlyOverview() {
             <EmptyState icon="Calendar" title={t('overview.noExpenses')} />
           </div>
         )}
-      </div>
+      </main>
     </>
   );
 }

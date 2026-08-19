@@ -165,7 +165,7 @@ export function Transfer() {
             </button>
           }
         />
-        <div className="content">
+        <main className="content">
           {missingTransfer ? (
             <EmptyState
               icon="Search"
@@ -180,7 +180,7 @@ export function Transfer() {
           ) : (
             <EmptyState icon="Search" title={t('common.loading')} />
           )}
-        </div>
+        </main>
       </>
     );
   }
@@ -221,7 +221,7 @@ export function Transfer() {
         }
       />
 
-      <div className="content" style={{ padding: '8px 16px 0', gap: 8 }}>
+      <main className="content" style={{ padding: '8px 16px 0', gap: 8 }}>
         {/* Amount */}
         <div className="text-center" style={{ paddingTop: 2 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
@@ -307,7 +307,7 @@ export function Transfer() {
             />
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Numpad */}
       <div style={{ padding: '10px 16px 28px', flexShrink: 0 }}>

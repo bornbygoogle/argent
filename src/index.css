@@ -549,6 +549,13 @@ h1,h2,h3,h4{font-weight:600}
 /* 5. === Carry-over helpers (number alignment, safe areas, scrollbars, motion, animations) === */
 body{overscroll-behavior-y:none}
 .tnum{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
+/* Present to assistive tech, absent from the screen. Used for the name of a
+   screen whose design carries no visible title. Not display:none, which would
+   remove it from the accessibility tree along with everything else. */
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
 .pt-safe{padding-top:env(safe-area-inset-top)}
 .pb-safe{padding-bottom:env(safe-area-inset-bottom)}
 /* Bottom inset for content that ends at the screen edge — sheet bodies, screen

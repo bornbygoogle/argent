@@ -62,7 +62,7 @@ export function Accounts() {
         }
       />
 
-      <div className="content" style={{ paddingBottom: 24, gap: 16 }}>
+      <main className="content" style={{ paddingBottom: 24, gap: 16 }}>
         <Hero label={t('dashboard.balance')}>
           <div className="amount" style={{ color: 'var(--hero-fg)', fontSize: 34, marginTop: 4 }}>
             {formatCurrency(netWorth)}
@@ -121,7 +121,7 @@ export function Accounts() {
             {t('dashboard.income')}
           </button>
         </div>
-      </div>
+      </main>
 
       {editing !== null && (
         <AccountFormSheet

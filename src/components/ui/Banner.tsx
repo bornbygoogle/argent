@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Icon } from './Icon';
 
 type Tone = 'warn' | 'danger' | 'success';
@@ -14,6 +15,8 @@ interface BannerProps {
 
 /** Alert / status banner (`.banner.warn|danger|success`) with a leading icon. */
 export function Banner({ tone, icon, children, className = '', onDismiss }: BannerProps) {
+  const { t } = useTranslation();
+
   return (
     <div className={['banner', tone, className].join(' ').trim()}>
       {icon && <Icon name={icon} size={18} strokeWidth={2} />}
@@ -22,7 +25,7 @@ export function Banner({ tone, icon, children, className = '', onDismiss }: Bann
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Close"
+          aria-label={t('common.close')}
           style={{
             background: 'transparent',
             border: 'none',
