@@ -1,6 +1,7 @@
 // Background Google Drive sync. Two responsibilities:
-//  (a) PUSH — when signed-in domain data changes, upload a backup ~5s later
-//      (debounced) into the "GestionMoney" folder, then prune to the 5 newest.
+//  (a) PUSH — when signed-in domain data changes, upload a backup shortly after
+//      (debounced) into the "GestionMoney" folder, then prune by the tiered
+//      retention policy (see lib/google/backupRetention.ts).
 //  (b) PULL — once per sign-in, if Drive's newest backup is strictly newer than
 //      this device's last push, import it (cross-device sync). Gated so a device
 //      never clobbers its own just-pushed data.
@@ -21,6 +22,7 @@ import {
   deleteFile,
   downloadBackupFile,
 } from '@/lib/google/drive';
+import { selectBackupsToPrune } from '@/lib/google/backupRetention';
 import { withTokenRefresh } from '@/lib/google/auth';
 import {
   ensureGestionMoneyFolder,
@@ -34,8 +36,10 @@ import {
   markRestoredJustNow,
 } from '@/store/GoogleAuthContext';
 
-const PUSH_DEBOUNCE_MS = 5000;
-const KEEP_LAST = 5;
+// Long enough that a data-entry session coalesces into one upload instead of
+// one per expense: the timer resets on every change, and entering an expense
+// takes far longer than the 5s this used to wait, so nothing ever coalesced.
+export const PUSH_DEBOUNCE_MS = 30_000;
 /** Floor between two foreground/online re-checks of Drive. */
 const PULL_THROTTLE_MS = 60_000;
 
@@ -107,10 +111,10 @@ export function GoogleAutoBackup() {
       reportBackupDone(at);
       if (manual) toast.success(t('settings.google.toastBackedUp'));
 
-      // Best-effort prune: keep only the KEEP_LAST newest backups.
+      // Best-effort prune: tiered retention (newest few + daily + weekly).
       try {
         const files = await withTokenRefresh((tk) => listBackupsInFolder(folderId, tk));
-        const excess = files.slice(KEEP_LAST);
+        const excess = selectBackupsToPrune(files);
         await Promise.all(
           excess.map((f) =>
             withTokenRefresh((tk) => deleteFile(f.id, tk)).catch(() => {

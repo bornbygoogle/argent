@@ -146,3 +146,45 @@ describe('computeSyncFingerprint', () => {
     });
   });
 });
+
+// These pin the property the fast path is most likely to lose. Key order is
+// not part of a row's meaning, so a fingerprint that moved when it changed
+// would fire a full-snapshot upload reporting a change that never happened.
+describe('ignores key order, which carries no meaning', () => {
+  const fields = {
+    kind: 'expense' as const, accountId: 'a1', amount: 10, date: '2026-03-01',
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+
+  it('at the top level of a row', async () => {
+    await db.transactions.clear();
+    await db.transactions.put({ id: 't9', ...fields });
+    const forward = await computeSyncFingerprint();
+
+    await db.transactions.clear();
+    await db.transactions.put(
+      Object.fromEntries(
+        Object.entries({ id: 't9', ...fields }).reverse(),
+      ) as unknown as Transaction,
+    );
+    expect(await computeSyncFingerprint()).toBe(forward);
+  });
+
+  it('inside a nested object', async () => {
+    await db.budgets.clear();
+    await db.budgets.put({
+      id: 'b1', accountId: 'a1', monthlyBudget: 100, rolloverEnabled: false,
+      categoryLimits: [{ categoryId: 'c1', limit: 5 }],
+      warningThreshold: { mode: 'percent', value: 80 },
+    });
+    const forward = await computeSyncFingerprint();
+
+    await db.budgets.clear();
+    await db.budgets.put({
+      rolloverEnabled: false, monthlyBudget: 100, accountId: 'a1', id: 'b1',
+      warningThreshold: { value: 80, mode: 'percent' },
+      categoryLimits: [{ limit: 5, categoryId: 'c1' }],
+    } as unknown as Budget);
+    expect(await computeSyncFingerprint()).toBe(forward);
+  });
+});

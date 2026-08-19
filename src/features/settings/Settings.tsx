@@ -23,7 +23,7 @@ import {
 import {
   exportBackup,
   downloadBackup,
-  parseBackupFile,
+  parseBackupBlob,
   importBackup,
   clearAllData,
 } from '@/lib/data';
@@ -125,7 +125,7 @@ export function Settings() {
     setErr(null);
     setBusy(true);
     try {
-      const payload = parseBackupFile(await file.text());
+      const payload = await parseBackupBlob(file);
       await importBackup(payload);
       location.reload();
     } catch {
@@ -370,7 +370,7 @@ export function Settings() {
       <input
         ref={fileRef}
         type="file"
-        accept="application/json,.json"
+        accept="application/json,.json,.gz"
         style={{ display: 'none' }}
         onChange={(e) => {
           handleImportFile(e.target.files?.[0]);

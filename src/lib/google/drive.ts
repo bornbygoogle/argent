@@ -2,6 +2,7 @@
 // ever transports the existing BackupPayload JSON produced by lib/data.ts.
 
 import type { BackupPayload } from '@/lib/data';
+import { gzipSupported, gzipText, decodeBackupBytes } from '@/lib/gzip';
 
 const DRIVE_FILES = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD_FILES = 'https://www.googleapis.com/upload/drive/v3/files';
@@ -20,22 +21,32 @@ export function escapeDriveQueryValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-/** Timestamped filename, stable format: argent-backup-YYYY-MM-DDTHH-MM.json */
-export function backupFileName(d = new Date()): string {
+/**
+ * Timestamped filename: argent-backup-YYYY-MM-DDTHH-MM.json[.gz]
+ *
+ * The `argent-backup-` prefix is load-bearing — listBackupsInFolder searches
+ * for it, so both restore and prune stop seeing this app's own files if it
+ * changes. The suffix is informational only: decoding sniffs the content.
+ */
+export function backupFileName(d = new Date(), compressed = false): string {
   const p = (n: number) => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}-${p(d.getMinutes())}`;
-  return `argent-backup-${stamp}.json`;
+  return `argent-backup-${stamp}.json${compressed ? '.gz' : ''}`;
 }
 
-/** Build a multipart/related body (metadata + JSON content) as a Blob. */
-function buildMultipart(meta: Record<string, unknown>, content: string): Blob {
+/** Build a multipart/related body (metadata + content) as a Blob. */
+function buildMultipart(
+  meta: Record<string, unknown>,
+  content: BlobPart,
+  contentType: string,
+): Blob {
   const boundary = 'argent_' + Math.random().toString(36).slice(2);
   const head =
     `--${boundary}\r\n` +
     `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
     `${JSON.stringify(meta)}\r\n` +
     `--${boundary}\r\n` +
-    `Content-Type: application/json\r\n\r\n`;
+    `Content-Type: ${contentType}\r\n\r\n`;
   const tail = `\r\n--${boundary}--`;
   // The Blob's type carries the boundary; do NOT set Content-Type in fetch headers.
   return new Blob([head, content, tail], { type: 'multipart/related; boundary=' + boundary });
@@ -47,9 +58,16 @@ export async function uploadBackupToFolder(
   payload: BackupPayload,
   token: string,
 ): Promise<{ id: string; name: string }> {
+  // Compress when the runtime can (Safari < 16.4 cannot). A backup is a full
+  // snapshot re-uploaded on every change, so this is roughly a 9x cut in the
+  // user's mobile data, not a marginal saving.
+  const json = JSON.stringify(payload);
+  const compress = gzipSupported();
+  const content: BlobPart = compress ? await gzipText(json) : json;
   const body = buildMultipart(
-    { name: backupFileName(), parents: [folderId] },
-    JSON.stringify(payload),
+    { name: backupFileName(new Date(), compress), parents: [folderId] },
+    content,
+    compress ? 'application/gzip' : 'application/json',
   );
   const res = await fetch(`${UPLOAD_FILES}?uploadType=multipart&fields=id,name`, {
     method: 'POST',
@@ -73,7 +91,13 @@ export async function uploadBackupToFolder(
   return (await res.json()) as { id: string; name: string };
 }
 
-/** Download a file's text content (used to restore a chosen backup). */
+/**
+ * Download a backup and return its JSON text.
+ *
+ * Reads bytes rather than text so a gzipped file can be decompressed. Plain
+ * JSON is passed straight through — every backup written before compression
+ * existed is uncompressed, and those must keep restoring.
+ */
 export async function downloadBackupFile(fileId: string, token: string): Promise<string> {
   const res = await fetch(`${DRIVE_FILES}/${fileId}?alt=media`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -87,7 +111,7 @@ export async function downloadBackupFile(fileId: string, token: string): Promise
     }
     throw new Error(`google-download-failed (${res.status}) ${detail}`);
   }
-  return res.text();
+  return decodeBackupBytes(await res.arrayBuffer());
 }
 
 export interface DriveBackupMeta {

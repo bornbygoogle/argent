@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { escapeDriveQueryValue, findFolderByName, listBackupsInFolder } from './drive';
+import {
+  escapeDriveQueryValue,
+  findFolderByName,
+  listBackupsInFolder,
+  backupFileName,
+  uploadBackupToFolder,
+  downloadBackupFile,
+} from './drive';
+import { gzipText } from '@/lib/gzip';
 
 /** Capture the URL of the single fetch a Drive helper performs. */
 function stubFetch(body: unknown) {
@@ -70,5 +78,97 @@ describe('Drive query construction', () => {
 
     expect(found).toEqual({ id: 'folder-1' });
     expect(queryOf(fetchMock)).toContain("name = 'GestionMoney'");
+  });
+});
+
+describe('backupFileName', () => {
+  it('names an uncompressed backup .json', () => {
+    expect(backupFileName(new Date(2026, 7, 19, 14, 5), false)).toBe(
+      'argent-backup-2026-08-19T14-05.json',
+    );
+  });
+
+  it('names a compressed backup .json.gz', () => {
+    expect(backupFileName(new Date(2026, 7, 19, 14, 5), true)).toBe(
+      'argent-backup-2026-08-19T14-05.json.gz',
+    );
+  });
+
+  it('still matches the prefix the folder listing searches for', () => {
+    // listBackupsInFolder queries `name contains 'argent-backup-'`; if the
+    // compressed name broke that prefix, restore and prune would stop seeing
+    // the very files this app writes.
+    expect(backupFileName(new Date(), true).startsWith('argent-backup-')).toBe(true);
+  });
+});
+
+describe('uploadBackupToFolder', () => {
+  const payload = { app: 'argent' as const, version: 1, exportedAt: 'x', tables: {} };
+
+  it('uploads the payload gzipped', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ id: 'f1', name: 'n' }),
+    } as unknown as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await uploadBackupToFolder('folder-1', payload, 'token');
+
+    const body = fetchMock.mock.calls[0][1].body as Blob;
+    const raw = new Uint8Array(await body.arrayBuffer());
+    // The multipart body carries metadata then the content part. The gzip
+    // magic number must appear in it — i.e. the JSON really was compressed.
+    const hasMagic = raw.some((b, i) => b === 0x1f && raw[i + 1] === 0x8b);
+    expect(hasMagic).toBe(true);
+    // And the raw JSON must NOT be sitting there in the clear.
+    expect(new TextDecoder().decode(raw)).not.toContain('"exportedAt"');
+  });
+});
+
+describe('downloadBackupFile', () => {
+  function stubBytes(bytes: Uint8Array) {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      arrayBuffer: async () => bytes.buffer,
+      text: async () => new TextDecoder().decode(bytes),
+    } as unknown as Response);
+    vi.stubGlobal('fetch', fetchMock);
+  }
+
+  it('reads back a gzipped backup', async () => {
+    const text = '{"app":"argent","version":1,"note":"café"}';
+    stubBytes(await gzipText(text));
+    expect(await downloadBackupFile('f1', 'token')).toBe(text);
+  });
+
+  // Backward compatibility: everything already in the user's Drive folder is
+  // plain JSON. If this regressed, upgrading the app would strand every
+  // existing backup.
+  it('still reads a plain JSON backup written before compression', async () => {
+    const text = '{"app":"argent","version":1,"note":"café"}';
+    stubBytes(new TextEncoder().encode(text));
+    expect(await downloadBackupFile('f1', 'token')).toBe(text);
+  });
+});
+
+// CompressionStream landed in Safari 16.4, above the browsers Vite's default
+// target admits. On anything older the upload must still work, uncompressed —
+// this is the branch no amount of running the tests in Node would exercise,
+// because Node always has CompressionStream.
+describe('uploadBackupToFolder without CompressionStream', () => {
+  const payload = { app: 'argent' as const, version: 1, exportedAt: 'x', tables: {} };
+
+  it('falls back to plain JSON and a .json name', async () => {
+    vi.stubGlobal('CompressionStream', undefined);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ id: 'f1', name: 'n' }),
+    } as unknown as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await uploadBackupToFolder('folder-1', payload, 'token');
+
+    const text = await (fetchMock.mock.calls[0][1].body as Blob).text();
+    expect(text).toContain('"exportedAt"');
+    expect(text).toContain('.json"');
+    expect(text).not.toContain('.json.gz');
   });
 });

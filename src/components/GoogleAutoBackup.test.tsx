@@ -41,7 +41,7 @@ vi.mock('@/store/ToastContext', () => ({
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 
-import { GoogleAutoBackup, requestBackupNow } from '@/components/GoogleAutoBackup';
+import { GoogleAutoBackup, requestBackupNow, PUSH_DEBOUNCE_MS } from '@/components/GoogleAutoBackup';
 import { exportBackup } from '@/lib/data';
 
 const account = (id: string, name = 'Courant'): Account => ({
@@ -59,7 +59,7 @@ const tx = (id: string, amount = 10): Transaction => ({
  * not enough — the live query must emit before the effect can arm the timer,
  * and the upload chain then awaits more database work. Alternate until quiet.
  */
-async function settle(ms = 6000, rounds = 6) {
+async function settle(ms = PUSH_DEBOUNCE_MS + 1000, rounds = 6) {
   for (let i = 0; i < rounds; i++) {
     await act(async () => {
       await new Promise((resolve) => setImmediate(resolve));
@@ -178,6 +178,42 @@ describe('auto backup', () => {
     await settle();
 
     expect(drive.uploadBackupToFolder).not.toHaveBeenCalled();
+  });
+});
+
+describe('prune', () => {
+  /** A Drive listing entry `ageMs` older than the current (fake) clock. */
+  const at = (id: string, ageMs: number) => ({
+    id,
+    name: `argent-backup-${id}.json`,
+    modifiedTime: new Date(Date.now() - ageMs).toISOString(),
+  });
+
+  it('keeps older tiers and drops the middle of a burst', async () => {
+    const MIN = 60_000;
+    const files = [
+      at('r0', 0), at('r1', MIN), at('r2', 2 * MIN),
+      at('r3', 3 * MIN), at('r4', 4 * MIN), at('r5', 5 * MIN),
+      at('yesterday', 24 * 3600_000),
+      at('weekAgo', 8 * 24 * 3600_000),
+    ];
+    // First call is the opening pull (nothing on Drive); later calls are prunes.
+    drive.listBackupsInFolder.mockReset();
+    drive.listBackupsInFolder.mockResolvedValueOnce([]).mockResolvedValue(files);
+
+    render(<GoogleAutoBackup />);
+    await settle();
+    await act(async () => {
+      await db.transactions.put(tx('t2'));
+    });
+    await settle();
+
+    const deleted = drive.deleteFile.mock.calls.map((c) => c[0]).sort();
+    // The old keep-5-newest policy deleted r5, yesterday and weekAgo — wiping
+    // every restore point older than the burst. The tiers must survive.
+    expect(deleted).not.toContain('yesterday');
+    expect(deleted).not.toContain('weekAgo');
+    expect(deleted).toEqual(['r3', 'r4', 'r5']);
   });
 });
 

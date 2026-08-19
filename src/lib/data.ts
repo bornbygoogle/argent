@@ -2,6 +2,7 @@
 // Settings are excluded from the export (device-local prefs) but reset on wipe.
 import { db } from '@/db/db';
 import { seedDefaults } from '@/db/seed';
+import { decodeBackupBytes } from '@/lib/gzip';
 
 const TABLES = [
   'accounts',
@@ -161,4 +162,17 @@ export function parseBackupFile(text: string): BackupPayload {
   }
   if (!isPayload(json)) throw new Error('invalid-backup');
   return json;
+}
+
+/**
+ * Read a user-picked backup file, gzipped or plain.
+ *
+ * Drive backups are written compressed now, so a file the user downloads from
+ * their Drive folder and re-imports here arrives as gzip. Plain JSON — every
+ * backup exported by `downloadBackup`, and everything written before
+ * compression existed — still reads unchanged; the format is detected from the
+ * bytes, not the file extension.
+ */
+export async function parseBackupBlob(file: Blob): Promise<BackupPayload> {
+  return parseBackupFile(await decodeBackupBytes(await file.arrayBuffer()));
 }
