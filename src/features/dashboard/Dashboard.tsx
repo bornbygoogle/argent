@@ -12,13 +12,15 @@ import {
   useMonthSummary,
   useRecentMovements,
   useRecurrings,
-  useAutoBudget,
+  useScopedRecurrings,
+  useBudgetPeriod,
   useVariableExpenses,
 } from '@/hooks/selectors';
 import { accountBalance, isTransfer, totalBalance } from '@/lib/calc';
 import { currentMonth } from '@/lib/date';
 import { formatCurrency, formatSignedCurrency } from '@/lib/format';
 import { isConfirmedIn, confirmRecurring } from '@/lib/recurring';
+import { upcomingCommitments } from '@/lib/budget';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useScopedPath } from '@/hooks/useScopedPath';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
@@ -63,17 +65,27 @@ export function Dashboard() {
   const balance = activeAccount ? accountBalance(activeAccount, allTx) : totalBalance(accounts, allTx);
   const scopeLabel = scope === 'all' ? t('scope.all') : activeAccount?.name ?? t('scope.all');
 
-  // The home screen's job is to answer "what can I still spend?". The figure is
-  // derived from income less recurring commitments for whichever accounts are
-  // in scope — the same derivation the Budget screen shows, so the two can
-  // never disagree. With no income and no budget there is nothing to be "left"
-  // of, so it falls back to balance.
-  // Recurring expenses were already deducted from the budget, so measuring them
-  // again as spending would subtract the same rent twice.
-  const scopedBudget = useAutoBudget(scope).total;
-  const variableSpent = useVariableExpenses(scope, month).reduce((s, t) => s + t.amount, 0);
-  const runway = computeRunway(scopedBudget, variableSpent, new Date());
-  const hasBudget = scopedBudget > 0;
+  // The home screen's job is to answer "what can I still spend?". It starts
+  // from the balance — every euro that has landed, whenever it landed — and
+  // subtracts only the bills of the cycle not yet debited. A settled bill is
+  // already out of the balance, so subtracting it too would count the same
+  // rent twice; when one is debited, balance and bills-to-come drop together
+  // and the figure holds still. Only real spending moves it.
+  // The cycle runs payday to payday (see useBudgetPeriod), which is what "days
+  // left" and the pace notch measure against.
+  const period = useBudgetPeriod();
+  const scopedRecurrings = useScopedRecurrings(scope);
+  const stillDue = upcomingCommitments(scopedRecurrings, period.month, period.anchor);
+  const left = balance - stillDue;
+  const variableSpent = useVariableExpenses(scope, period.month, period.anchor)
+    .reduce((s, t) => s + t.amount, 0);
+  // The cycle's "budget" is what was free when it started: what is left now
+  // plus what has been spent since. That keeps the bar's fill meaning "share
+  // of the cycle's free money already gone".
+  const runway = computeRunway(left + variableSpent, variableSpent, new Date(), period);
+  // With no commitments the figure would just repeat the balance, so the hero
+  // falls back to the plain balance and the set-a-budget nudge.
+  const hasBudget = scopedRecurrings.some((r) => r.direction === 'expense');
 
   const heroLabel = hasBudget
     ? t('dashboard.leftToSpend')

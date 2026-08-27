@@ -16,10 +16,10 @@ import {
   useMonthExpenses,
   useAccountMap,
   useAutoBudget,
+  useBudgetPeriod,
 } from '@/hooks/selectors';
 import { categoryLabel } from '@/lib/labels';
 import { byCategory } from '@/lib/calc';
-import { currentMonth } from '@/lib/date';
 import { formatCurrency } from '@/lib/format';
 import { getBudget, upsertBudget } from '@/lib/budget';
 import type { Category, WarningThreshold } from '@/types/models';
@@ -35,12 +35,15 @@ export function Budget() {
   const scopeAccount = scope === 'all' ? accounts[0] : accountMap.get(scope);
   const accountId = scopeAccount?.id;
   const categories = useCategories();
-  const monthExpenses = useMonthExpenses(currentMonth(), scope);
+  // Same window as the home hero — the budget month, which follows payday when
+  // one is known. Two screens showing the same figure must measure it alike.
+  const period = useBudgetPeriod();
+  const monthExpenses = useMonthExpenses(period.month, scope, period.anchor);
   const [scopeOpen, setScopeOpen] = useState(false);
 
   // The monthly total is derived from the user's own numbers rather than typed:
   // income for the month less the recurring expenses already committed to it.
-  const auto = useAutoBudget(scope, currentMonth());
+  const auto = useAutoBudget(scope, period.month, period.anchor);
   const monthly = auto.total;
 
   // Editable state, hydrated once from the loaded budget.

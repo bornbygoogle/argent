@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
 import { monthOf, todayISO } from '@/lib/date';
+import { payAnchorDay, periodBounds, periodOf } from '@/lib/period';
 import { sumExpenses, sumIncome } from '@/lib/calc';
 import { computeAutoBudget, variableExpenses, type AutoBudget } from '@/lib/budget';
 import type {
@@ -140,14 +141,14 @@ export interface MonthSummary {
 }
 
 /** Income/expense totals for a month within a scope. */
-export function useMonthSummary(month: string, scope: AccountScope): MonthSummary {
+export function useMonthSummary(month: string, scope: AccountScope, anchor = 1): MonthSummary {
   const tx = useScopedTransactions(scope);
   return useMemo(() => {
-    const inMonth = tx.filter((t) => monthOf(t.date) === month);
+    const inMonth = tx.filter((t) => periodOf(t.date, anchor) === month);
     const income = sumIncome(inMonth);
     const expense = sumExpenses(inMonth);
     return { income, expense, net: income - expense };
-  }, [tx, month]);
+  }, [tx, month, anchor]);
 }
 
 /** Recent movements (scoped), newest first, capped to `limit`. */
@@ -208,21 +209,46 @@ export function useScopedRecurrings(scope: AccountScope): Recurring[] {
  */
 /** Expenses that count against the derived budget — everything except the
  *  recurring commitments already deducted from it. */
-export function useVariableExpenses(scope: AccountScope, month: string): Transaction[] {
+export function useVariableExpenses(
+  scope: AccountScope,
+  month: string,
+  anchor = 1,
+): Transaction[] {
   const tx = useScopedTransactions(scope);
   return useMemo(
-    () => variableExpenses(tx.filter((t) => monthOf(t.date) === month)),
-    [tx, month],
+    () => variableExpenses(tx.filter((t) => periodOf(t.date, anchor) === month)),
+    [tx, month, anchor],
   );
 }
 
-export function useAutoBudget(scope: AccountScope, month: string = monthOf(todayISO())): AutoBudget {
-  const summary = useMonthSummary(month, scope);
+export function useAutoBudget(
+  scope: AccountScope,
+  month: string = monthOf(todayISO()),
+  anchor = 1,
+): AutoBudget {
+  const summary = useMonthSummary(month, scope, anchor);
   const recurrings = useScopedRecurrings(scope);
   return useMemo(
-    () => computeAutoBudget(summary.income, recurrings, month),
-    [summary.income, recurrings, month],
+    () => computeAutoBudget(summary.income, recurrings, month, anchor),
+    [summary.income, recurrings, month, anchor],
   );
+}
+
+/**
+ * The budget month in progress. Payday to payday when a monthly recurring
+ * income names a due day, plain calendar month otherwise — so the money that
+ * arrives on the 26th is measured against the weeks it has to cover, not
+ * against the four already spent out of last month's pay.
+ */
+export function useBudgetPeriod(): {
+  month: string;
+  anchor: number;
+  start: string;
+  end: string;
+} {
+  const anchor = payAnchorDay(useRecurrings(), useAllTransactions());
+  const month = periodOf(todayISO(), anchor);
+  return { month, anchor, ...periodBounds(month, anchor) };
 }
 
 /** The budget for a single account (undefined until the user sets one). */
@@ -235,11 +261,11 @@ export function useBudget(accountId: string | undefined): Budget | undefined {
 }
 
 /** Expenses within the current scope for a whole month ('YYYY-MM'). */
-export function useMonthExpenses(month: string, scope: AccountScope): Transaction[] {
+export function useMonthExpenses(month: string, scope: AccountScope, anchor = 1): Transaction[] {
   const tx = useScopedTransactions(scope);
   return useMemo(
-    () => tx.filter((t) => t.kind === 'expense' && monthOf(t.date) === month),
-    [tx, month],
+    () => tx.filter((t) => t.kind === 'expense' && periodOf(t.date, anchor) === month),
+    [tx, month, anchor],
   );
 }
 

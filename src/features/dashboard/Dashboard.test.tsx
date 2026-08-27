@@ -13,7 +13,7 @@ import { GoogleAuthProvider } from '@/store/GoogleAuthContext';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { Dashboard } from '@/features/dashboard/Dashboard';
 import { db } from '@/db/db';
-import type { Account, Recurring as RecurringT } from '@/types/models';
+import type { Account, Recurring as RecurringT, Transaction } from '@/types/models';
 
 const account = (id: string, name: string): Account => ({
   id,
@@ -263,5 +263,129 @@ describe('Dashboard — logging a recurring the month can no longer hold', () =>
 
     await waitFor(() => expect(screen.getByText('Transaction recorded')).toBeInTheDocument());
     expect(await db.transactions.count()).toBe(1);
+  });
+});
+
+
+// Paid on the 26th, the salary that lands in August is September's money. The
+// month already spent behind it came out of July's pay, so charging it against
+// the salary the moment it is logged reads as "over by a month's spending" —
+// the whole point of the budget month following payday instead of the calendar.
+describe('Dashboard — the budget month follows payday', () => {
+  const tx = (over: Partial<Transaction> & Pick<Transaction, 'id' | 'amount' | 'date'>): Transaction => ({
+    kind: 'expense',
+    accountId: 'acc-1',
+    createdAt: `${over.date}T10:00:00.000Z`,
+    updatedAt: `${over.date}T10:00:00.000Z`,
+    ...over,
+  });
+
+  beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 27, 10, 0, 0)); // 27 Aug 2026, salary in
+
+    await db.recurrings.bulkAdd([
+      rec('r-sal', 'Salary', {
+        direction: 'income',
+        amount: 2900,
+        dueDay: 26,
+        history: [
+          { month: '2026-08', amount: 2900, transactionId: 'tx-sal', occurrence: '2026-08-26' },
+        ],
+      }),
+      rec('r-rent', 'Loyer', { amount: 900, dueDay: 5 }),
+    ]);
+    await db.transactions.bulkAdd([
+      tx({ id: 'tx-old', amount: 2050, date: '2026-08-10' }), // lived on July's pay
+      tx({ id: 'tx-sal', kind: 'income', amount: 2900, date: '2026-08-26', recurringSourceId: 'r-sal' }),
+      tx({ id: 'tx-new', amount: 50, date: '2026-08-27' }),
+    ]);
+  });
+
+  it('starts from the balance and subtracts only the bills still to come', async () => {
+    const { container } = renderDashboard();
+
+    await waitFor(() => expect(screen.getByText('Left to spend')).toBeInTheDocument());
+    // Balance 500 − 2050 + 2900 − 50 = 1300; rent 900 not yet debited → 400.
+    expect(container.querySelector('.hero-figure')).toHaveTextContent('400');
+    expect(screen.queryByText(/Over by/)).not.toBeInTheDocument();
+  });
+
+  it('measures the runway to the next payday', async () => {
+    renderDashboard();
+
+    // 27 Aug → 25 Sep inclusive.
+    await waitFor(() => expect(screen.getByText('30 days left')).toBeInTheDocument());
+  });
+});
+
+// The ordinary case: no recurring template for your own pay, you log it when it
+// lands. The payment itself has to anchor the budget month, or the anchor never
+// fires for anyone who does it that way.
+describe('Dashboard — payday read from the salary that landed', () => {
+  it('follows a salary logged as a plain movement', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 27, 10, 0, 0)); // 27 Aug 2026
+
+    await db.recurrings.add(rec('r-rent', 'Loyer', { amount: 900, dueDay: 5 }));
+    await db.transactions.bulkAdd([
+      {
+        id: 'tx-old', kind: 'expense', accountId: 'acc-1', amount: 2050, date: '2026-08-10',
+        createdAt: '2026-08-10T10:00:00.000Z', updatedAt: '2026-08-10T10:00:00.000Z',
+      },
+      {
+        id: 'tx-sal', kind: 'income', accountId: 'acc-1', amount: 2979.53, date: '2026-08-26',
+        incomeType: 'Salaire',
+        createdAt: '2026-08-26T10:00:00.000Z', updatedAt: '2026-08-26T10:00:00.000Z',
+      },
+      {
+        id: 'tx-new', kind: 'expense', accountId: 'acc-1', amount: 50, date: '2026-08-27',
+        createdAt: '2026-08-27T10:00:00.000Z', updatedAt: '2026-08-27T10:00:00.000Z',
+      },
+    ]);
+
+    const { container } = renderDashboard();
+
+    await waitFor(() => expect(screen.getByText('Left to spend')).toBeInTheDocument());
+    // Balance 500 − 2050 + 2979,53 − 50 = 1379,53; rent 900 to come → 479,53.
+    expect(container.querySelector('.hero-figure')).toHaveTextContent('479,53');
+    expect(screen.getByText('30 days left')).toBeInTheDocument();
+  });
+});
+
+// A debited bill must not move the figure: the balance drops and the upcoming
+// bills drop by the same amount. Only real spending moves it.
+describe('Dashboard — a settled bill leaves the figure alone', () => {
+  it('does not subtract a bill that is already out of the balance', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 27, 10, 0, 0));
+
+    await db.recurrings.add(
+      rec('r-rent', 'Loyer', {
+        amount: 900,
+        dueDay: 27,
+        history: [
+          { month: '2026-08', amount: 900, transactionId: 'tx-rent', occurrence: '2026-08-27' },
+        ],
+      }),
+    );
+    await db.transactions.bulkAdd([
+      {
+        id: 'tx-sal', kind: 'income', accountId: 'acc-1', amount: 2979.53, date: '2026-08-26',
+        incomeType: 'Salaire',
+        createdAt: '2026-08-26T10:00:00.000Z', updatedAt: '2026-08-26T10:00:00.000Z',
+      },
+      {
+        id: 'tx-rent', kind: 'expense', accountId: 'acc-1', amount: 900, date: '2026-08-27',
+        recurringSourceId: 'r-rent',
+        createdAt: '2026-08-27T10:00:00.000Z', updatedAt: '2026-08-27T10:00:00.000Z',
+      },
+    ]);
+
+    const { container } = renderDashboard();
+
+    await waitFor(() => expect(screen.getByText('Left to spend')).toBeInTheDocument());
+    // Balance 500 + 2979,53 − 900 = 2579,53; nothing left to come.
+    expect(container.querySelector('.hero-figure')).toHaveTextContent('2 579,53');
   });
 });

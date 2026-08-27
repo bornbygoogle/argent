@@ -26,17 +26,44 @@ export interface Runway {
   over: boolean;
 }
 
+const DAY = 86_400_000;
+
+/** 'YYYY-MM-DD' at local midnight — the same clock `now` is read on. */
+function localDay(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+const daysBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / DAY);
+
 /**
  * @param budget total monthly budget across the accounts in scope (0 = unset)
- * @param spent  expenses so far this month in the same scope
+ * @param spent  expenses so far this period in the same scope
  * @param now    the reference date — injected so this is testable
+ * @param period the budget month as dates, `end` exclusive. Defaults to the
+ *               calendar month `now` falls in; a payday anchor makes it run
+ *               payday to payday instead, and "days left" has to follow it or
+ *               the bar promises a month of money over five days.
  */
-export function computeRunway(budget: number, spent: number, now: Date): Runway {
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dayOfMonth = now.getDate();
-  const daysLeft = Math.max(1, daysInMonth - dayOfMonth + 1);
-  // Elapsed counts completed days, so the 1st reads as "start of month", not 1/31 gone.
-  const monthRatio = (dayOfMonth - 1) / daysInMonth;
+export function computeRunway(
+  budget: number,
+  spent: number,
+  now: Date,
+  period?: { start: string; end: string },
+): Runway {
+  const start = period
+    ? localDay(period.start)
+    : new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = period
+    ? localDay(period.end)
+    : new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const totalDays = Math.max(1, daysBetween(start, end));
+  // Elapsed counts completed days, so payday reads as "start of period", not 1/31 gone.
+  const elapsed = Math.min(Math.max(daysBetween(start, today), 0), totalDays);
+  const daysLeft = Math.max(1, totalDays - elapsed);
+  const monthRatio = elapsed / totalDays;
 
   const remaining = budget - spent;
   const spentRatio = budget > 0 ? Math.min(1, Math.max(0, spent / budget)) : 0;

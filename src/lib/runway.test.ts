@@ -66,3 +66,28 @@ describe('computeRunway', () => {
     expect(r.perDay).toBeCloseTo(10, 5);
   });
 });
+
+// Paid on the 26th, the budget month runs 26 Jan – 25 Feb. Measuring it against
+// the calendar would promise five days of money and thirty days of month.
+describe('computeRunway over a budget period', () => {
+  const feb = { start: '2026-01-26', end: '2026-02-26' };
+
+  it('counts the days left to the next payday, not to the end of the month', () => {
+    const r = computeRunway(1000, 0, jan(27), feb);
+    expect(r.daysLeft).toBe(30);
+    expect(r.monthRatio).toBeCloseTo(1 / 31, 5);
+    expect(r.perDay).toBeCloseTo(1000 / 30, 5);
+  });
+
+  it('treats payday itself as the start of the period', () => {
+    const r = computeRunway(1000, 0, jan(26), feb);
+    expect(r.monthRatio).toBe(0);
+    expect(r.daysLeft).toBe(31);
+  });
+
+  it('is the calendar month when no period is given', () => {
+    expect(computeRunway(1000, 400, jan(10), { start: '2026-01-01', end: '2026-02-01' })).toEqual(
+      computeRunway(1000, 400, jan(10)),
+    );
+  });
+});

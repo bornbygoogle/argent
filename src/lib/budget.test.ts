@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { monthlyEquivalent, computeAutoBudget, variableExpenses } from '@/lib/budget';
+import { monthlyEquivalent, computeAutoBudget, upcomingCommitments, variableExpenses } from '@/lib/budget';
 import type { Recurring, Transaction } from '@/types/models';
 
 const MONTH = '2026-07';
@@ -161,5 +161,83 @@ describe('computeAutoBudget', () => {
   it('rounds the total to cents', () => {
     const b = computeAutoBudget(100, [rec({ amount: 10, cadence: 'hebdo' })], MONTH);
     expect(b.total).toBe(56.67);
+  });
+
+  // Paid on the 26th, the salary that lands in August funds September. The
+  // period it was settled in is the one that must read as settled — by the
+  // calendar it landed in August, and September would ask for it a second time.
+  describe('with a payday anchor', () => {
+    const salary = (over: Partial<Recurring> = {}): Recurring =>
+      rec({ direction: 'income', amount: 2000, dueDay: 26, ...over });
+
+    it('does not count income settled on payday again in the month it funds', () => {
+      const settled = salary({
+        history: [{ month: '2026-08', amount: 2000, transactionId: 'tx-1', occurrence: '2026-08-26' }],
+      });
+      const b = computeAutoBudget(2000, [settled], '2026-09', 26);
+      expect(b.income).toBe(2000);
+      expect(b.total).toBe(2000);
+    });
+
+    it('still expects income that has not landed yet', () => {
+      const b = computeAutoBudget(0, [salary()], '2026-09', 26);
+      expect(b.income).toBe(2000);
+    });
+
+    it('does not treat last payday as this one', () => {
+      const settled = salary({
+        history: [{ month: '2026-07', amount: 2000, transactionId: 'tx-0', occurrence: '2026-07-26' }],
+      });
+      expect(computeAutoBudget(0, [settled], '2026-09', 26).income).toBe(2000);
+    });
+
+    it('reads as the calendar month when payday is the 1st', () => {
+      const settled = rec({
+        direction: 'income',
+        amount: 2000,
+        history: [{ month: MONTH, amount: 2000, transactionId: 'tx-1' }],
+      });
+      expect(computeAutoBudget(2000, [settled], MONTH, 1)).toEqual(
+        computeAutoBudget(2000, [settled], MONTH),
+      );
+    });
+  });
+
+});
+
+// The hero starts from the balance, so what it must subtract is the bills that
+// have not been debited yet — a settled bill is already out of the balance, and
+// subtracting it again would count the same rent twice.
+describe('upcomingCommitments', () => {
+  it('sums the unsettled expense templates as monthly equivalents', () => {
+    const total = upcomingCommitments(
+      [rec({ id: 'a', amount: 600 }), rec({ id: 'b', amount: 1200, cadence: 'annuel' })],
+      MONTH,
+    );
+    expect(total).toBe(700);
+  });
+
+  it('drops a bill already settled this calendar month', () => {
+    const paid = rec({
+      amount: 600,
+      history: [{ month: MONTH, amount: 600, transactionId: 'tx-1' }],
+    });
+    expect(upcomingCommitments([paid, rec({ id: 'b', amount: 100 })], MONTH)).toBe(100);
+  });
+
+  it('drops a bill settled inside the payday cycle, wherever the calendar puts it', () => {
+    // Paid 28 August; with payday on the 26th that settles the September cycle.
+    const paid = rec({
+      amount: 30,
+      dueDay: 28,
+      history: [{ month: '2026-08', amount: 30, transactionId: 'tx-1', occurrence: '2026-08-28' }],
+    });
+    expect(upcomingCommitments([paid], '2026-09', 26)).toBe(0);
+    // Same payment against the calendar-September question: not settled.
+    expect(upcomingCommitments([paid], '2026-09', 1)).toBe(30);
+  });
+
+  it('ignores income templates — expected money is not a bill', () => {
+    expect(upcomingCommitments([rec({ direction: 'income', amount: 2000 })], MONTH)).toBe(0);
   });
 });

@@ -4,6 +4,8 @@ import { db } from '@/db/db';
 import { uid } from '@/lib/id';
 import { round2 } from '@/lib/calc';
 import { isConfirmedIn } from '@/lib/recurring';
+import { occurrenceOf } from '@/lib/recurringSchedule';
+import { periodOf } from '@/lib/period';
 import type {
   Budget,
   Cadence,
@@ -37,6 +39,30 @@ export function monthlyEquivalent(amount: number, cadence: Cadence): number {
  * it again as spending would subtract the same rent twice and under-report what
  * is left by exactly its amount.
  */
+/** Has this template's instalment for the budget month been settled? */
+function settledIn(r: Recurring, month: string, anchor: number): boolean {
+  if (anchor <= 1) return isConfirmedIn(r, month);
+  return r.history.some((h) => !!h.transactionId && periodOf(occurrenceOf(h, r), anchor) === month);
+}
+
+/**
+ * The bills of the cycle that have not been debited yet, as monthly
+ * equivalents. This is what stands between the balance and what is really free:
+ * a settled bill is already out of the balance, so only the unsettled ones are
+ * subtracted — never both.
+ */
+export function upcomingCommitments(
+  recurrings: Recurring[],
+  month: string,
+  anchor = 1,
+): number {
+  return round2(
+    recurrings
+      .filter((r) => r.direction === 'expense' && !settledIn(r, month, anchor))
+      .reduce((s, r) => s + monthlyEquivalent(r.amount, r.cadence), 0),
+  );
+}
+
 export function variableExpenses(transactions: Transaction[]): Transaction[] {
   return transactions.filter((t) => t.kind === 'expense' && !t.recurringSourceId);
 }
@@ -61,11 +87,17 @@ export interface AutoBudget {
  * again. Recurring *expenses* are counted whether confirmed or not — actual
  * expenses are never summed here, so there is nothing to double count, and a
  * commitment is a commitment whether it has been paid yet or not.
+ *
+ * `anchor` is the payday the budget month runs from (1 = calendar month). It
+ * has to reach the settled check too: a salary paid on 26 August settles the
+ * September period, and asking the calendar would leave September still
+ * expecting it — on top of the money already in `actualIncome`.
  */
 export function computeAutoBudget(
   actualIncome: number,
   recurrings: Recurring[],
   month: string,
+  anchor = 1,
 ): AutoBudget {
   let stillDue = 0;
   let recurringExpenses = 0;
@@ -73,7 +105,7 @@ export function computeAutoBudget(
   for (const r of recurrings) {
     const monthly = monthlyEquivalent(r.amount, r.cadence);
     if (r.direction === 'expense') recurringExpenses += monthly;
-    else if (!isConfirmedIn(r, month)) stillDue += monthly;
+    else if (!settledIn(r, month, anchor)) stillDue += monthly;
   }
 
   const income = round2(actualIncome + stillDue);
