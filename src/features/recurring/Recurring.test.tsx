@@ -191,7 +191,7 @@ describe('per-account totals in the group heading', () => {
 });
 
 describe('an item logged mid-month, then given a due day of 30', () => {
-  it('comes back into To confirm, because that payment settled June’s instalment', async () => {
+  it('stays out of To confirm — the money left in July, so July is settled', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0)); // 28 Jul 2026
 
@@ -213,14 +213,16 @@ describe('an item logged mid-month, then given a due day of 30', () => {
       }),
     );
 
-    // Before the backfill it reads as "July is done" and stays hidden.
+    // The backfill stamps the entry with July's instalment, not June's: an
+    // occurrence in a month its payment is not in would leave the July
+    // transaction blocking every later press.
     expect(await backfillOccurrences()).toBe(1);
+    expect((await db.recurrings.get('r-1'))?.history[0].occurrence).toBe('2026-07-30');
 
     renderScreen();
 
-    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /log/i })).toBeInTheDocument();
-    expect(document.querySelector('.row-between')?.textContent ?? '').toContain('1');
+    await waitFor(() => expect(screen.getByText(/no recurring items/i)).toBeInTheDocument());
+    expect(screen.queryByText('Loyer')).not.toBeInTheDocument();
   });
 });
 

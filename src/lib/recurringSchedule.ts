@@ -9,7 +9,7 @@
 // The day is clamped at read time, never rewritten: a 31 stored against a
 // February must still mean the 31st in March. And the day never decides whether
 // a row is shown — a bill due on the 30th is still the month's work on the 28th.
-import { daysInMonth, nextMonth, prevMonth } from '@/lib/date';
+import { daysInMonth, nextMonth } from '@/lib/date';
 import type { Recurring, RecurringHistoryEntry } from '@/types/models';
 
 /** Anything carrying an optional due day — the whole record is never needed. */
@@ -73,25 +73,6 @@ export function paidMonths(r: Recurring): Set<string> {
  */
 export function isOccurrencePaidIn(r: Recurring, month: string): boolean {
   return paidMonths(r).has(month);
-}
-
-/**
- * The latest occurrence falling on or before `date`, never earlier than
- * `notBefore`. Returns null when the template did not yet exist.
- */
-export function lastOccurrenceOnOrBefore(
-  r: DueDayed,
-  date: string,
-  notBefore?: string,
-): string | null {
-  let month = date.slice(0, 7);
-  let candidate = dueDateFor(r, month);
-  if (candidate > date) {
-    month = prevMonth(month);
-    candidate = dueDateFor(r, month);
-  }
-  if (notBefore && candidate < notBefore) return null;
-  return candidate;
 }
 
 /**

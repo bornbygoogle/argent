@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '@/db/db';
 import { backfillOccurrences } from '@/lib/recurringMigration';
-import { isConfirmedIn } from '@/lib/recurring';
+import { confirmRecurring, isConfirmedIn } from '@/lib/recurring';
 import type { Recurring, Transaction } from '@/types/models';
 
 const rec = (over: Partial<Recurring> = {}): Recurring => ({
@@ -42,8 +42,9 @@ beforeEach(async () => {
 });
 
 describe('backfillOccurrences', () => {
-  it('reads a payment logged before the due day as settling the previous instalment', async () => {
-    // Logged 10 July, due on the 30th → it was June's bill being paid.
+  it('settles the payment’s own month even when it came before the due day', async () => {
+    // Logged 10 July, due on the 30th. Whichever bill the user had in mind, the
+    // money left in July and July is where the app counts it.
     await db.transactions.add(tx('tx-1', '2026-07-10'));
     await db.recurrings.add(
       rec({ dueDay: 30, history: [{ month: '2026-07', amount: 20, transactionId: 'tx-1' }] }),
@@ -52,11 +53,10 @@ describe('backfillOccurrences', () => {
     expect(await backfillOccurrences()).toBe(1);
 
     const r = await load();
-    expect(r.history[0].occurrence).toBe('2026-06-30');
+    expect(r.history[0].occurrence).toBe('2026-07-30');
     expect(r.history[0].month).toBe('2026-07'); // never rewritten
-    // …so July's instalment is outstanding again.
-    expect(isConfirmedIn(r, '2026-07')).toBe(false);
-    expect(isConfirmedIn(r, '2026-06')).toBe(true);
+    expect(isConfirmedIn(r, '2026-07')).toBe(true);
+    expect(isConfirmedIn(r, '2026-06')).toBe(false);
   });
 
   it('leaves a payment logged on its due day settling that same instalment', async () => {
@@ -85,10 +85,10 @@ describe('backfillOccurrences', () => {
     expect(isConfirmedIn(r, '2026-07')).toBe(true);
   });
 
-  it('reaches back past the template’s creation date, which is only when it was typed in', async () => {
-    // Real shape: every template entered on 5 July, bills paid days later,
-    // due days set afterwards. createdAt is when the row was created in the
-    // app — the bill itself is older, so its June instalment is real.
+  it('keeps a payment made days after the template was typed in inside its own month', async () => {
+    // Real shape: every template entered on 5 July, bills paid days later, due
+    // days set afterwards. Reaching back to a June instalment here would strand
+    // the July transaction in a month reading unpaid.
     await db.transactions.add(tx('tx-1', '2026-07-06'));
     await db.recurrings.add(
       rec({
@@ -101,9 +101,8 @@ describe('backfillOccurrences', () => {
     await backfillOccurrences();
 
     const r = await load();
-    expect(r.history[0].occurrence).toBe('2026-06-28');
-    // A payment made on the 6th cannot have settled a bill due on the 28th.
-    expect(isConfirmedIn(r, '2026-07')).toBe(false);
+    expect(r.history[0].occurrence).toBe('2026-07-28');
+    expect(isConfirmedIn(r, '2026-07')).toBe(true);
   });
 
   it('still settles the current instalment when the payment came after its due day', async () => {
@@ -133,9 +132,9 @@ describe('backfillOccurrences', () => {
     expect((await load()).history[0].occurrence).toBe('2026-07-30');
   });
 
-  it('repairs an entry already stamped with an instalment later than its payment', async () => {
-    // Exactly what the first, guarded backfill produced: paid on the 6th,
-    // stamped as settling the 28th. A payment cannot settle a later instalment.
+  it('leaves an instalment later in the month than its payment alone', async () => {
+    // Paid on the 6th, stamped as settling the 28th. Same month, so the money
+    // and the instalment agree and there is nothing to repair.
     await db.transactions.add(tx('tx-1', '2026-07-06'));
     await db.recurrings.add(
       rec({
@@ -147,11 +146,11 @@ describe('backfillOccurrences', () => {
       }),
     );
 
-    expect(await backfillOccurrences()).toBe(1);
+    expect(await backfillOccurrences()).toBe(0);
 
     const r = await load();
-    expect(r.history[0].occurrence).toBe('2026-06-28');
-    expect(isConfirmedIn(r, '2026-07')).toBe(false);
+    expect(r.history[0].occurrence).toBe('2026-07-28');
+    expect(isConfirmedIn(r, '2026-07')).toBe(true);
   });
 
   it('leaves an early settlement alone, where payment and instalment match', async () => {
@@ -179,6 +178,50 @@ describe('backfillOccurrences', () => {
 
     expect(await backfillOccurrences()).toBe(1);
     expect(await backfillOccurrences()).toBe(0);
-    expect((await load()).history[0].occurrence).toBe('2026-06-30');
+    expect((await load()).history[0].occurrence).toBe('2026-07-30');
+  });
+});
+
+// The live rows that jammed: on 2 September 2026 three templates — Bouygues and
+// the two "Garantie décès" — refused every press with "this month already holds
+// an entry", and had done since July. Each carried one history entry stamped
+// with a June instalment against a transaction dated in July: paidMonths said
+// July was owed, the ceiling counted the July transaction and refused, and the
+// month could never advance. An instalment is settled by money that moved, so
+// its occurrence belongs in the month that money moved in.
+describe('an entry stamped with an instalment from a month its payment is not in', () => {
+  const jammed = async () => {
+    await db.transactions.add({ ...tx('tx-1', '2026-07-06'), recurringSourceId: 'r-1' });
+    await db.recurrings.add(
+      rec({
+        label: 'Bouygues',
+        createdAt: '2026-07-05T22:37:21.576Z',
+        dueDay: 30,
+        history: [
+          { month: '2026-07', amount: 20, transactionId: 'tx-1', occurrence: '2026-06-30' },
+        ],
+      }),
+    );
+  };
+
+  it('is repaired onto the instalment of the month the payment sits in', async () => {
+    await jammed();
+
+    expect(await backfillOccurrences()).toBe(1);
+
+    const r = await load();
+    expect(r.history[0].occurrence).toBe('2026-07-30');
+    expect(isConfirmedIn(r, '2026-07')).toBe(true);
+    expect(isConfirmedIn(r, '2026-06')).toBe(false);
+  });
+
+  it('lets the months since it be logged again', async () => {
+    await jammed();
+    await backfillOccurrences();
+
+    const txId = await confirmRecurring(await load(), '2026-09-02');
+
+    expect(txId).not.toBeNull();
+    expect((await db.transactions.get(txId!))?.date).toBe('2026-08-30');
   });
 });
