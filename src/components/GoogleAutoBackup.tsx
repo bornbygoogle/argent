@@ -19,7 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useToast } from '@/store/ToastContext';
-import { exportBackup, importBackup, parseBackupFile } from '@/lib/data';
+import { exportBackup, importBackup, parseBackupFile, latestActivity } from '@/lib/data';
 import { computeSyncFingerprint } from '@/lib/syncFingerprint';
 import {
   uploadBackupToFolder,
@@ -179,6 +179,17 @@ export function GoogleAutoBackup() {
       const token = await getValidAccessToken();
       const folderId = await ensureGestionMoneyFolder(token);
       const meta = await getGoogleMeta();
+      // A device that has uploaded before but carries no baseline is on its
+      // first start since baselines existed — the state every device is in the
+      // day this ships. Its last upload may predate everything it has done
+      // since, and nothing stored here can say otherwise, so the pending work
+      // is assumed to be real: an upload can be walked back from the older
+      // backups Drive keeps, an import cannot be walked back at all. This is
+      // the start where the unsent work is most exposed, and reading "no
+      // baseline" as "nothing pending" is what let the older snapshot land on
+      // top of a morning's entries.
+      const baselineUnknown = meta.pushedFingerprint === null && meta.lastBackupAt !== null;
+      flushUnsynced = baselineUnknown;
       if (hasUnsyncedChanges(meta, await computeSyncFingerprint())) {
         flushUnsynced = true;
         return;
@@ -195,7 +206,18 @@ export function GoogleAutoBackup() {
       const payload = parseBackupFile(text);
       // Extra guard: never import our own snapshot.
       if (payload.exportedBy && meta.deviceId && payload.exportedBy === meta.deviceId) return;
+      // With no baseline, the file being newer says nothing about which side
+      // did the later work — this device's own last upload is the only date it
+      // is being compared against. Ask the rows instead, and keep the local
+      // copy unless the snapshot genuinely carries work this device never saw.
+      if (
+        baselineUnknown &&
+        latestActivity(payload.tables) <= latestActivity((await exportBackup()).tables)
+      ) {
+        return;
+      }
 
+      flushUnsynced = false;
       await importBackup(payload);
       // Local content now equals Drive's, so there is nothing to send back.
       // Without this the push effect sees "data changed" (it did — we just

@@ -142,6 +142,35 @@ export async function importBackup(raw: unknown): Promise<{ rows: number }> {
   return { rows };
 }
 
+/**
+ * The most recent moment any row in a snapshot was written.
+ *
+ * Rows carry `createdAt` and `updatedAt`, so the newest of those across every
+ * table is the closest a snapshot comes to saying when its data was last worked
+ * on. ISO-8601 strings order correctly as text, so no parsing is needed.
+ *
+ * This settles one question only — which of two copies did the later work, when
+ * no fingerprint exists to answer it (see components/GoogleAutoBackup). It is a
+ * witness, not a clock: an edit that rewrites a row in place without touching a
+ * timestamp is invisible to it, which is why it decides nothing once a baseline
+ * is there to decide better.
+ */
+export function latestActivity(tables: Record<string, unknown[]>): string {
+  let latest = '';
+  for (const rows of Object.values(tables)) {
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (row === null || typeof row !== 'object') continue;
+      const r = row as Record<string, unknown>;
+      for (const key of ['createdAt', 'updatedAt'] as const) {
+        const v = r[key];
+        if (typeof v === 'string' && v > latest) latest = v;
+      }
+    }
+  }
+  return latest;
+}
+
 /** Wipe every domain table + settings, then re-seed defaults (fresh onboarding). */
 export async function clearAllData(): Promise<void> {
   const stores = [...TABLES, 'settings'] as const;

@@ -551,3 +551,51 @@ describe('after signing out with an edit pending', () => {
     expect(await db.transactions.get('remote-1')).toBeTruthy();
   });
 });
+
+// The gap the first fix left open. A device that has been syncing for months
+// has no baseline the moment it first runs this code, and "no baseline" was
+// read as "nothing pending" — so the guard stood down on exactly the start
+// where the unsent work was still sitting there, and the older snapshot came
+// down on top of it. Real state, 2026-09-03: last upload 24h old, a morning's
+// instalments logged since, and no fingerprint to notice with.
+describe('the first start after the baseline existed', () => {
+  const dated = (id: string, at: string): Transaction => ({
+    ...tx(id),
+    createdAt: at,
+    updatedAt: at,
+  });
+  /** This device has uploaded before — long enough ago to say nothing useful. */
+  const syncedBefore = () => setGoogleMeta({ lastBackupAt: '2026-01-01T00:00:00.000Z' });
+  const driveHolds = async (rows: Transaction[]) => {
+    const remote = await exportBackup('other-device');
+    remote.tables.transactions = rows;
+    drive.downloadBackupFile.mockResolvedValue(JSON.stringify(remote));
+    drive.listBackupsInFolder.mockResolvedValue([
+      { id: 'f9', name: 'argent-backup.json', modifiedTime: '2030-01-01T00:00:00.000Z' },
+    ]);
+  };
+
+  it('uploads work done in a session that ended before its upload ran', async () => {
+    await syncedBefore();
+    await driveHolds([dated('remote-1', '2026-09-02T13:00:00.000Z')]);
+    await db.transactions.put(dated('logged-this-morning', '2026-09-03T06:37:00.000Z'));
+
+    render(<GoogleAutoBackup />);
+    await settle(0, 8); // the flush must not wait out the debounce
+
+    expect(await db.transactions.get('logged-this-morning')).toBeTruthy();
+    expect(await db.transactions.get('remote-1')).toBeUndefined();
+    expect(drive.uploadBackupToFolder).toHaveBeenCalledTimes(1);
+  });
+
+  it('still takes a snapshot holding work this device never saw', async () => {
+    await syncedBefore();
+    await driveHolds([dated('remote-1', '2026-09-03T06:37:00.000Z')]);
+
+    render(<GoogleAutoBackup />);
+    await settle();
+
+    expect(await db.transactions.get('remote-1')).toBeTruthy();
+    expect(drive.uploadBackupToFolder).not.toHaveBeenCalled();
+  });
+});
