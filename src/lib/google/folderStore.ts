@@ -8,6 +8,12 @@
 //   lastPulledAt  — ISO time of the most recent restore this device pulled.
 //   deviceId      — random per-device id stamped into every backup payload,
 //                   so a device can recognise (and skip) its own uploads.
+//   pushedFingerprint — fingerprint (lib/syncFingerprint) of the last snapshot
+//                   this device uploaded or imported, i.e. the last state known
+//                   to match Drive. Persisted so a reload cannot forget that an
+//                   edit never left: while the database differs from this, the
+//                   local copy is the newer truth and must be pushed, not pulled
+//                   over. Null until the first sync after the field appeared.
 
 import { db } from '@/db/db';
 import { findFolderByName, createFolder } from './drive';
@@ -20,6 +26,7 @@ export interface GoogleMetaRow {
   lastBackupAt: string | null;
   lastPulledAt: string | null;
   deviceId: string;
+  pushedFingerprint: string | null;
 }
 
 const DEFAULT: GoogleMetaRow = {
@@ -28,7 +35,13 @@ const DEFAULT: GoogleMetaRow = {
   lastBackupAt: null,
   lastPulledAt: null,
   deviceId: '',
+  pushedFingerprint: null,
 };
+
+/** True when the database no longer matches the last snapshot exchanged with Drive. */
+export function hasUnsyncedChanges(meta: GoogleMetaRow, fingerprint: string): boolean {
+  return meta.pushedFingerprint !== null && meta.pushedFingerprint !== fingerprint;
+}
 
 // Untyped accessors: the `settings` table is strictly typed for the `'app'`
 // row, so reach in through an `any`-keyed handle rather than coupling this row

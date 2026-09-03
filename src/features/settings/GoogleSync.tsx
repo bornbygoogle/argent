@@ -12,7 +12,13 @@ import {
   type DriveBackupMeta,
 } from '@/lib/google/drive';
 import { withTokenRefresh } from '@/lib/google/auth';
-import { ensureGestionMoneyFolder, getGoogleMeta, setGoogleMeta } from '@/lib/google/folderStore';
+import {
+  ensureGestionMoneyFolder,
+  getGoogleMeta,
+  setGoogleMeta,
+  hasUnsyncedChanges,
+} from '@/lib/google/folderStore';
+import { computeSyncFingerprint } from '@/lib/syncFingerprint';
 import { parseBackupFile, importBackup, type BackupPayload } from '@/lib/data';
 import { requestBackupNow } from '@/components/GoogleAutoBackup';
 
@@ -33,7 +39,13 @@ export function GoogleSync() {
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   // Stashed downloaded+validated backup, awaiting destructive confirm.
-  const [confirm, setConfirm] = useState<{ payload: BackupPayload; name: string } | null>(null);
+  // `unsynced`: the local database holds edits Drive never received, so this
+  // restore would erase them — the sheet says so before the button is pressed.
+  const [confirm, setConfirm] = useState<{
+    payload: BackupPayload;
+    file: DriveBackupMeta;
+    unsynced: boolean;
+  } | null>(null);
 
   const lastBackupAt = useLiveQuery(async () => (await getGoogleMeta()).lastBackupAt, [], null);
 
@@ -73,7 +85,8 @@ export function GoogleSync() {
       const newest: DriveBackupMeta = files[0]; // list is modifiedTime desc
       const text = await withTokenRefresh((tk) => downloadBackupFile(newest.id, tk));
       const payload = parseBackupFile(text); // validate before prompting
-      setConfirm({ payload, name: newest.name });
+      const unsynced = hasUnsyncedChanges(await getGoogleMeta(), await computeSyncFingerprint());
+      setConfirm({ payload, file: newest, unsynced });
     });
 
   const handleRestoreConfirm = () =>
@@ -81,7 +94,16 @@ export function GoogleSync() {
       if (!confirm) return;
       try {
         await importBackup(confirm.payload);
-        await setGoogleMeta({ lastPulledAt: new Date().toISOString() });
+        // What is local now is what Drive holds: the next start must not read
+        // the restored data as an edit waiting to be uploaded.
+        // lastBackupAt names the Drive file this device now holds. Without it
+        // the automatic pull on the next start still reads that same file as
+        // newer, and downloads and imports what is already here.
+        await setGoogleMeta({
+          lastPulledAt: new Date().toISOString(),
+          lastBackupAt: confirm.file.modifiedTime,
+          pushedFingerprint: await computeSyncFingerprint(),
+        });
         location.reload();
       } finally {
         setConfirm(null);
@@ -204,9 +226,14 @@ export function GoogleSync() {
       <Sheet open={!!confirm} onClose={() => setConfirm(null)} title={t('settings.google.restoreLatest')}>
         <div className="text-center pb-inset-sm">
           <p className="body-sm" style={{ marginBottom: 16 }}>
-            {confirm ? t('settings.google.restoreConfirmName', { name: confirm.name }) : ''}
+            {confirm ? t('settings.google.restoreConfirmName', { name: confirm.file.name }) : ''}
           </p>
           <p className="body-sm" style={{ marginBottom: 16 }}>{t('settings.google.restoreConfirmHint')}</p>
+          {confirm?.unsynced && (
+            <Banner tone="danger" icon="AlertCircle">
+              {t('settings.google.restoreUnsyncedWarning')}
+            </Banner>
+          )}
           <div className="col gap-2">
             <Button variant="danger" full onClick={handleRestoreConfirm} disabled={busy}>
               {t('settings.google.restoreConfirmBtn')}

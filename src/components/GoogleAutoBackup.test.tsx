@@ -43,6 +43,8 @@ vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }
 
 import { GoogleAutoBackup, requestBackupNow, PUSH_DEBOUNCE_MS } from '@/components/GoogleAutoBackup';
 import { exportBackup } from '@/lib/data';
+import { computeSyncFingerprint } from '@/lib/syncFingerprint';
+import { getGoogleMeta, setGoogleMeta } from '@/lib/google/folderStore';
 
 const account = (id: string, name = 'Courant'): Account => ({
   id, name, type: 'courant', color: '#3F8F6B', icon: 'Wallet',
@@ -347,6 +349,11 @@ describe('refresh while the app stays open', () => {
 
     expect(await db.transactions.get('remote-1')).toBeUndefined();
     expect((await db.transactions.get('t1'))?.amount).toBe(4242);
+
+    // Let Dexie's mutation broadcast fire before the fake clock is torn down:
+    // left pending, it silences every live-query emit for the rest of the file.
+    // Well short of the debounce, so nothing is uploaded here.
+    await settle(1000, 2);
   });
 });
 
@@ -407,5 +414,140 @@ describe('manual backup', () => {
 
     expect(done).toBe(true);
     expect(drive.uploadBackupToFolder).toHaveBeenCalled();
+  });
+});
+
+// The loss this guards against: an edit made, then the tab reloaded inside the
+// debounce. The upload never happened, and after the reload nothing remembered
+// that it had not — so the next pull replaced the edit with the other device's
+// older snapshot. The fingerprint of the last upload now survives in the
+// database, so the app can tell "already on Drive" from "never left".
+describe('a change that never reached Drive', () => {
+  const remoteNewer = async () => {
+    const remote = await exportBackup('other-device');
+    remote.tables.transactions = [tx('remote-1', 777)];
+    drive.downloadBackupFile.mockResolvedValue(JSON.stringify(remote));
+    drive.listBackupsInFolder.mockResolvedValue([
+      { id: 'f9', name: 'argent-backup.json', modifiedTime: '2030-01-01T00:00:00.000Z' },
+    ]);
+  };
+
+  /** Pretend the last upload carried the database as it is right now. */
+  const markAsPushed = async () => {
+    await setGoogleMeta({ pushedFingerprint: await computeSyncFingerprint() });
+  };
+
+  it('is uploaded on start instead of being replaced by a newer remote snapshot', async () => {
+    await markAsPushed();
+    await db.transactions.update('t1', { amount: 4242 }); // edited, then reloaded
+    await remoteNewer();
+
+    render(<GoogleAutoBackup />);
+    await settle(0, 8); // no debounce: the flush must not wait 30s to be safe
+
+    expect((await db.transactions.get('t1'))?.amount).toBe(4242);
+    expect(await db.transactions.get('remote-1')).toBeUndefined();
+    expect(drive.uploadBackupToFolder).toHaveBeenCalledTimes(1);
+    const payload = drive.uploadBackupToFolder.mock.calls[0][1];
+    expect(payload.tables.transactions[0].amount).toBe(4242);
+  });
+
+  it('still restores a newer remote snapshot when nothing local is pending', async () => {
+    await markAsPushed();
+    await remoteNewer();
+
+    render(<GoogleAutoBackup />);
+    await settle();
+
+    expect(await db.transactions.get('remote-1')).toBeTruthy();
+    expect(drive.uploadBackupToFolder).not.toHaveBeenCalled();
+  });
+
+  it('remembers what it uploaded', async () => {
+    render(<GoogleAutoBackup />);
+    await settle();
+    await act(async () => {
+      await db.transactions.update('t1', { amount: 999 });
+    });
+    await settle();
+
+    expect(drive.uploadBackupToFolder).toHaveBeenCalled();
+    expect((await getGoogleMeta()).pushedFingerprint).toBe(await computeSyncFingerprint());
+  });
+
+  it('remembers what it restored', async () => {
+    await remoteNewer();
+    render(<GoogleAutoBackup />);
+    await settle();
+
+    expect(await db.transactions.get('remote-1')).toBeTruthy();
+    expect((await getGoogleMeta()).pushedFingerprint).toBe(await computeSyncFingerprint());
+  });
+
+  // Switching PC means leaving this tab. Upload then, not 30s later.
+  it('is flushed when the tab is hidden', async () => {
+    render(<GoogleAutoBackup />);
+    await settle();
+    drive.uploadBackupToFolder.mockClear();
+
+    await act(async () => {
+      await db.transactions.update('t1', { amount: 31 });
+    });
+    await settle(1000, 4); // debounce armed, not fired
+
+    expect(drive.uploadBackupToFolder).not.toHaveBeenCalled();
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    try {
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await settle(1000, 6);
+    } finally {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    }
+
+    expect(drive.uploadBackupToFolder).toHaveBeenCalledTimes(1);
+    expect(drive.uploadBackupToFolder.mock.calls[0][1].tables.transactions[0].amount).toBe(31);
+  });
+});
+
+// A cleared timeout left in place still reads as "an upload is scheduled", and
+// that reading is what keeps every later foreground pull out. Signing out with
+// an edit pending is the way to strand one: the handle is cleared, the effect
+// returns before arming another, and the ref keeps pointing at the dead one.
+describe('after signing out with an edit pending', () => {
+  it('still pulls when the tab comes back to the foreground', async () => {
+    const { rerender } = render(<GoogleAutoBackup />);
+    await settle();
+
+    await act(async () => {
+      await db.transactions.update('t1', { amount: 8 });
+    });
+    await settle(1000, 4); // debounce armed, not fired
+
+    auth.status = 'signed-out';
+    await act(async () => {
+      rerender(<GoogleAutoBackup />);
+    });
+    auth.status = 'signed-in';
+    await act(async () => {
+      rerender(<GoogleAutoBackup />);
+    });
+    await settle();
+
+    const remote = await exportBackup('other-device');
+    remote.tables.transactions = [tx('remote-1', 777)];
+    drive.downloadBackupFile.mockResolvedValue(JSON.stringify(remote));
+    drive.listBackupsInFolder.mockResolvedValue([
+      { id: 'f9', name: 'argent-backup.json', modifiedTime: '2030-01-01T00:00:00.000Z' },
+    ]);
+    await settle(70_000, 1); // past the re-check floor
+
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await settle();
+
+    expect(await db.transactions.get('remote-1')).toBeTruthy();
   });
 });

@@ -168,6 +168,7 @@
       "restoreConfirmHint": "This replaces all local data with the contents of this backup. This cannot be undone.",
       "restoreConfirmBtn": "Replace and restore",
       "restoreConfirmName": "Selected backup: {{name}}",
+      "restoreUnsyncedWarning": "Changes made on this device have not been backed up yet. Restoring now will erase them — use \"Back up now\" first.",
       "noBackups": "No backup has been found on your Drive yet.",
       "signOut": "Sign out",
       "signOutBtn": "Sign out",

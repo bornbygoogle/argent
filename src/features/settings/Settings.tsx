@@ -127,6 +127,12 @@ export function Settings() {
     try {
       const payload = await parseBackupBlob(file);
       await importBackup(payload);
+      // Deliberately no `pushedFingerprint` update (unlike the Drive restore in
+      // features/settings/GoogleSync): the file the user picked is not what
+      // Drive holds, so the imported data reads as a local change and goes up
+      // on the next start. Recording it as already-synced would have Drive pull
+      // straight back over the import — the user picks a file to make it their
+      // data, on every device, not to watch it vanish at the next launch.
       location.reload();
     } catch {
       setBusy(false);

@@ -168,6 +168,7 @@
       "restoreConfirmHint": "Cela remplacera toutes les données locales par le contenu de cette sauvegarde. Action irréversible.",
       "restoreConfirmBtn": "Remplacer et restaurer",
       "restoreConfirmName": "Sauvegarde sélectionnée : {{name}}",
+      "restoreUnsyncedWarning": "Des modifications faites sur cet appareil n'ont pas encore été sauvegardées. Restaurer maintenant les effacera — lancez d'abord « Sauvegarder maintenant ».",
       "noBackups": "Aucune sauvegarde n'a encore été trouvée sur votre Drive.",
       "signOut": "Se déconnecter",
       "signOutBtn": "Déconnexion",

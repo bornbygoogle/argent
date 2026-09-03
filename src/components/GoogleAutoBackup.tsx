@@ -4,7 +4,12 @@
 //      retention policy (see lib/google/backupRetention.ts).
 //  (b) PULL — once per sign-in, if Drive's newest backup is strictly newer than
 //      this device's last push, import it (cross-device sync). Gated so a device
-//      never clobbers its own just-pushed data.
+//      never clobbers its own just-pushed data — nor an edit that never left:
+//      the fingerprint of the last snapshot exchanged with Drive is persisted,
+//      and a database that differs from it is pushed first, not pulled over.
+//      A reload inside the debounce, or a tab closed before it fired, used to
+//      strand such an edit with nothing remembering it was unsent; the next
+//      pull then replaced it with the other device's older snapshot.
 //
 // Also exposes a manual "back up now" trigger (requestBackupNow) and reports
 // observable status (last backup time, errors, in-flight) to the auth context
@@ -29,6 +34,7 @@ import {
   getGoogleMeta,
   setGoogleMeta,
   getOrCreateDeviceId,
+  hasUnsyncedChanges,
 } from '@/lib/google/folderStore';
 import {
   useGoogleAuth,
@@ -75,7 +81,16 @@ export function GoogleAutoBackup() {
   // user's newer data that lives on Drive. Set false on sign-out; set true
   // only once pullOnce() has finished (success, skip, or error).
   const readyToPush = useRef(false);
+  // Non-null means an upload is scheduled — which is also how the foreground
+  // re-check decides to stand aside. So the handle is dropped everywhere it is
+  // cleared, never merely cleared: one left pointing at a dead timeout keeps
+  // that re-check out for the rest of the session.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelScheduledPush = () => {
+    if (!timer.current) return;
+    clearTimeout(timer.current);
+    timer.current = null;
+  };
   // The in-flight pull, so a manual backup can wait for it instead of no-oping.
   const pullInFlight = useRef<Promise<void> | null>(null);
   // When the last pull finished, to throttle the foreground/online re-checks.
@@ -104,10 +119,14 @@ export function GoogleAutoBackup() {
       const token = await getValidAccessToken();
       const folderId = await ensureGestionMoneyFolder(token);
       const deviceId = await getOrCreateDeviceId();
+      // Fingerprint before export: an edit landing between the two reads as a
+      // diff against this value and is uploaded next, never silently absorbed.
+      const fingerprint = await computeSyncFingerprint();
       const payload = await exportBackup(deviceId);
       await withTokenRefresh((tk) => uploadBackupToFolder(folderId, payload, tk));
       const at = new Date().toISOString();
-      await setGoogleMeta({ lastBackupAt: at });
+      lastSeen.current = fingerprint;
+      await setGoogleMeta({ lastBackupAt: at, pushedFingerprint: fingerprint });
       reportBackupDone(at);
       if (manual) toast.success(t('settings.google.toastBackedUp'));
 
@@ -152,13 +171,21 @@ export function GoogleAutoBackup() {
   const pullOnce = useCallback(async () => {
     if (running.current) return;
     running.current = true;
+    // Set when the database holds an edit Drive never received: the pull steps
+    // aside and the edit goes up as soon as the gate opens, without waiting
+    // out the debounce — the user may reload again before it fires.
+    let flushUnsynced = false;
     try {
       const token = await getValidAccessToken();
       const folderId = await ensureGestionMoneyFolder(token);
+      const meta = await getGoogleMeta();
+      if (hasUnsyncedChanges(meta, await computeSyncFingerprint())) {
+        flushUnsynced = true;
+        return;
+      }
       const files = await withTokenRefresh((tk) => listBackupsInFolder(folderId, tk));
       if (files.length === 0) return; // nothing on Drive yet
       const newest = files[0];
-      const meta = await getGoogleMeta();
 
       // Skip if Drive isn't strictly newer than this device's last push —
       // avoids re-importing our own file or clobbering newer local edits.
@@ -173,10 +200,12 @@ export function GoogleAutoBackup() {
       // Local content now equals Drive's, so there is nothing to send back.
       // Without this the push effect sees "data changed" (it did — we just
       // changed it) and re-uploads the snapshot it has only now downloaded.
-      lastSeen.current = await computeSyncFingerprint();
+      const fingerprint = await computeSyncFingerprint();
+      lastSeen.current = fingerprint;
       await setGoogleMeta({
         lastPulledAt: new Date().toISOString(),
         lastBackupAt: newest.modifiedTime,
+        pushedFingerprint: fingerprint,
       });
       // Tell the UI "your data was just pulled from Drive".
       markRestoredJustNow();
@@ -195,12 +224,17 @@ export function GoogleAutoBackup() {
       // error). This is the crux: an automatic backup must NEVER fire before
       // the restore check has decided whether Drive holds newer data.
       readyToPush.current = true;
+      if (flushUnsynced) {
+        void pushOnce(false).catch(() => {
+          /* reported by pushOnce; the next change re-arms the retry */
+        });
+      }
       // Nudge the push effect to re-evaluate now that the gate is open, so a
       // local change made during the pull window gets backed up. (No-op if the
       // local state equals the baseline.)
       setGateNonce((n) => n + 1);
     }
-  }, [getValidAccessToken, toast, t]);
+  }, [getValidAccessToken, pushOnce, toast, t]);
 
   // PUSH: debounced on every heartbeat change while signed in — but ONLY after
   // the initial pull has resolved (readyToPush). Until then, no upload happens,
@@ -224,6 +258,9 @@ export function GoogleAutoBackup() {
     lastSeen.current = heartbeat;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
+      // Cleared here as well as in the cleanup: a fired timer left in place
+      // read as "upload scheduled" and kept every later foreground pull out.
+      timer.current = null;
       // pushOnce() rethrows so a *manual* caller can see the failure; nobody is
       // awaiting this automatic one. Catch it here, or the rejection escapes to
       // window.onunhandledrejection and a transient Drive error replaces the
@@ -233,9 +270,7 @@ export function GoogleAutoBackup() {
         /* reported by pushOnce; the next change re-arms the retry */
       });
     }, PUSH_DEBOUNCE_MS);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
+    return cancelScheduledPush;
   }, [heartbeat, status, pushOnce, gateNonce]);
 
   // PULL: once per sign-in transition. This MUST complete (or skip) before any
@@ -247,7 +282,7 @@ export function GoogleAutoBackup() {
       pullFired.current = false;
       readyToPush.current = false;
       lastSeen.current = null; // force a fresh baseline on next sign-in
-      if (timer.current) clearTimeout(timer.current);
+      cancelScheduledPush();
       return;
     }
     if (pullFired.current) return;
@@ -283,14 +318,29 @@ export function GoogleAutoBackup() {
       await pullOnce();
     };
     const onResume = () => void maybePull();
+    // Leaving the tab — to the other PC, typically — is the moment the pending
+    // edit must go up, not 30s later when this tab may already be gone.
+    const flushPending = () => {
+      if (!timer.current) return;
+      cancelScheduledPush();
+      void pushOnce(false).catch(() => {
+        /* reported by pushOnce; the next change re-arms the retry */
+      });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushPending();
+      else void maybePull();
+    };
 
-    document.addEventListener('visibilitychange', onResume);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flushPending);
     window.addEventListener('online', onResume);
     return () => {
-      document.removeEventListener('visibilitychange', onResume);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flushPending);
       window.removeEventListener('online', onResume);
     };
-  }, [status, pullOnce]);
+  }, [status, pullOnce, pushOnce]);
 
   return null;
 }
