@@ -1,0 +1,42 @@
+# gestionmoney -- profile for the agentics pipeline.
+#
+# Run from the agentics checkout, for example:
+#   ./agentics run --project /mnt/data2/DiskG/MEGA/Code/gestionmoney/agentics.yaml \
+#     --runtime claude-code --mission <slug> --bugs "<symptom>"
+
+name: gestionmoney
+project:
+  root: .
+  source_globs:
+    - "src/**/*.ts"
+    - "src/**/*.tsx"
+  exclude:
+    - "node_modules/**"
+    - "**/node_modules/**"
+    - "dist/**"
+    # Tests are found through the parser's own patterns, not as source.
+    - "**/*.test.ts"
+    - "**/*.test.tsx"
+
+tests:
+  # `--no`: npx refuses to install anything not already in node_modules.
+  authoritative: "npx --no vitest run"
+  parser: jest
+  # Placeholders only. Two auth tests need these names set; the real values
+  # live in .env and must never be copied here -- every role can read this file.
+  env:
+    VITE_GOOGLE_CLIENT_ID: test-client
+    VITE_GOOGLE_API_KEY: test-key
+
+roles: {}
+
+# Product decisions already made. Sent to every agent with the task, so no
+# stage parks a run to ask them again. Keep it to decisions (max 4000 bytes).
+rulings: agentics-rulings.md
+
+knowledge_base:
+  root: /mnt/data2/DiskG/MEGA/Code/secondbrain
+  domains: [general]
+
+# Outside the repository, so run reports never show up in git status.
+reports: ../gestionmoney-agentic-reports
