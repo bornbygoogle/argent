@@ -13,6 +13,19 @@ import type { AccountType } from '@/types/models';
 
 const TYPES: AccountType[] = ['courant', 'épargne', 'espèces', 'autre'];
 
+/**
+ * Strict opening-balance parser. Comma is the decimal separator (French-first),
+ * so '1,000' is 1. Empty/whitespace means 0; anything malformed returns null.
+ */
+const OPENING_BALANCE_RE = /^-?(\d+[.,]?\d*|[.,]\d+)$/;
+function parseOpeningBalance(raw: string): number | null {
+  const s = raw.trim();
+  if (s === '') return 0;
+  if (!OPENING_BALANCE_RE.test(s)) return null;
+  const n = Number(s.replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
 export function Onboarding() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -24,14 +37,25 @@ export function Onboarding() {
   const [type, setType] = useState<AccountType>('courant');
   const [balance, setBalance] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const finish = async () => {
+    const opening = parseOpeningBalance(balance);
+    if (opening === null) {
+      setError(t('onboarding.balanceInvalid'));
+      return;
+    }
+    setError(null);
     setBusy(true);
-    const opening = Number.parseFloat(balance.replace(',', '.')) || 0;
-    const id = await createAccount({ name: name || t(`accountType.${type}`), type, openingBalance: opening });
-    update({ hasOnboarded: true, lastUsedAccountId: id });
-    setScope(id);
-    navigate('/', { replace: true });
+    try {
+      const id = await createAccount({ name: name || t(`accountType.${type}`), type, openingBalance: opening });
+      update({ hasOnboarded: true, lastUsedAccountId: id });
+      setScope(id);
+      navigate('/', { replace: true });
+    } catch {
+      setBusy(false);
+      setError(t('onboarding.createFailed'));
+    }
   };
 
   if (step === 0) {
@@ -225,7 +249,10 @@ export function Onboarding() {
         <div style={{ position: 'relative', marginBottom: 6 }}>
           <input
             value={balance}
-            onChange={(e) => setBalance(e.target.value.replace(/[^0-9,.-]/g, ''))}
+            onChange={(e) => {
+              setBalance(e.target.value.replace(/[^0-9,.-]/g, ''));
+              setError(null);
+            }}
             inputMode="decimal"
             aria-label={t('onboarding.openingBalance')}
             placeholder="0,00"
@@ -243,6 +270,11 @@ export function Onboarding() {
           <Icon name={def.icon} size={12} />
           <span>{t('onboarding.openingBalanceHint')}</span>
         </div>
+        {error && (
+          <p role="alert" style={{ marginTop: 8, fontSize: 13, color: 'var(--danger, #b91c1c)' }}>
+            {error}
+          </p>
+        )}
       </div>
 
       <div className="pb-inset" style={{ paddingTop: 16, paddingLeft: 16, paddingRight: 16 }}>

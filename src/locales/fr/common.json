@@ -201,6 +201,8 @@
     "openingBalanceHint": "Peut être négatif (ex. un découvert).",
     "start": "Commencer",
     "create": "Créer et démarrer",
+    "balanceInvalid": "Montant invalide. Exemple : 1250,50",
+    "createFailed": "Impossible de créer le compte. Réessayez.",
     "splashHeadline": "Ajoutez en 2 secondes",
     "splashBody": "Saisissez une dépense en un geste, même hors-ligne. Le pavé numérique fait tout le travail.",
     "haveAccount": "J'ai déjà un compte"

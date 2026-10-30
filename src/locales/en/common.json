@@ -201,6 +201,8 @@
     "openingBalanceHint": "Can be negative (e.g. an overdraft).",
     "start": "Get started",
     "create": "Create & start",
+    "balanceInvalid": "Invalid amount. Example: 1250.50",
+    "createFailed": "Could not create the account. Please try again.",
     "splashHeadline": "Add it in 2 seconds",
     "splashBody": "Log an expense in one gesture, even offline. The numpad does the work.",
     "haveAccount": "I already have an account"
