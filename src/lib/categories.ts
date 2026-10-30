@@ -48,12 +48,18 @@ export async function updateCategory(id: string, patch: CategoryPatch): Promise<
 
 export async function deleteCategory(id: string): Promise<void> {
   if (id === 'cat-autre') return; // never delete the fallback
-  await db.transaction('rw', db.transactions, db.categories, db.subcategories, db.budgets, async () => {
+  await db.transaction('rw', db.transactions, db.categories, db.subcategories, db.budgets, db.recurrings, async () => {
     // Sub-categories belong to this category and cannot follow its expenses to
     // the fallback, so they go first — while their transactions still resolve.
     await deleteSubcategoriesOfCategory(id);
     // Reassign expenses, then strip the limit from every budget.
     await db.transactions.where('categoryId').equals(id).modify({ categoryId: 'cat-autre' });
+    // Recurring templates would otherwise keep a dead categoryId and stamp it
+    // onto every transaction they settle. No categoryId index: scan the table.
+    const recs = await db.recurrings.toArray();
+    for (const r of recs) {
+      if (r.categoryId === id) await db.recurrings.update(r.id, { categoryId: 'cat-autre' });
+    }
     const budgets = await db.budgets.toArray();
     for (const b of budgets) {
       const limits = b.categoryLimits.filter((c) => c.categoryId !== id);

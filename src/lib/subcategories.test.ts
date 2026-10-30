@@ -12,7 +12,21 @@ import {
 } from '@/lib/subcategories';
 import { deleteCategory } from '@/lib/categories';
 import { addTransaction, updateTransaction } from '@/lib/transactions';
-import type { Category } from '@/types/models';
+import type { Category, Recurring } from '@/types/models';
+
+const recurring = (id: string, over: Partial<Recurring>): Recurring => ({
+  id,
+  accountId: 'acc-1',
+  direction: 'expense',
+  label: id,
+  amount: 10,
+  cadence: 'monthly',
+  icon: 'Repeat',
+  color: '#3F8F6B',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  history: [],
+  ...over,
+});
 
 const category = (id: string, name: string, sortOrder: number): Category => ({
   id,
@@ -26,8 +40,9 @@ const category = (id: string, name: string, sortOrder: number): Category => ({
 beforeEach(async () => {
   await db.transaction(
     'rw',
-    [db.categories, db.subcategories, db.transactions, db.budgets],
+    [db.categories, db.subcategories, db.transactions, db.budgets, db.recurrings],
     async () => {
+      await db.recurrings.clear();
       await db.categories.clear();
       await db.subcategories.clear();
       await db.transactions.clear();
@@ -201,6 +216,37 @@ describe('deleteCategory cascade', () => {
     await deleteCategory('cat-restaurant');
 
     expect((await listSubcategories('cat-courses')).map((s) => s.name)).toEqual(['Bio']);
+  });
+
+  it('reassigns recurring templates of the deleted category to cat-autre', async () => {
+    await db.recurrings.add(recurring('r-resto', { categoryId: 'cat-restaurant' }));
+
+    await deleteCategory('cat-restaurant');
+
+    expect((await db.recurrings.get('r-resto'))?.categoryId).toBe('cat-autre');
+  });
+
+  it('leaves recurrings of other categories untouched when a category is deleted', async () => {
+    await db.recurrings.bulkAdd([
+      recurring('r-courses', { categoryId: 'cat-courses' }),
+      recurring('r-income', { direction: 'income', incomeType: 'Salaire' }),
+    ]);
+
+    await deleteCategory('cat-restaurant');
+
+    expect((await db.recurrings.get('r-courses'))?.categoryId).toBe('cat-courses');
+    const income = await db.recurrings.get('r-income');
+    expect(income?.categoryId).toBeUndefined();
+    expect(income?.incomeType).toBe('Salaire');
+  });
+
+  it('never deletes the cat-autre fallback nor moves its recurrings', async () => {
+    await db.recurrings.add(recurring('r-autre', { categoryId: 'cat-autre' }));
+
+    await deleteCategory('cat-autre');
+
+    expect(await db.categories.get('cat-autre')).toBeDefined();
+    expect((await db.recurrings.get('r-autre'))?.categoryId).toBe('cat-autre');
   });
 });
 
