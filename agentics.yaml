@@ -32,7 +32,12 @@ project:
 
 tests:
   # `--no`: npx refuses to install anything not already in node_modules.
-  authoritative: "npx --no vitest run"
+  # typecheck runs AFTER vitest so the parser still sees real test counts before
+  # a type error turns the exit non-zero. It is needed because vitest does not
+  # typecheck: the category-delete run merged `cadence: 'monthly'` (the type is
+  # 'mensuel') with a green suite, and `npm run typecheck` then exited 2 on main.
+  # `tsc -b` is what covers test files; `tsc -p tsconfig.app.json` does not.
+  authoritative: "npx --no vitest run && npm run typecheck"
   # The guard check re-runs this against a reverted tree. 430 tests, 39s, no jsdom.
   fast: "npx --no vitest run src/lib api/_lib"
   parser: jest
