@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import { db, DEFAULT_SETTINGS, type SettingsRecord } from '@/db/db';
@@ -44,7 +43,6 @@ function applyTheme(pref: ThemePref) {
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
-  const firstApply = useRef(true);
 
   // Load once, seed defaults, apply current theme/locale.
   useEffect(() => {
@@ -69,25 +67,26 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (state.locale) await i18n.changeLanguage(state.locale);
       else if (!i18n.language) await i18n.changeLanguage('en');
     })();
-    // React to OS theme changes when in system mode.
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = () => {
-      if (document.documentElement && settings.theme === 'system') applyTheme('system');
-    };
-    mq.addEventListener('change', onChange);
     return () => {
       alive = false;
-      mq.removeEventListener('change', onChange);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist + re-apply whenever settings change (skip the initial hydration).
+  // React to OS theme changes, but only while the live theme is 'system'. Keyed
+  // on settings.theme so the listener never reads a stale first-render value.
+  useEffect(() => {
+    if (settings.theme !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyTheme('system');
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [settings.theme]);
+
+  // Persist + re-apply whenever settings change. Waits for hydration (ready);
+  // the first write after that also syncs the currency store and the
+  // localStorage mirror, so it is not skipped.
   useEffect(() => {
     if (!ready) return;
-    if (firstApply.current) {
-      firstApply.current = false;
-    }
     const rec: SettingsRecord = { key: 'app', state: settings };
     db.settings.put(rec).catch(() => {});
     // Mirror to localStorage for the pre-paint FOUC script.
