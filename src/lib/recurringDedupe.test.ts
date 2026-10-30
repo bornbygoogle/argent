@@ -322,6 +322,168 @@ describe('dedupeRecurringMonths', () => {
   });
 });
 
+/** A pay: the income that opens a pay cycle. */
+const salary = (id: string, date: string, accountId = 'acc-1'): Transaction => ({
+  id,
+  kind: 'income',
+  incomeType: 'Salaire',
+  accountId,
+  amount: 2000,
+  date,
+  createdAt: `${date}T08:00:00.000Z`,
+  updatedAt: `${date}T08:00:00.000Z`,
+});
+
+describe('dedupeRecurringMonths ceiling per pay cycle', () => {
+  it('keeps both entries of a monthly template when a Salaire separates them inside one calendar month', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-07-26'),
+      tx('in-cycle-1', '2026-08-02', '2026-08-02T10:00:00.000Z'),
+      salary('pay-2', '2026-08-26'),
+      tx('in-cycle-2', '2026-08-28', '2026-08-28T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec());
+
+    expect(await dedupeRecurringMonths()).toBe(0);
+    expect(await ids()).toEqual(['in-cycle-1', 'in-cycle-2', 'pay-1', 'pay-2']);
+  });
+
+  it('still collapses two entries of a monthly template inside one pay cycle', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-07-26'),
+      tx('first', '2026-08-02', '2026-08-02T10:00:00.000Z'),
+      tx('second', '2026-08-20', '2026-08-03T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec());
+
+    expect(await dedupeRecurringMonths()).toBe(1);
+    expect(await ids()).toEqual(['first', 'pay-1']);
+  });
+
+  it('takes Salaire incomes from every account when delimiting cycles', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-07-26', 'acc-9'),
+      tx('a', '2026-08-02', '2026-08-02T10:00:00.000Z'),
+      salary('pay-2', '2026-08-26', 'acc-9'),
+      tx('b', '2026-08-28', '2026-08-28T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec({ accountId: 'acc-1' }));
+
+    expect(await dedupeRecurringMonths()).toBe(0);
+    expect(await ids()).toEqual(['a', 'b', 'pay-1', 'pay-2']);
+  });
+
+  it('does not let another income type open a cycle', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-07-26'),
+      { ...salary('bonus', '2026-08-15'), incomeType: 'Prime' },
+      tx('a', '2026-08-02', '2026-08-02T10:00:00.000Z'),
+      tx('b', '2026-08-20', '2026-08-20T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec());
+
+    expect(await dedupeRecurringMonths()).toBe(1);
+    expect(await ids()).toEqual(['a', 'bonus', 'pay-1']);
+  });
+
+  it('falls back to one entry per calendar month before the first Salaire', async () => {
+    await db.transactions.bulkAdd([
+      tx('early-1', '2026-06-02', '2026-06-02T10:00:00.000Z'),
+      tx('early-2', '2026-06-20', '2026-06-20T10:00:00.000Z'),
+      salary('pay-1', '2026-07-26'),
+    ]);
+    await db.recurrings.add(rec());
+
+    expect(await dedupeRecurringMonths()).toBe(1);
+    expect(await ids()).toEqual(['early-1', 'pay-1']);
+  });
+
+  it('keeps one entry per calendar month for weekly and yearly templates even across a Salaire', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-08-10'),
+      tx('w-1', '2026-08-02', '2026-08-02T10:00:00.000Z', 'r-w'),
+      tx('w-2', '2026-08-20', '2026-08-20T10:00:00.000Z', 'r-w'),
+      tx('y-1', '2026-08-02', '2026-08-02T10:00:00.000Z', 'r-y'),
+      tx('y-2', '2026-08-20', '2026-08-20T10:00:00.000Z', 'r-y'),
+    ]);
+    await db.recurrings.bulkAdd([
+      rec({ id: 'r-w', cadence: 'hebdo' }),
+      rec({ id: 'r-y', cadence: 'annuel' }),
+    ]);
+
+    expect(await dedupeRecurringMonths()).toBe(2);
+    expect(await ids()).toEqual(['pay-1', 'w-1', 'y-1']);
+  });
+
+  it('keeps the transfer pair of a legitimate second-cycle entry whole', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-07-26'),
+      salary('pay-2', '2026-08-26'),
+      ...pair('g-one', '2026-08-02', '2026-08-02T10:00:00.000Z'),
+      ...pair('g-two', '2026-08-28', '2026-08-28T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec({ receiverAccountId: 'acc-2' }));
+
+    expect(await dedupeRecurringMonths()).toBe(0);
+    expect(await ids()).toEqual(['g-one-in', 'g-one-out', 'g-two-in', 'g-two-out', 'pay-1', 'pay-2']);
+  });
+
+  it('keeps the instalment history names within one cycle over an earlier unnamed one', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-07-26'),
+      tx('orphan', '2026-08-02', '2026-08-02T10:00:00.000Z'),
+      tx('known', '2026-08-10', '2026-08-10T10:00:00.000Z'),
+      salary('pay-2', '2026-08-26'),
+      tx('next', '2026-08-28', '2026-08-28T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec({ history: [entry('known', '2026-08-10')] }));
+
+    expect(await dedupeRecurringMonths()).toBe(1);
+    expect(await ids()).toEqual(['known', 'next', 'pay-1', 'pay-2']);
+  });
+
+  it('puts a row dated on a Salaire day in the cycle that Salaire opens', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-08-01'),
+      tx('before', '2026-08-01', '2026-08-01T10:00:00.000Z'),
+      salary('pay-2', '2026-08-26'),
+      tx('on-day', '2026-08-26', '2026-08-26T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec());
+
+    expect(await dedupeRecurringMonths()).toBe(0);
+  });
+
+  it('collapses a month\'s duplicates after the last Salaire only against that cycle', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-08-05'),
+      tx('c1-a', '2026-08-06', '2026-08-06T10:00:00.000Z'),
+      salary('pay-2', '2026-08-26'),
+      tx('c2-a', '2026-08-27', '2026-08-27T10:00:00.000Z'),
+      tx('c2-b', '2026-08-30', '2026-08-30T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec());
+
+    expect(await dedupeRecurringMonths()).toBe(1);
+    expect(await ids()).toEqual(['c1-a', 'c2-a', 'pay-1', 'pay-2']);
+  });
+
+  it('is idempotent across pay cycles', async () => {
+    await db.transactions.bulkAdd([
+      salary('pay-1', '2026-07-26'),
+      tx('a', '2026-08-02', '2026-08-02T10:00:00.000Z'),
+      tx('a-dup', '2026-08-05', '2026-08-03T10:00:00.000Z'),
+      salary('pay-2', '2026-08-26'),
+      tx('b', '2026-08-28', '2026-08-28T10:00:00.000Z'),
+    ]);
+    await db.recurrings.add(rec());
+
+    expect(await dedupeRecurringMonths()).toBe(1);
+    expect(await dedupeRecurringMonths()).toBe(0);
+    expect(await ids()).toEqual(['a', 'b', 'pay-1', 'pay-2']);
+  });
+});
+
 describe('dedupeRecurringMonths on a charge that settles as a transfer', () => {
   it('takes the losing pair whole, never leaving a leg behind', async () => {
     // A double press writes two complete transfers. Only the outgoing legs

@@ -5,9 +5,12 @@
 // Repeated edits did that without limit, and each press wrote another real
 // transaction — a month could end up holding four or five copies of one bill.
 //
-// The ceiling is one, because that is what the schedule itself says: dueDateFor
-// yields exactly one date per month and paidMonths keys settlement by month, so
-// a second instalment is never an instalment — it is a double charge. An earlier
+// The ceiling is one per PAY CYCLE for a monthly template: a cycle opens at each
+// 'Salaire' income (taken across all accounts) and lasts until the next, so one
+// calendar month can legitimately hold two entries, one in each cycle. Before
+// the first Salaire, and for weekly and yearly templates, it falls back to one
+// per calendar month. Two entries inside one cycle are a double charge: a
+// second instalment there is never an instalment. An earlier
 // ceiling of two treated one re-log as a tolerable cost of editing the day; it
 // is not. Real data carried 620 € of such "tolerated" copies, every one of them
 // skipped by this pass for sitting exactly at the old limit.
@@ -22,9 +25,10 @@
 // writes of a concurrent double-press left transactions no history entry names,
 // and those are exactly the copies no screen can reach to delete.
 import { db } from '@/db/db';
-import type { Transaction } from '@/types/models';
+import type { Recurring, Transaction } from '@/types/models';
 
-/** How many instalments of one template may share a month. */
+/** How many instalments of one template may share a pay cycle (monthly
+ *  templates) or a calendar month (weekly, yearly, or before the first Salaire). */
 export const MAX_PER_MONTH = 1;
 
 /** Oldest saved first. Ties broken on id so a rerun makes the same choice —
@@ -34,13 +38,47 @@ const bySavedDate = (a: Transaction, b: Transaction): number => {
   return a.id < b.id ? -1 : 1;
 };
 
-const groupByMonth = (rows: Transaction[]): Map<string, Transaction[]> => {
+/** The seeded income type that opens a pay cycle (same key as lib/period). */
+const SALARY = 'Salaire';
+
+/**
+ * Every Salaire date, oldest first, across ALL accounts. A pay cycle belongs to
+ * the person's timeline, not to one account — lib/period reads it the same way.
+ */
+async function salaryDates(): Promise<string[]> {
+  const pays = await db.transactions
+    .filter((t) => t.kind === 'income' && t.incomeType === SALARY)
+    .toArray();
+  return [...new Set(pays.map((t) => t.date))].sort();
+}
+
+/** The latest Salaire dated on or before `date`, if any. */
+function cycleStart(date: string, salaries: string[]): string | undefined {
+  let start: string | undefined;
+  for (const s of salaries) {
+    if (s > date) break;
+    start = s;
+  }
+  return start;
+}
+
+/**
+ * Group instalments by the unit the ceiling applies to: the pay cycle for a
+ * monthly template, the calendar month otherwise — and for a monthly row dated
+ * before the first Salaire. The key prefixes keep the two spaces apart.
+ */
+const groupByCeilingUnit = (
+  rows: Transaction[],
+  cadence: Recurring['cadence'],
+  salaries: string[],
+): Map<string, Transaction[]> => {
   const m = new Map<string, Transaction[]>();
   for (const t of rows) {
-    const month = t.date.slice(0, 7);
-    const arr = m.get(month) ?? [];
+    const start = cadence === 'mensuel' ? cycleStart(t.date, salaries) : undefined;
+    const key = start ? `cycle:${start}` : `month:${t.date.slice(0, 7)}`;
+    const arr = m.get(key) ?? [];
     arr.push(t);
-    m.set(month, arr);
+    m.set(key, arr);
   }
   return m;
 };
@@ -65,14 +103,17 @@ async function withTransferSiblings(rows: Transaction[]): Promise<string[]> {
 }
 
 /**
- * Delete every instalment past the ceiling, month by month and template by
- * template, keeping one. Returns how many transactions were removed.
+ * Delete every instalment past the ceiling, pay cycle by pay cycle (calendar
+ * month by calendar month for weekly and yearly templates, and before the first
+ * Salaire) and template by template, keeping one. Returns how many
+ * transactions were removed.
  *
- * Idempotent — once a month is back at or under the ceiling it is left alone,
+ * Idempotent — once a cycle is back at or under the ceiling it is left alone,
  * so this is safe to run on every start.
  */
 export async function dedupeRecurringMonths(): Promise<number> {
   const recurrings = await db.recurrings.toArray();
+  const salaries = await salaryDates();
   let deleted = 0;
 
   for (const r of recurrings) {
@@ -80,7 +121,7 @@ export async function dedupeRecurringMonths(): Promise<number> {
     const named = new Set(r.history.map((h) => h.transactionId).filter(Boolean));
 
     const losers: Transaction[] = [];
-    for (const group of groupByMonth(rows).values()) {
+    for (const group of groupByCeilingUnit(rows, r.cadence, salaries).values()) {
       if (group.length <= MAX_PER_MONTH) continue;
       const ordered = [...group].sort(bySavedDate);
       const survivor = ordered.find((t) => named.has(t.id)) ?? ordered[0];
