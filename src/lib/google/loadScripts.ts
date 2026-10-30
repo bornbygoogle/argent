@@ -13,8 +13,10 @@ function inject(url: string): Promise<void> {
   const existing = cache.get(url);
   if (existing) return existing;
 
-  let resolveFn: () => void;
-  let rejectFn: (e: Error) => void;
+  // `!`: the Promise executor below runs synchronously, so both are assigned
+  // before the already-loaded path calls resolveFn() on the same tick.
+  let resolveFn!: () => void;
+  let rejectFn!: (e: Error) => void;
 
   const p = new Promise<void>((resolve, reject) => {
     resolveFn = resolve;
