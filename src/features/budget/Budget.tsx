@@ -38,12 +38,12 @@ export function Budget() {
   // Same window as the home hero — the budget month, which follows payday when
   // one is known. Two screens showing the same figure must measure it alike.
   const period = useBudgetPeriod();
-  const monthExpenses = useMonthExpenses(period.month, scope, period.anchor);
+  const monthExpenses = useMonthExpenses(period.month, scope, period.salaries);
   const [scopeOpen, setScopeOpen] = useState(false);
 
   // The monthly total is derived from the user's own numbers rather than typed:
   // income for the month less the recurring expenses already committed to it.
-  const auto = useAutoBudget(scope, period.month, period.anchor);
+  const auto = useAutoBudget(scope, period.month, period.salaries);
   const monthly = auto.total;
 
   // Editable state, hydrated once from the loaded budget.

@@ -25,6 +25,7 @@
 // writes of a concurrent double-press left transactions no history entry names,
 // and those are exactly the copies no screen can reach to delete.
 import { db } from '@/db/db';
+import { cycleStart, salaryDates } from '@/lib/period';
 import type { Recurring, Transaction } from '@/types/models';
 
 /** How many instalments of one template may share a pay cycle (monthly
@@ -37,30 +38,6 @@ const bySavedDate = (a: Transaction, b: Transaction): number => {
   if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
   return a.id < b.id ? -1 : 1;
 };
-
-/** The seeded income type that opens a pay cycle (same key as lib/period). */
-const SALARY = 'Salaire';
-
-/**
- * Every Salaire date, oldest first, across ALL accounts. A pay cycle belongs to
- * the person's timeline, not to one account — lib/period reads it the same way.
- */
-async function salaryDates(): Promise<string[]> {
-  const pays = await db.transactions
-    .filter((t) => t.kind === 'income' && t.incomeType === SALARY)
-    .toArray();
-  return [...new Set(pays.map((t) => t.date))].sort();
-}
-
-/** The latest Salaire dated on or before `date`, if any. */
-function cycleStart(date: string, salaries: string[]): string | undefined {
-  let start: string | undefined;
-  for (const s of salaries) {
-    if (s > date) break;
-    start = s;
-  }
-  return start;
-}
 
 /**
  * Group instalments by the unit the ceiling applies to: the pay cycle for a

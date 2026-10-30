@@ -174,13 +174,13 @@ describe('computeAutoBudget', () => {
       const settled = salary({
         history: [{ month: '2026-08', amount: 2000, transactionId: 'tx-1', occurrence: '2026-08-26' }],
       });
-      const b = computeAutoBudget(2000, [settled], '2026-09', 26);
+      const b = computeAutoBudget(2000, [settled], '2026-08-26', ['2026-08-26']);
       expect(b.income).toBe(2000);
       expect(b.total).toBe(2000);
     });
 
     it('still expects income that has not landed yet', () => {
-      const b = computeAutoBudget(0, [salary()], '2026-09', 26);
+      const b = computeAutoBudget(0, [salary()], '2026-08-26', ['2026-08-26']);
       expect(b.income).toBe(2000);
     });
 
@@ -188,7 +188,7 @@ describe('computeAutoBudget', () => {
       const settled = salary({
         history: [{ month: '2026-07', amount: 2000, transactionId: 'tx-0', occurrence: '2026-07-26' }],
       });
-      expect(computeAutoBudget(0, [settled], '2026-09', 26).income).toBe(2000);
+      expect(computeAutoBudget(0, [settled], '2026-08-26', ['2026-07-26', '2026-08-26']).income).toBe(2000);
     });
 
     it('reads as the calendar month when payday is the 1st', () => {
@@ -197,7 +197,7 @@ describe('computeAutoBudget', () => {
         amount: 2000,
         history: [{ month: MONTH, amount: 2000, transactionId: 'tx-1' }],
       });
-      expect(computeAutoBudget(2000, [settled], MONTH, 1)).toEqual(
+      expect(computeAutoBudget(2000, [settled], MONTH, [])).toEqual(
         computeAutoBudget(2000, [settled], MONTH),
       );
     });
@@ -226,15 +226,15 @@ describe('upcomingCommitments', () => {
   });
 
   it('drops a bill settled inside the payday cycle, wherever the calendar puts it', () => {
-    // Paid 28 August; with payday on the 26th that settles the September cycle.
+    // Paid 28 August; with a Salaire on 26 August that settles the cycle it opens.
     const paid = rec({
       amount: 30,
       dueDay: 28,
       history: [{ month: '2026-08', amount: 30, transactionId: 'tx-1', occurrence: '2026-08-28' }],
     });
-    expect(upcomingCommitments([paid], '2026-09', 26)).toBe(0);
+    expect(upcomingCommitments([paid], '2026-08-26', ['2026-08-26'])).toBe(0);
     // Same payment against the calendar-September question: not settled.
-    expect(upcomingCommitments([paid], '2026-09', 1)).toBe(30);
+    expect(upcomingCommitments([paid], '2026-09', [])).toBe(30);
   });
 
   it('ignores income templates — expected money is not a bill', () => {

@@ -297,7 +297,15 @@ describe('Dashboard — the budget month follows payday', () => {
     ]);
     await db.transactions.bulkAdd([
       tx({ id: 'tx-old', amount: 2050, date: '2026-08-10' }), // lived on July's pay
-      tx({ id: 'tx-sal', kind: 'income', amount: 2900, date: '2026-08-26', recurringSourceId: 'r-sal' }),
+      // Only an income of type Salaire opens a pay cycle — the template's due day does not.
+      tx({
+        id: 'tx-sal',
+        kind: 'income',
+        amount: 2900,
+        date: '2026-08-26',
+        incomeType: 'Salaire',
+        recurringSourceId: 'r-sal',
+      }),
       tx({ id: 'tx-new', amount: 50, date: '2026-08-27' }),
     ]);
   });

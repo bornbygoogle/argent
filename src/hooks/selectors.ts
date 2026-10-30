@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
 import { monthOf, todayISO } from '@/lib/date';
-import { payAnchorDay, periodBounds, periodOf } from '@/lib/period';
+import { periodBounds, periodOf, salaryDatesFrom } from '@/lib/period';
 import { sumExpenses, sumIncome } from '@/lib/calc';
 import { computeAutoBudget, variableExpenses, type AutoBudget } from '@/lib/budget';
 import type {
@@ -134,21 +134,36 @@ export function useScopedTransactions(scope: AccountScope): Transaction[] {
   );
 }
 
+/** No Salaire dates: periods are plain calendar months. A module constant so
+ *  an omitted argument keeps a stable identity for memo dependencies. */
+const NO_SALARIES: string[] = [];
+
+/** Every Salaire date, oldest first — from ALL transactions, never the scoped
+ *  list: a pay cycle belongs to the person's timeline, not to one account. */
+export function useSalaryDates(): string[] {
+  const all = useAllTransactions();
+  return useMemo(() => salaryDatesFrom(all), [all]);
+}
+
 export interface MonthSummary {
   income: number;
   expense: number;
   net: number;
 }
 
-/** Income/expense totals for a month within a scope. */
-export function useMonthSummary(month: string, scope: AccountScope, anchor = 1): MonthSummary {
+/** Income/expense totals for a period within a scope. */
+export function useMonthSummary(
+  month: string,
+  scope: AccountScope,
+  salaries: string[] = NO_SALARIES,
+): MonthSummary {
   const tx = useScopedTransactions(scope);
   return useMemo(() => {
-    const inMonth = tx.filter((t) => periodOf(t.date, anchor) === month);
+    const inMonth = tx.filter((t) => periodOf(t.date, salaries) === month);
     const income = sumIncome(inMonth);
     const expense = sumExpenses(inMonth);
     return { income, expense, net: income - expense };
-  }, [tx, month, anchor]);
+  }, [tx, month, salaries]);
 }
 
 /** Recent movements (scoped), newest first, capped to `limit`. */
@@ -212,43 +227,44 @@ export function useScopedRecurrings(scope: AccountScope): Recurring[] {
 export function useVariableExpenses(
   scope: AccountScope,
   month: string,
-  anchor = 1,
+  salaries: string[] = NO_SALARIES,
 ): Transaction[] {
   const tx = useScopedTransactions(scope);
   return useMemo(
-    () => variableExpenses(tx.filter((t) => periodOf(t.date, anchor) === month)),
-    [tx, month, anchor],
+    () => variableExpenses(tx.filter((t) => periodOf(t.date, salaries) === month)),
+    [tx, month, salaries],
   );
 }
 
 export function useAutoBudget(
   scope: AccountScope,
   month: string = monthOf(todayISO()),
-  anchor = 1,
+  salaries: string[] = NO_SALARIES,
 ): AutoBudget {
-  const summary = useMonthSummary(month, scope, anchor);
+  const summary = useMonthSummary(month, scope, salaries);
   const recurrings = useScopedRecurrings(scope);
   return useMemo(
-    () => computeAutoBudget(summary.income, recurrings, month, anchor),
-    [summary.income, recurrings, month, anchor],
+    () => computeAutoBudget(summary.income, recurrings, month, salaries),
+    [summary.income, recurrings, month, salaries],
   );
 }
 
 /**
- * The budget month in progress. Payday to payday when a monthly recurring
- * income names a due day, plain calendar month otherwise — so the money that
- * arrives on the 26th is measured against the weeks it has to cover, not
- * against the four already spent out of last month's pay.
+ * The pay cycle in progress. It runs from the latest Salaire income to the next
+ * (projected one month on while it is still open), across all accounts; before
+ * the first Salaire it is the plain calendar month. `month` is the cycle key —
+ * the Salaire date that opened it, or 'YYYY-MM' — and `salaries` is what every
+ * other selector needs to group by the same cycles.
  */
 export function useBudgetPeriod(): {
   month: string;
-  anchor: number;
+  salaries: string[];
   start: string;
   end: string;
 } {
-  const anchor = payAnchorDay(useRecurrings(), useAllTransactions());
-  const month = periodOf(todayISO(), anchor);
-  return { month, anchor, ...periodBounds(month, anchor) };
+  const salaries = useSalaryDates();
+  const month = periodOf(todayISO(), salaries);
+  return { month, salaries, ...periodBounds(month, salaries) };
 }
 
 /** The budget for a single account (undefined until the user sets one). */
@@ -260,12 +276,16 @@ export function useBudget(accountId: string | undefined): Budget | undefined {
   );
 }
 
-/** Expenses within the current scope for a whole month ('YYYY-MM'). */
-export function useMonthExpenses(month: string, scope: AccountScope, anchor = 1): Transaction[] {
+/** Expenses within the current scope for a period (a pay cycle or 'YYYY-MM'). */
+export function useMonthExpenses(
+  month: string,
+  scope: AccountScope,
+  salaries: string[] = NO_SALARIES,
+): Transaction[] {
   const tx = useScopedTransactions(scope);
   return useMemo(
-    () => tx.filter((t) => t.kind === 'expense' && periodOf(t.date, anchor) === month),
-    [tx, month, anchor],
+    () => tx.filter((t) => t.kind === 'expense' && periodOf(t.date, salaries) === month),
+    [tx, month, salaries],
   );
 }
 

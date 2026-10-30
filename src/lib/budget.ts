@@ -40,9 +40,11 @@ export function monthlyEquivalent(amount: number, cadence: Cadence): number {
  * is left by exactly its amount.
  */
 /** Has this template's instalment for the budget month been settled? */
-function settledIn(r: Recurring, month: string, anchor: number): boolean {
-  if (anchor <= 1) return isConfirmedIn(r, month);
-  return r.history.some((h) => !!h.transactionId && periodOf(occurrenceOf(h, r), anchor) === month);
+function settledIn(r: Recurring, month: string, salaries: string[]): boolean {
+  if (salaries.length === 0) return isConfirmedIn(r, month);
+  return r.history.some(
+    (h) => !!h.transactionId && periodOf(occurrenceOf(h, r), salaries) === month,
+  );
 }
 
 /**
@@ -54,11 +56,11 @@ function settledIn(r: Recurring, month: string, anchor: number): boolean {
 export function upcomingCommitments(
   recurrings: Recurring[],
   month: string,
-  anchor = 1,
+  salaries: string[] = [],
 ): number {
   return round2(
     recurrings
-      .filter((r) => r.direction === 'expense' && !settledIn(r, month, anchor))
+      .filter((r) => r.direction === 'expense' && !settledIn(r, month, salaries))
       .reduce((s, r) => s + monthlyEquivalent(r.amount, r.cadence), 0),
   );
 }
@@ -88,16 +90,16 @@ export interface AutoBudget {
  * expenses are never summed here, so there is nothing to double count, and a
  * commitment is a commitment whether it has been paid yet or not.
  *
- * `anchor` is the payday the budget month runs from (1 = calendar month). It
- * has to reach the settled check too: a salary paid on 26 August settles the
- * September period, and asking the calendar would leave September still
- * expecting it — on top of the money already in `actualIncome`.
+ * `salaries` are the Salaire dates the pay cycles run from (empty = calendar
+ * months). They have to reach the settled check too: a salary paid on 26 August
+ * settles the cycle it opens, and asking the calendar would leave that cycle
+ * still expecting it — on top of the money already in `actualIncome`.
  */
 export function computeAutoBudget(
   actualIncome: number,
   recurrings: Recurring[],
   month: string,
-  anchor = 1,
+  salaries: string[] = [],
 ): AutoBudget {
   let stillDue = 0;
   let recurringExpenses = 0;
@@ -105,7 +107,7 @@ export function computeAutoBudget(
   for (const r of recurrings) {
     const monthly = monthlyEquivalent(r.amount, r.cadence);
     if (r.direction === 'expense') recurringExpenses += monthly;
-    else if (!settledIn(r, month, anchor)) stillDue += monthly;
+    else if (!settledIn(r, month, salaries)) stillDue += monthly;
   }
 
   const income = round2(actualIncome + stillDue);

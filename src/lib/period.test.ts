@@ -1,157 +1,240 @@
-import { describe, it, expect } from 'vitest';
-import { payAnchorDay, periodOf, periodBounds } from '@/lib/period';
+// happy-dom ships no IndexedDB, so Dexie needs a shim. This import must come
+// before '@/db/db'.
+import 'fake-indexeddb/auto';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { db } from '@/db/db';
+import {
+  SALARY,
+  cycleStart,
+  periodBounds,
+  periodOf,
+  salaryDates,
+  salaryDatesFrom,
+} from '@/lib/period';
 import { daysInMonth } from '@/lib/date';
-import type { Recurring, Transaction } from '@/types/models';
+import type { Transaction } from '@/types/models';
 
-const rec = (over: Partial<Recurring> = {}): Recurring => ({
-  id: 'r-1',
-  accountId: 'acc-1',
-  direction: 'income',
-  label: 'Salary',
-  amount: 2000,
-  cadence: 'mensuel',
-  icon: 'Wallet',
-  color: '#000000',
-  createdAt: '2026-01-01T00:00:00.000Z',
-  history: [],
-  ...over,
-});
-
-const pay = (date: string, over: Partial<Transaction> = {}): Transaction => ({
-  id: `tx-${date}`,
+const income = (date: string, over: Partial<Transaction> = {}): Transaction => ({
+  id: `tx-${date}-${over.incomeType ?? SALARY}-${over.accountId ?? 'acc-1'}`,
   kind: 'income',
   accountId: 'acc-1',
   amount: 2900,
-  incomeType: 'Salaire',
+  incomeType: SALARY,
   date,
   createdAt: `${date}T10:00:00.000Z`,
   updatedAt: `${date}T10:00:00.000Z`,
   ...over,
 });
 
-// Most people have no recurring template for their own pay — they log it when
-// it lands. The payment itself is the better anchor anyway: it is what actually
-// happened, where a template is only what was meant to.
-describe('payAnchorDay from the salary that landed', () => {
-  it('follows the day the last salary was paid', () => {
-    expect(payAnchorDay([], [pay('2026-08-26')], '2026-08-27')).toBe(26);
+beforeEach(async () => {
+  await Promise.all(db.tables.map((t) => t.clear()));
+});
+
+// Pay cycles: a cycle starts at each income of type "Salaire" and lasts until the
+// next one. No other income type opens a cycle.
+describe('salaryDatesFrom', () => {
+  it('salaryDatesFrom keeps only Salaire income, oldest first, one per date', () => {
+    const txs = [
+      income('2026-09-26'),
+      income('2026-08-26'),
+      income('2026-08-26', { id: 'dup', accountId: 'acc-2' }),
+      income('2026-08-30', { incomeType: 'Remboursement' }),
+      income('2026-08-31', { incomeType: 'Allocation' }),
+    ];
+    expect(salaryDatesFrom(txs)).toEqual(['2026-08-26', '2026-09-26']);
   });
 
-  it('takes the most recent one', () => {
-    expect(
-      payAnchorDay([], [pay('2026-07-28'), pay('2026-08-26')], '2026-08-27'),
-    ).toBe(26);
+  it('an expense dated like a Salaire opens no cycle', () => {
+    expect(salaryDatesFrom([income('2026-08-26', { kind: 'expense' })])).toEqual([]);
   });
 
-  it('ignores a salary dated in the future', () => {
-    expect(payAnchorDay([], [pay('2026-07-28'), pay('2026-09-26')], '2026-08-27')).toBe(28);
-  });
-
-  it('ignores income that is not salary', () => {
-    expect(
-      payAnchorDay([], [pay('2026-08-26', { incomeType: 'Remboursement' })], '2026-08-27'),
-    ).toBe(1);
-    expect(payAnchorDay([], [pay('2026-08-26', { kind: 'expense' })], '2026-08-27')).toBe(1);
-  });
-
-  it('beats the template when the two disagree — the payment is what happened', () => {
-    const template = rec({ dueDay: 5 });
-    expect(payAnchorDay([template], [pay('2026-08-26')], '2026-08-27')).toBe(26);
-  });
-
-  it('falls back to the template when no salary has ever been logged', () => {
-    expect(payAnchorDay([rec({ dueDay: 5 })], [], '2026-08-27')).toBe(5);
-  });
-
-  it('is the calendar month when the salary lands on the 1st', () => {
-    expect(payAnchorDay([], [pay('2026-08-01')], '2026-08-27')).toBe(1);
+  it('salaries from different accounts share one timeline', () => {
+    const txs = [
+      income('2026-08-26', { accountId: 'acc-2' }),
+      income('2026-07-28', { accountId: 'acc-1' }),
+    ];
+    const salaries = salaryDatesFrom(txs);
+    expect(salaries).toEqual(['2026-07-28', '2026-08-26']);
+    expect(periodOf('2026-08-01', salaries)).toBe('2026-07-28');
   });
 });
 
-describe('payAnchorDay', () => {
-  it('is the 1st when no income says otherwise — the calendar month, as before', () => {
-    expect(payAnchorDay([])).toBe(1);
-    expect(payAnchorDay([rec({ dueDay: undefined })])).toBe(1);
-    expect(payAnchorDay([rec({ dueDay: 1 })])).toBe(1);
+describe('salaryDates', () => {
+  it('salaryDates reads every account from the database, oldest first', async () => {
+    await db.transactions.bulkAdd([
+      income('2026-09-26', { accountId: 'acc-2' }),
+      income('2026-08-26', { accountId: 'acc-1' }),
+      income('2026-08-27', { incomeType: 'Remboursement' }),
+    ]);
+    expect(await salaryDates()).toEqual(['2026-08-26', '2026-09-26']);
   });
 
-  it('reads the due day of the monthly income', () => {
-    expect(payAnchorDay([rec({ dueDay: 26 })])).toBe(26);
+  it('is empty when no Salaire was ever logged', async () => {
+    await db.transactions.bulkAdd([income('2026-08-27', { incomeType: 'Allocation' })]);
+    expect(await salaryDates()).toEqual([]);
   });
+});
 
-  it('follows the biggest income when several are paid', () => {
-    expect(
-      payAnchorDay([rec({ id: 'a', amount: 400, dueDay: 5 }), rec({ id: 'b', amount: 2900, dueDay: 26 })]),
-    ).toBe(26);
-  });
-
-  it('ignores expenses and anything that is not monthly', () => {
-    expect(payAnchorDay([rec({ direction: 'expense', dueDay: 26 })])).toBe(1);
-    expect(payAnchorDay([rec({ cadence: 'annuel', dueDay: 26 })])).toBe(1);
-  });
-
-  it('refuses a nonsense day rather than shifting the month by it', () => {
-    expect(payAnchorDay([rec({ dueDay: 0 })])).toBe(1);
-    expect(payAnchorDay([rec({ dueDay: 99 })])).toBe(1);
+describe('cycleStart', () => {
+  it('is the latest Salaire on or before the date', () => {
+    const s = ['2026-07-28', '2026-08-26'];
+    expect(cycleStart('2026-08-26', s)).toBe('2026-08-26');
+    expect(cycleStart('2026-08-25', s)).toBe('2026-07-28');
+    expect(cycleStart('2026-07-27', s)).toBeUndefined();
+    expect(cycleStart('2026-07-27', [])).toBeUndefined();
   });
 });
 
 describe('periodOf', () => {
-  it('is the calendar month when payday is the 1st', () => {
-    expect(periodOf('2026-08-01', 1)).toBe('2026-08');
-    expect(periodOf('2026-08-31', 1)).toBe('2026-08');
+  it('periodOf names a cycle after the Salaire that opened it', () => {
+    const s = ['2026-08-26'];
+    expect(periodOf('2026-08-26', s)).toBe('2026-08-26');
+    expect(periodOf('2026-08-31', s)).toBe('2026-08-26');
+    expect(periodOf('2026-10-15', s)).toBe('2026-08-26');
   });
 
-  it('sends money arriving on payday to the month it actually funds', () => {
-    expect(periodOf('2026-08-26', 26)).toBe('2026-09');
-    expect(periodOf('2026-08-31', 26)).toBe('2026-09');
+  it('periodOf puts a date on a Salaire day in the cycle that Salaire opens', () => {
+    const s = ['2026-07-28', '2026-08-26'];
+    expect(periodOf('2026-08-26', s)).toBe('2026-08-26');
   });
 
-  it('leaves everything before payday in the month it is being spent', () => {
-    expect(periodOf('2026-08-25', 26)).toBe('2026-08');
-    expect(periodOf('2026-08-01', 26)).toBe('2026-08');
+  it('periodOf puts the day before a Salaire in the previous cycle', () => {
+    const s = ['2026-07-28', '2026-08-26'];
+    expect(periodOf('2026-08-25', s)).toBe('2026-07-28');
   });
 
-  it('rolls the year over', () => {
-    expect(periodOf('2026-12-28', 26)).toBe('2027-01');
+  it('an early or late salary shifts only its own cycle', () => {
+    const regular = ['2026-06-26', '2026-07-26', '2026-08-26'];
+    const late = ['2026-06-26', '2026-07-31', '2026-08-26'];
+    // 28 July is in July's cycle when the salary was on the 26th, in June's
+    // when it landed late on the 31st.
+    expect(periodOf('2026-07-28', regular)).toBe('2026-07-26');
+    expect(periodOf('2026-07-28', late)).toBe('2026-06-26');
+    // The neighbouring cycles do not move.
+    expect(periodOf('2026-06-30', late)).toBe('2026-06-26');
+    expect(periodOf('2026-08-26', late)).toBe('2026-08-26');
   });
 
-  it('clamps a payday past the end of a short month', () => {
-    // Paid on the 31st means paid on the last day February has.
-    expect(periodOf('2026-02-28', 31)).toBe('2026-03');
-    expect(periodOf('2026-02-27', 31)).toBe('2026-02');
+  it('two Salaire dates in one calendar month give two cycles', () => {
+    const s = ['2026-08-05', '2026-08-26'];
+    expect(periodOf('2026-08-10', s)).toBe('2026-08-05');
+    expect(periodOf('2026-08-30', s)).toBe('2026-08-26');
+    expect(periodOf('2026-08-10', s)).not.toBe(periodOf('2026-08-30', s));
+  });
+
+  it('a Remboursement income opens no cycle', () => {
+    const salaries = salaryDatesFrom([
+      income('2026-08-26', { incomeType: 'Remboursement' }),
+    ]);
+    expect(periodOf('2026-08-27', salaries)).toBe('2026-08');
+  });
+
+  it('a monthly Allocation income opens no cycle', () => {
+    const salaries = salaryDatesFrom([
+      income('2026-07-05', { incomeType: 'Allocation' }),
+      income('2026-08-05', { incomeType: 'Allocation' }),
+    ]);
+    expect(periodOf('2026-08-20', salaries)).toBe('2026-08');
+  });
+
+  it('periodOf is the calendar month when no Salaire exists', () => {
+    expect(periodOf('2026-08-01', [])).toBe('2026-08');
+    expect(periodOf('2026-08-31', [])).toBe('2026-08');
+  });
+
+  it('periodOf is the calendar month before the first Salaire', () => {
+    expect(periodOf('2026-08-01', ['2026-08-26'])).toBe('2026-08');
+  });
+
+  it('periodOf of a date before the first Salaire stays in its calendar month', () => {
+    const s = ['2026-08-26'];
+    expect(periodOf('2026-08-25', s)).toBe('2026-08');
+    expect(periodOf('2026-07-30', s)).toBe('2026-07');
+  });
+
+  it('a Salaire on the 1st opens a cycle that is the calendar month', () => {
+    const s = ['2026-08-01', '2026-09-01'];
+    expect(periodOf('2026-08-31', s)).toBe('2026-08-01');
+    expect(periodBounds('2026-08-01', s)).toEqual({ start: '2026-08-01', end: '2026-09-01' });
   });
 });
 
 describe('periodBounds', () => {
-  it('runs from payday to the day before the next one', () => {
-    expect(periodBounds('2026-09', 26)).toEqual({ start: '2026-08-26', end: '2026-09-26' });
+  it('periodBounds runs from a Salaire to the next one', () => {
+    const s = ['2026-08-26', '2026-09-28'];
+    expect(periodBounds('2026-08-26', s)).toEqual({ start: '2026-08-26', end: '2026-09-28' });
   });
 
-  it('is the plain calendar month when payday is the 1st', () => {
-    expect(periodBounds('2026-08', 1)).toEqual({ start: '2026-08-01', end: '2026-09-01' });
+  it('periodBounds of the open cycle projects the next payday', () => {
+    expect(periodBounds('2026-08-26', ['2026-08-26'])).toEqual({
+      start: '2026-08-26',
+      end: '2026-09-26',
+    });
   });
 
-  it('clamps to the last day a short month has', () => {
-    expect(periodBounds('2026-03', 31)).toEqual({ start: '2026-02-28', end: '2026-03-31' });
+  it('the open cycle projection clamps to a short month', () => {
+    expect(periodBounds('2026-01-31', ['2026-01-31'])).toEqual({
+      start: '2026-01-31',
+      end: '2026-02-28',
+    });
+  });
+
+  it('a cycle opened in December runs into January', () => {
+    expect(periodBounds('2026-12-28', ['2026-12-28'])).toEqual({
+      start: '2026-12-28',
+      end: '2027-01-28',
+    });
+    expect(periodBounds('2026-12-28', ['2026-12-28', '2027-01-26'])).toEqual({
+      start: '2026-12-28',
+      end: '2027-01-26',
+    });
+  });
+
+  it('periodBounds of a calendar month with no Salaire is the whole month', () => {
+    expect(periodBounds('2026-08', [])).toEqual({ start: '2026-08-01', end: '2026-09-01' });
+    expect(periodBounds('2026-02', [])).toEqual({ start: '2026-02-01', end: '2026-03-01' });
+  });
+
+  it('periodBounds of a calendar month ends at the first Salaire when it falls inside', () => {
+    expect(periodBounds('2026-08', ['2026-08-26'])).toEqual({
+      start: '2026-08-01',
+      end: '2026-08-26',
+    });
+    // A Salaire in a later month leaves the month whole.
+    expect(periodBounds('2026-07', ['2026-08-26'])).toEqual({
+      start: '2026-07-01',
+      end: '2026-08-01',
+    });
   });
 
   // The two must never disagree: a date inside the bounds is a date the budget
   // counts, and one outside is one it does not.
-  it('agrees with periodOf on every day it contains', () => {
-    for (const anchor of [1, 5, 26, 31]) {
-      for (const month of ['2026-02', '2026-03', '2026-08', '2026-12', '2027-01']) {
-        const { start, end } = periodBounds(month, anchor);
-        for (const m of [start.slice(0, 7), end.slice(0, 7)]) {
-          for (let d = 1; d <= daysInMonth(m); d++) {
-            const date = `${m}-${String(d).padStart(2, '0')}`;
-            expect([date, anchor, periodOf(date, anchor) === month]).toEqual([
-              date,
-              anchor,
-              date >= start && date < end,
-            ]);
-          }
+  it('periodBounds agrees with periodOf on every day of a closed cycle', () => {
+    const salaries = ['2026-07-31', '2026-08-05', '2026-08-26', '2026-12-28', '2027-01-26'];
+    for (const key of salaries.slice(0, -1)) {
+      const { start, end } = periodBounds(key, salaries);
+      for (const m of ['2026-07', '2026-08', '2026-09', '2026-12', '2027-01', '2027-02']) {
+        for (let d = 1; d <= daysInMonth(m); d++) {
+          const date = `${m}-${String(d).padStart(2, '0')}`;
+          expect([date, periodOf(date, salaries) === key]).toEqual([
+            date,
+            date >= start && date < end,
+          ]);
         }
+      }
+    }
+  });
+
+  it('agrees with periodOf on every day of the calendar-month fallback', () => {
+    const salaries = ['2026-08-26'];
+    for (const key of ['2026-07', '2026-08']) {
+      const { start, end } = periodBounds(key, salaries);
+      for (let d = 1; d <= daysInMonth(key); d++) {
+        const date = `${key}-${String(d).padStart(2, '0')}`;
+        expect([date, periodOf(date, salaries) === key]).toEqual([
+          date,
+          date >= start && date < end,
+        ]);
       }
     }
   });

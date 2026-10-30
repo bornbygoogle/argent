@@ -1,67 +1,80 @@
-// The month a budget actually runs on.
+// The pay cycle a budget actually runs on.
 //
-// A calendar month only works if the money arrives on the 1st. Paid on the
-// 26th, the salary that lands in August is September's money — and charging
-// August's spending against it reads as "over budget" the instant it is
-// logged, which is the opposite of what just happened.
+// A calendar month only works if the money arrives on the 1st. So the budget
+// runs in PAY CYCLES: a cycle starts at each income of type 'Salaire' and lasts
+// until the next one. No other income type opens a cycle. The cycles come from
+// the Salaire transactions that actually landed — across all accounts, since a
+// cycle belongs to the person's timeline, not to one account — so a salary that
+// arrives early or late moves only its own cycle, and a calendar month can hold
+// two cycles.
 //
-// So the budget month runs payday to payday, and is named after the month it
-// funds: paid 26 August, the period 26 Aug – 25 Sep is '2026-09'. With payday
-// on the 1st — the default, and what every anchor-less caller gets — a period
-// is exactly its calendar month and none of this is visible.
-import { daysInMonth, nextMonth, prevMonth, todayISO } from '@/lib/date';
-import type { Recurring, Transaction } from '@/types/models';
+// A cycle is named after the Salaire date that opened it: paid 26 August, the
+// cycle is '2026-08-26'. Before the first Salaire, and wherever no Salaire
+// exists, time falls back to plain calendar months, named 'YYYY-MM'.
+import { db } from '@/db/db';
+import { daysInMonth, nextMonth } from '@/lib/date';
+import type { Transaction } from '@/types/models';
 
-/** The seeded income type for pay. Its key is fixed; only its label is translated. */
-const SALARY = 'Salaire';
+/** The seeded income type that opens a pay cycle. Its key is fixed; only its label is translated. */
+export const SALARY = 'Salaire';
 
-/** The day the last salary actually landed, 0 if none ever has. */
-function lastPaydayDay(transactions: Transaction[], today: string): number {
-  let latest = '';
-  for (const t of transactions) {
-    if (t.kind !== 'income' || t.incomeType !== SALARY) continue;
-    // A salary dated ahead of today has not been paid yet, whatever the row says.
-    if (t.date <= today && t.date > latest) latest = t.date;
-  }
-  return latest ? Number(latest.slice(8, 10)) : 0;
+/** Every Salaire date in `transactions`, oldest first, one per date. */
+export function salaryDatesFrom(transactions: Transaction[]): string[] {
+  const pays = transactions.filter((t) => t.kind === 'income' && t.incomeType === SALARY);
+  return [...new Set(pays.map((t) => t.date))].sort();
 }
 
 /**
- * The day of the month the money arrives. 1 (the default) means plain calendar
- * months, which is what everything falls back to.
- *
- * The salary that actually landed wins: most people have no recurring template
- * for their own pay, and where both exist the payment is what happened while
- * the template is only what was meant to. Nothing is stored for this — both
- * sources are already in the data and cannot drift from it.
+ * Every Salaire date, oldest first, across ALL accounts. A pay cycle belongs to
+ * the person's timeline, not to one account.
  */
-export function payAnchorDay(
-  recurrings: Recurring[],
-  transactions: Transaction[] = [],
-  today: string = todayISO(),
-): number {
-  const paid = lastPaydayDay(transactions, today);
-  const due = recurrings
-    .filter((r) => r.direction === 'income' && r.cadence === 'mensuel')
-    .sort((a, b) => b.amount - a.amount)
-    .find((r) => (r.dueDay ?? 1) > 1)?.dueDay;
-  const day = paid || due || 1;
-  return day >= 2 && day <= 31 ? day : 1;
+export async function salaryDates(): Promise<string[]> {
+  const pays = await db.transactions
+    .filter((t) => t.kind === 'income' && t.incomeType === SALARY)
+    .toArray();
+  return salaryDatesFrom(pays);
 }
 
-/** Payday clamped to a month that may be too short to have that day. */
-const paydayIn = (month: string, anchor: number): string =>
-  `${month}-${String(Math.min(anchor, daysInMonth(month))).padStart(2, '0')}`;
-
-/** The budget month a 'YYYY-MM-DD' belongs to. */
-export function periodOf(date: string, anchor: number): string {
-  const month = date.slice(0, 7);
-  if (anchor <= 1) return month;
-  return date >= paydayIn(month, anchor) ? nextMonth(month) : month;
+/** The latest Salaire dated on or before `date`, if any. */
+export function cycleStart(date: string, salaries: string[]): string | undefined {
+  let start: string | undefined;
+  for (const s of salaries) {
+    if (s > date) break;
+    start = s;
+  }
+  return start;
 }
 
-/** A budget month as dates: `start` inclusive, `end` exclusive. */
-export function periodBounds(month: string, anchor: number): { start: string; end: string } {
-  if (anchor <= 1) return { start: `${month}-01`, end: `${nextMonth(month)}-01` };
-  return { start: paydayIn(prevMonth(month), anchor), end: paydayIn(month, anchor) };
+/** The period a 'YYYY-MM-DD' belongs to: the Salaire that opened its cycle
+ *  ('YYYY-MM-DD'), or its calendar month ('YYYY-MM') before the first one. */
+export function periodOf(date: string, salaries: string[]): string {
+  return cycleStart(date, salaries) ?? date.slice(0, 7);
+}
+
+/** The same day of month in the month after `date`, clamped to that month's length. */
+function sameDayNextMonth(date: string): string {
+  const month = nextMonth(date.slice(0, 7));
+  const day = Math.min(Number(date.slice(8, 10)), daysInMonth(month));
+  return `${month}-${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * A period as dates: `start` inclusive, `end` exclusive.
+ *
+ * A cycle runs from its Salaire to the next one; the open cycle has no next
+ * Salaire yet, so its end is projected one month on. A calendar month ends at
+ * the first Salaire falling inside it, else at the 1st of the next month.
+ */
+export function periodBounds(
+  period: string,
+  salaries: string[],
+): { start: string; end: string } {
+  if (period.length > 7) {
+    const next = salaries.find((s) => s > period);
+    return { start: period, end: next ?? sameDayNextMonth(period) };
+  }
+  const start = `${period}-01`;
+  const monthEnd = `${nextMonth(period)}-01`;
+  const next = salaries.find((s) => s > start);
+  return { start, end: next && next < monthEnd ? next : monthEnd };
 }

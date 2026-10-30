@@ -75,9 +75,9 @@ export function Dashboard() {
   // left" and the pace notch measure against.
   const period = useBudgetPeriod();
   const scopedRecurrings = useScopedRecurrings(scope);
-  const stillDue = upcomingCommitments(scopedRecurrings, period.month, period.anchor);
+  const stillDue = upcomingCommitments(scopedRecurrings, period.month, period.salaries);
   const left = balance - stillDue;
-  const variableSpent = useVariableExpenses(scope, period.month, period.anchor)
+  const variableSpent = useVariableExpenses(scope, period.month, period.salaries)
     .reduce((s, t) => s + t.amount, 0);
   // The cycle's "budget" is what was free when it started: what is left now
   // plus what has been spent since. That keeps the bar's fill meaning "share
