@@ -23,6 +23,18 @@
   payable with a fallback of one entry per calendar month.
 - The due day keeps only its display roles: display order and calendar dots.
 
+## The startup repair pass (dedupeRecurringMonths)
+- It keeps deleting, but its ceiling of one is per PAY CYCLE, not per calendar
+  month. Two entries of the same monthly expense in one calendar month survive
+  when they sit in two different cycles.
+- Two entries inside ONE cycle are still a double charge, not an instalment, and
+  are still collapsed: earliest by saved date wins, except where history names a
+  different copy, and transfer siblings travel with the deleted rows.
+- "Existing entries stay as stored" governs attribution -- no entry is rewritten
+  to fit a new rule. It does not forbid collapsing a true double charge in one
+  cycle. The pass is what cleared 620 EUR of real re-log copies; keep it working.
+- Before the first "Salaire", the repair falls back to one entry per calendar month.
+
 ## Weekly and yearly recurring expenses
 - The pay-cycle rule applies to monthly recurring expenses only. Weekly and yearly
   expenses keep their own schedule.
