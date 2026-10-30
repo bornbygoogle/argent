@@ -40,6 +40,11 @@ tests:
 
 roles: {}
 
+# A worktree checkout holds only tracked files. node_modules is gitignored, so
+# without this `npx --no vitest run` finds no vitest and every run fails
+# G-TEST-EXIT. Symlinked, never copied: removing the checkout leaves it intact.
+worktree_links: [node_modules]
+
 # Product decisions already made. Sent to every agent with the task, so no
 # stage parks a run to ask them again. Keep it to decisions (max 4000 bytes).
 rulings: agentics-rulings.md
