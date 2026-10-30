@@ -36,7 +36,7 @@ export function useAccountsIncludingArchived(): Account[] {
 /** All categories ordered by sortOrder. */
 export function useCategories(): Category[] {
   const list = useLiveQuery(() => db.categories.toArray(), []);
-  return useMemo(() => (list?.sort((a, b) => a.sortOrder - b.sortOrder) ?? []), [list]);
+  return useMemo(() => (list?.slice().sort((a, b) => a.sortOrder - b.sortOrder) ?? []), [list]);
 }
 
 /** All sub-categories, ordered within each category. */
@@ -68,7 +68,7 @@ export function useSubcategoryMap(): Map<string, Subcategory> {
 /** Income-type enum ordered. */
 export function useIncomeTypes(): IncomeType[] {
   const list = useLiveQuery(() => db.incomeTypes.toArray(), []);
-  return useMemo(() => (list?.sort((a, b) => a.order - b.order) ?? []), [list]);
+  return useMemo(() => (list?.slice().sort((a, b) => a.order - b.order) ?? []), [list]);
 }
 
 /** key → IncomeType lookup map (for resolving a transaction's income-type key
