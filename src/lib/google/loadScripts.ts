@@ -23,11 +23,28 @@ function inject(url: string): Promise<void> {
 
   cache.set(url, p);
 
+  // A failure must not stay cached, or one flaky moment disables the feature
+  // until a page reload. The tag is removed too, so a retry injects a fresh one.
+  const fail = (tag: HTMLScriptElement) => {
+    if (cache.get(url) === p) cache.delete(url);
+    tag.remove();
+    rejectFn(new Error(`google-script-load-failed:${url}`));
+  };
+  const succeed = (tag: HTMLScriptElement) => {
+    tag.dataset.loaded = '1';
+    resolveFn();
+  };
+
   const found = document.querySelector<HTMLScriptElement>(`script[src="${url}"]`);
 
   if (found) {
-    found.addEventListener('load', () => resolveFn());
-    found.addEventListener('error', () => rejectFn(new Error(`google-script-load-failed:${url}`)));
+    // Already finished loading: no further event will fire, so don't wait for one.
+    if (found.dataset.loaded) {
+      resolveFn();
+      return p;
+    }
+    found.addEventListener('load', () => succeed(found));
+    found.addEventListener('error', () => fail(found));
     return p;
   }
 
@@ -36,8 +53,8 @@ function inject(url: string): Promise<void> {
   s.async = true;
   s.defer = true;
 
-  s.onload = () => resolveFn();
-  s.onerror = () => rejectFn(new Error(`google-script-load-failed:${url}`));
+  s.onload = () => succeed(s);
+  s.onerror = () => fail(s);
 
   document.head.appendChild(s);
 
