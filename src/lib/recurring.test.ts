@@ -291,6 +291,136 @@ describe('a month still holding two the repair has not swept yet', () => {
   });
 });
 
+// A monthly template settles per PAY CYCLE. Salaire dates 3 and 20 July make two
+// cycles inside one calendar month; a template due on the 22nd and created on
+// 2 July owes 3 July (the cycle's own start, as the 22nd lies in the next cycle)
+// and 22 July.
+describe('pay cycles', () => {
+  const seedSalaries = (dates: string[]) =>
+    db.transactions.bulkAdd(
+      dates.map((date, i) => ({
+        id: `salary-${i}`,
+        kind: 'income' as const,
+        accountId: 'acc-1',
+        amount: 2000,
+        date,
+        incomeType: 'Salaire',
+        createdAt: `${date}T08:00:00.000Z`,
+        updatedAt: `${date}T08:00:00.000Z`,
+      })),
+    );
+
+  const spend = async (id: string, date: string) => {
+    await db.transactions.add({
+      id: `spent-${date}`,
+      kind: 'expense',
+      accountId: 'acc-1',
+      amount: 600,
+      date,
+      recurringSourceId: id,
+      createdAt: `${date}T10:00:00.000Z`,
+      updatedAt: `${date}T10:00:00.000Z`,
+    });
+  };
+
+  const cycleTemplate = async () => {
+    freeze(2026, 6, 2); // created 2 July 2026
+    const id = await createRecurring({ ...base, dueDay: 22 });
+    await seedSalaries(['2026-07-03', '2026-07-20']);
+    freeze(2026, 6, 25);
+    return id;
+  };
+
+  const rentDates = async () =>
+    (await db.transactions.toArray())
+      .filter((t) => !!t.recurringSourceId)
+      .map((t) => t.date)
+      .sort();
+
+  it('logs the second pay cycle of a calendar month after the first is settled', async () => {
+    const id = await cycleTemplate();
+
+    const first = await confirmRecurring(await load(id));
+    const second = await confirmRecurring(await load(id));
+
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(second).not.toBe(first);
+    expect(await rentDates()).toEqual(['2026-07-03', '2026-07-22']);
+  });
+
+  it('is idempotent once both cycles are settled', async () => {
+    const id = await cycleTemplate();
+    await confirmRecurring(await load(id));
+    const second = await confirmRecurring(await load(id));
+
+    expect(await confirmRecurring(await load(id))).toBe(second);
+    expect(await rentDates()).toHaveLength(2);
+  });
+
+  it('attributes a backdated entry to the cycle its date falls in', async () => {
+    const id = await cycleTemplate();
+    // Dated 5 July, typed today (25 July): it fills the 3 July cycle.
+    await spend(id, '2026-07-05');
+    await db.recurrings.update(id, {
+      history: [
+        { month: '2026-07', amount: 600, transactionId: 'spent-2026-07-05', occurrence: '2026-07-05' },
+      ],
+    });
+    expect(isConfirmedIn(await load(id), '2026-07', ['2026-07-03', '2026-07-20'])).toBe(false);
+
+    const next = await confirmRecurring(await load(id));
+
+    expect(next).not.toBe('spent-2026-07-05');
+    expect((await db.transactions.get(next!))?.date).toBe('2026-07-22');
+    expect(isConfirmedIn(await load(id), '2026-07', ['2026-07-03', '2026-07-20'])).toBe(true);
+  });
+
+  it('refuses a second entry inside one pay cycle', async () => {
+    const id = await cycleTemplate();
+    await spend(id, '2026-07-05'); // unnamed by history, in the 3 July cycle
+    await spend(id, '2026-07-25'); // unnamed, in the 20 July cycle
+
+    expect(await confirmRecurring(await load(id))).toBeNull();
+    expect(await rentDates()).toEqual(['2026-07-05', '2026-07-25']);
+  });
+
+  it('counts a sibling cycle’s entry as a different slot', async () => {
+    const id = await cycleTemplate();
+    await spend(id, '2026-07-25'); // only the 20 July cycle is taken
+
+    const txId = await confirmRecurring(await load(id));
+
+    expect((await db.transactions.get(txId!))?.date).toBe('2026-07-03');
+  });
+
+  it('can take back one cycle without touching its sibling', async () => {
+    const id = await cycleTemplate();
+    await confirmRecurring(await load(id));
+    await confirmRecurring(await load(id));
+
+    await unconfirmRecurring(await load(id), '2026-07-22');
+
+    expect(await rentDates()).toEqual(['2026-07-03']);
+  });
+
+  it('falls back to one entry per calendar month before the first Salaire', async () => {
+    freeze(2026, 6, 2);
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    await seedSalaries(['2026-07-20']);
+    freeze(2026, 6, 25);
+    // 21 July sits in the cycle opened on the 20th, so it does not fill the
+    // calendar-month slot that precedes the first Salaire.
+    await spend(id, '2026-07-21');
+
+    const txId = await confirmRecurring(await load(id));
+
+    expect((await db.transactions.get(txId!))?.date).toBe('2026-07-05');
+    // ...but the 20 July cycle is now full, so nothing further is admitted.
+    expect(await confirmRecurring(await load(id))).toBeNull();
+  });
+});
+
 describe('confirmRecurring transaction date', () => {
   it('uses the due day when confirmed late', async () => {
     freeze(2026, 7, 9); // 9 Aug, three days late

@@ -1,5 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { clampedDay, dueDateFor, recurringDueDays } from '@/lib/recurringSchedule';
+import { describe, it, expect, afterEach } from 'vitest';
+import {
+  clampedDay,
+  dueDateFor,
+  isOccurrencePaidIn,
+  nextUnpaidOccurrence,
+  paidMonths,
+  periodKeyFor,
+  recurringDueDays,
+} from '@/lib/recurringSchedule';
 import type { Recurring } from '@/types/models';
 
 describe('clampedDay', () => {
@@ -89,5 +97,113 @@ describe('recurringDueDays', () => {
 
   it('ignores incoming charges — only expenses are marked', () => {
     expect(recurringDueDays([rec({ direction: 'income', dueDay: 5 })], '2026-08')).toEqual(new Set());
+  });
+});
+
+// A monthly template settles per PAY CYCLE: two Salaire dates inside July make
+// two cycles in one calendar month, and each holds its own instalment.
+describe('pay-cycle settlement of a monthly template', () => {
+  const SALARIES = ['2026-07-03', '2026-07-20'];
+  const paidOn = (occurrence: string, n: number) => ({
+    month: occurrence.slice(0, 7),
+    amount: 100,
+    transactionId: `tx-${n}`,
+    occurrence,
+  });
+  const cyclic = (occurrences: string[] = []) =>
+    rec({
+      dueDay: 22,
+      createdAt: '2026-07-02T12:00:00.000Z',
+      history: occurrences.map(paidOn),
+    });
+
+  it('keys a monthly date to the cycle it falls in, others to the calendar month', () => {
+    expect(periodKeyFor({ cadence: 'mensuel' }, '2026-07-25', SALARIES)).toBe('2026-07-20');
+    expect(periodKeyFor({ cadence: 'mensuel' }, '2026-07-01', SALARIES)).toBe('2026-07');
+    expect(periodKeyFor({ cadence: 'mensuel' }, '2026-07-25', [])).toBe('2026-07');
+    expect(periodKeyFor({ cadence: 'hebdo' }, '2026-07-25', SALARIES)).toBe('2026-07');
+    expect(periodKeyFor({ cadence: 'annuel' }, '2026-07-25', SALARIES)).toBe('2026-07');
+  });
+
+  it('files a paid instalment under its cycle, not its calendar month', () => {
+    expect(paidMonths(cyclic(['2026-07-03', '2026-07-22']), SALARIES)).toEqual(
+      new Set(['2026-07-03', '2026-07-20']),
+    );
+  });
+
+  it('reads a calendar month as paid only once every cycle in it is paid', () => {
+    expect(isOccurrencePaidIn(cyclic(['2026-07-03']), '2026-07', SALARIES)).toBe(false);
+    expect(isOccurrencePaidIn(cyclic(['2026-07-22']), '2026-07', SALARIES)).toBe(false);
+    expect(isOccurrencePaidIn(cyclic(['2026-07-03', '2026-07-22']), '2026-07', SALARIES)).toBe(true);
+  });
+
+  it('still reads the calendar month when there is no Salaire', () => {
+    expect(isOccurrencePaidIn(cyclic(['2026-07-03']), '2026-07')).toBe(true);
+  });
+
+  it('owes the first cycle of the month, then the second once the first is paid', () => {
+    expect(nextUnpaidOccurrence(cyclic(), '2026-07-25', SALARIES)).toBe('2026-07-03');
+    expect(nextUnpaidOccurrence(cyclic(['2026-07-03']), '2026-07-25', SALARIES)).toBe('2026-07-22');
+  });
+
+  it('counts a backdated entry against the cycle its date falls in', () => {
+    // Typed whenever, dated 5 July: that fills the cycle opened on 3 July.
+    expect(nextUnpaidOccurrence(cyclic(['2026-07-05']), '2026-07-25', SALARIES)).toBe('2026-07-22');
+  });
+
+  it('reads a cycle as owed while a sibling cycle of the same month is paid', () => {
+    const r = cyclic(['2026-07-22']);
+    expect(nextUnpaidOccurrence(r, '2026-07-25', SALARIES)).toBe('2026-07-03');
+  });
+
+  it('settles the current cycle again, idempotently, once everything is paid', () => {
+    const r = cyclic(['2026-07-03', '2026-07-22']);
+    expect(nextUnpaidOccurrence(r, '2026-07-25', SALARIES)).toBe('2026-07-22');
+  });
+
+  it('falls back to one instalment per calendar month before the first Salaire', () => {
+    const r = rec({
+      dueDay: 5,
+      createdAt: '2026-06-02T12:00:00.000Z',
+      history: [paidOn('2026-06-05', 1)],
+    });
+    expect(nextUnpaidOccurrence(r, '2026-07-25', ['2026-07-20'])).toBe('2026-07-05');
+  });
+});
+
+describe('a yearly template', () => {
+  const insurance = (history: Recurring['history'] = []) =>
+    rec({ cadence: 'annuel', dueDay: 12, createdAt: '2025-11-03T12:00:00.000Z', history });
+
+  it('is owed only in its anniversary month, never in every month', () => {
+    const paidLastYear = insurance([
+      { month: '2025-11', amount: 100, transactionId: 'tx-1', occurrence: '2025-11-12' },
+    ]);
+    // December 2025 .. August 2026 owe nothing: the next instalment is November's.
+    expect(nextUnpaidOccurrence(paidLastYear, '2026-08-15')).toBe('2026-11-12');
+  });
+
+  it('owes the anniversary instalment it never paid', () => {
+    expect(nextUnpaidOccurrence(insurance(), '2026-08-15')).toBe('2025-11-12');
+  });
+});
+
+describe('the creation day is judged on the local calendar', () => {
+  const realTZ = process.env.TZ;
+  afterEach(() => {
+    if (realTZ === undefined) delete process.env.TZ;
+    else process.env.TZ = realTZ;
+  });
+
+  it('does not owe an instalment dated the UTC day before the local creation day', () => {
+    process.env.TZ = 'Pacific/Auckland'; // UTC+12/13: local 1 Aug is still 31 Jul in UTC
+    const created = new Date(2026, 7, 1, 0, 30, 0).toISOString();
+    expect(created.slice(0, 10)).toBe('2026-07-31');
+
+    const r = rec({ dueDay: 31, createdAt: created });
+    // 31 July predates the template on the user's calendar, so it is not owed.
+    expect(nextUnpaidOccurrence(r, '2026-08-01')).toBe('2026-08-31');
+    // And the calendar dots start in the month it was created on that calendar.
+    expect(recurringDueDays([r], '2026-07')).toEqual(new Set());
   });
 });

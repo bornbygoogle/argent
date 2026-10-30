@@ -11,7 +11,9 @@ import {
   isOccurrencePaidIn,
   nextUnpaidOccurrence,
   occurrenceOf,
+  periodKeyFor,
 } from '@/lib/recurringSchedule';
+import { salaryDates } from '@/lib/period';
 import { MAX_PER_MONTH } from '@/lib/recurringDedupe';
 import { addTransaction, buildTransferLegs } from '@/lib/transactions';
 import type {
@@ -139,22 +141,32 @@ export async function deleteRecurring(id: string): Promise<void> {
  * payment recorded during it: a bill due on the 30th and settled on 2 August
  * still settles July's instalment, and July must read as done.
  */
-export function isConfirmedIn(r: Recurring, month: string = currentMonth()): boolean {
-  return isOccurrencePaidIn(r, month);
+export function isConfirmedIn(
+  r: Recurring,
+  month: string = currentMonth(),
+  salaries: string[] = [],
+): boolean {
+  return isOccurrencePaidIn(r, month, salaries);
 }
 
 /**
- * The entry that settled the instalment falling in `month`, if one did.
+ * The entry that settled the period `key` names, if one did: the pay cycle for a
+ * monthly template (calendar month before the first Salaire), the calendar month
+ * otherwise.
  *
- * Resolved by month rather than by exact date: the due day may have moved
+ * Resolved by period rather than by exact date: the due day may have moved
  * since, and the payment stands whatever day it was made against. Read from
- * the end, so where a month carries more than one — only possible on data
+ * the end, so where a period carries more than one — only possible on data
  * predating the ceiling — undoing takes back the most recent.
  */
-const paidEntryIn = (r: Recurring, month: string): RecurringHistoryEntry | undefined =>
+const paidEntryIn = (
+  r: Recurring,
+  key: string,
+  salaries: string[],
+): RecurringHistoryEntry | undefined =>
   [...r.history]
     .reverse()
-    .find((h) => !!h.transactionId && occurrenceOf(h, r).slice(0, 7) === month);
+    .find((h) => !!h.transactionId && periodKeyFor(r, occurrenceOf(h, r), salaries) === key);
 
 /**
  * Settle an ordinary charge: one movement on its own account, the shape every
@@ -210,9 +222,11 @@ async function settleAsTransfer(
  * Idempotent — when the instalment it picks is already settled, the existing
  * transaction id comes back and nothing is written.
  *
- * Returns null when the month is full. A monthly template owes one instalment
- * per month and no more, so a month already holding one is done — whatever a
- * due-day edit may have made the row read as.
+ * Returns null when the period is full. A monthly template owes one instalment
+ * per PAY CYCLE (per calendar month before the first Salaire, and for weekly and
+ * yearly templates) and no more, so a period already holding one is done —
+ * whatever a due-day edit may have made the row read as. A calendar month
+ * holding two cycles therefore admits two instalments.
  */
 export async function confirmRecurring(
   recurring: Recurring,
@@ -226,16 +240,19 @@ export async function confirmRecurring(
     const r = await db.recurrings.get(recurring.id);
     if (!r) return null;
 
-    const occurrence = nextUnpaidOccurrence(r, today);
-    const existing = paidEntryIn(r, occurrence.slice(0, 7));
+    const salaries = await salaryDates();
+    const occurrence = nextUnpaidOccurrence(r, today, salaries);
+    const period = periodKeyFor(r, occurrence, salaries);
+    const existing = paidEntryIn(r, period, salaries);
     if (existing?.transactionId) return existing.transactionId;
 
     // Count the transactions themselves, not the history entries: a lost entry
-    // must not hand back a slot that a real transaction still occupies.
+    // must not hand back a slot that a real transaction still occupies. The
+    // slot is the pay cycle the transaction's DATE falls in (monthly templates).
     const settled = await db.transactions
       .where('recurringSourceId')
       .equals(r.id)
-      .filter((t) => t.date.slice(0, 7) === occurrence.slice(0, 7))
+      .filter((t) => periodKeyFor(r, t.date, salaries) === period)
       .count();
     if (settled >= MAX_PER_MONTH) return null;
 
@@ -265,8 +282,9 @@ export async function unconfirmRecurring(
 ): Promise<void> {
   // The caller names the instalment through today's due day, which stopped
   // matching the stored one the moment that day was edited — so resolve the
-  // month it points at, not the date itself.
-  const entry = paidEntryIn(recurring, occurrence.slice(0, 7));
+  // period it points at (the pay cycle holding that date), not the date itself.
+  const salaries = await salaryDates();
+  const entry = paidEntryIn(recurring, periodKeyFor(recurring, occurrence, salaries), salaries);
   if (!entry?.transactionId) return;
   const txId = entry.transactionId;
   await db.transaction('rw', db.transactions, db.recurrings, async () => {
