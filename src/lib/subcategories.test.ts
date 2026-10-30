@@ -20,7 +20,7 @@ const recurring = (id: string, over: Partial<Recurring>): Recurring => ({
   direction: 'expense',
   label: id,
   amount: 10,
-  cadence: 'monthly',
+  cadence: 'mensuel',
   icon: 'Repeat',
   color: '#3F8F6B',
   createdAt: '2026-01-01T00:00:00.000Z',
