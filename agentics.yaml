@@ -22,9 +22,13 @@ project:
     - ".venv/**"
     - "venv/**"
     - "__pycache__/**"
-    # Tests are found through the parser's own patterns, not as source.
-    - "**/*.test.ts"
-    - "**/*.test.tsx"
+    # NOTE: do NOT exclude "**/*.test.ts" here. kernel/testparse.py applies this
+    # same exclude list to TEST DISCOVERY (TEST_FILE_GLOBS for jest is exactly
+    # **/*.test.ts|tsx), so excluding them hid all 48 suite files, _list_tests()
+    # returned "", and every bugfix run died at implementation with
+    # "contract unsatisfied; missing categories: ['relevant_tests']"
+    # (run_5ecd3615ed). Measured: 0 test files found with them, 48 without.
+    # The cost of keeping them visible is that they also count as source.
 
 tests:
   # `--no`: npx refuses to install anything not already in node_modules.
