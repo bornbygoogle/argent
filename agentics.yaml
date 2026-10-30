@@ -10,10 +10,18 @@ project:
   source_globs:
     - "src/**/*.ts"
     - "src/**/*.tsx"
+    # The Vercel serverless endpoints: OAuth, session, cookies. Production source.
+    - "api/**/*.ts"
   exclude:
     - "node_modules/**"
     - "**/node_modules/**"
     - "dist/**"
+    # A gitignored Python virtualenv: 21 672 third-party files, 127 vendored
+    # Prisma migration .sql. The security walk is tree-wide, not glob-scoped,
+    # so without this it audits litellm instead of this app (run_9874f8aa7d).
+    - ".venv/**"
+    - "venv/**"
+    - "__pycache__/**"
     # Tests are found through the parser's own patterns, not as source.
     - "**/*.test.ts"
     - "**/*.test.tsx"
@@ -21,6 +29,8 @@ project:
 tests:
   # `--no`: npx refuses to install anything not already in node_modules.
   authoritative: "npx --no vitest run"
+  # The guard check re-runs this against a reverted tree. 430 tests, 39s, no jsdom.
+  fast: "npx --no vitest run src/lib api/_lib"
   parser: jest
   # Placeholders only. Two auth tests need these names set; the real values
   # live in .env and must never be copied here -- every role can read this file.
