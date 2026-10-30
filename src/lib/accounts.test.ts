@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from '@/db/db';
 import { deleteAccountWithReassign } from '@/lib/accounts';
-import type { Account, Recurring } from '@/types/models';
+import type { Account, Recurring, Transaction } from '@/types/models';
 
 const account = (id: string, over: Partial<Account> = {}): Account => ({
   id,
@@ -101,5 +101,59 @@ describe('deleting an account named by a recurring template', () => {
     const r = await load();
     expect(r.accountId).toBe('acc-payer');
     expect(r.receiverAccountId).toBe('acc-savings');
+  });
+});
+
+const tx = (id: string, over: Partial<Transaction> = {}): Transaction => ({
+  id,
+  kind: 'transfer',
+  accountId: 'acc-payer',
+  counterAccountId: 'acc-other',
+  transferGroupId: 'g-1',
+  amount: 50,
+  date: '2026-07-01',
+  createdAt: '2026-07-01T00:00:00.000Z',
+  updatedAt: '2026-07-01T00:00:00.000Z',
+  ...over,
+});
+
+describe('deleting an account that is one side of a transfer', () => {
+  it('collapses an X<->T transfer pair and leaves no dangling counterAccountId', async () => {
+    await db.transactions.bulkAdd([
+      tx('leg-1', { accountId: 'acc-payer', counterAccountId: 'acc-other', transferRole: 'out' }),
+      tx('leg-2', { accountId: 'acc-other', counterAccountId: 'acc-payer', transferRole: 'in' }),
+    ]);
+    await deleteAccountWithReassign('acc-payer', 'acc-other');
+
+    expect(await db.transactions.count()).toBe(0);
+  });
+
+  it('repoints a third-account partner leg at the target', async () => {
+    await db.transactions.bulkAdd([
+      tx('leg-1', { accountId: 'acc-payer', counterAccountId: 'acc-savings', transferRole: 'out' }),
+      tx('leg-2', { accountId: 'acc-savings', counterAccountId: 'acc-payer', transferRole: 'in' }),
+    ]);
+    await deleteAccountWithReassign('acc-payer', 'acc-other');
+
+    const leg1 = await db.transactions.get('leg-1');
+    const leg2 = await db.transactions.get('leg-2');
+    expect(leg1?.accountId).toBe('acc-other');
+    expect(leg1?.counterAccountId).toBe('acc-savings');
+    expect(leg2?.accountId).toBe('acc-savings');
+    expect(leg2?.counterAccountId).toBe('acc-other');
+    const all = await db.transactions.toArray();
+    expect(all.some((t) => t.counterAccountId === 'acc-payer')).toBe(false);
+  });
+
+  it('leaves transfers that do not involve the deleted account untouched', async () => {
+    await db.transactions.bulkAdd([
+      tx('leg-1', { accountId: 'acc-savings', counterAccountId: 'acc-other', transferRole: 'out' }),
+      tx('leg-2', { accountId: 'acc-other', counterAccountId: 'acc-savings', transferRole: 'in' }),
+    ]);
+    await deleteAccountWithReassign('acc-payer', 'acc-other');
+
+    expect((await db.transactions.get('leg-1'))?.counterAccountId).toBe('acc-other');
+    expect((await db.transactions.get('leg-2'))?.counterAccountId).toBe('acc-savings');
+    expect(await db.transactions.count()).toBe(2);
   });
 });
