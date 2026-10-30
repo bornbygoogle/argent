@@ -3,6 +3,8 @@ import { monthlyEquivalent, computeAutoBudget, upcomingCommitments, variableExpe
 import type { Recurring, Transaction } from '@/types/models';
 
 const MONTH = '2026-07';
+// A Thursday: July 2026 holds five of them (2, 9, 16, 23, 30).
+const WEEKLY_CREATED = '2026-01-01T12:00:00.000Z';
 
 const rec = (over: Partial<Recurring> = {}): Recurring => ({
   id: 'r-1',
@@ -94,14 +96,33 @@ describe('computeAutoBudget', () => {
     expect(b.total).toBe(1850);
   });
 
-  it('normalises each recurring expense to a month before summing', () => {
+  it('counts each recurring expense on its own schedule, not as a monthly equivalent', () => {
     const b = computeAutoBudget(2000, [
-      rec({ id: 'r-1', amount: 600, cadence: 'mensuel' }),
-      rec({ id: 'r-2', amount: 1200, cadence: 'annuel' }), // 100
-      rec({ id: 'r-3', amount: 30, cadence: 'hebdo' }), // 130
+      rec({ id: 'r-1', amount: 600, cadence: 'mensuel' }), // 600
+      rec({ id: 'r-2', amount: 1200, cadence: 'annuel' }), // anniversary is January: 0 in July
+      rec({ id: 'r-3', amount: 30, cadence: 'hebdo', createdAt: WEEKLY_CREATED }), // 5 Thursdays: 150
     ], MONTH);
-    expect(b.recurringExpenses).toBe(830);
-    expect(b.total).toBe(1170);
+    expect(b.recurringExpenses).toBe(750);
+    expect(b.total).toBe(1250);
+  });
+
+  it('charges a yearly expense nothing outside its anniversary month in computeAutoBudget', () => {
+    const yearly = rec({ amount: 1200, cadence: 'annuel' });
+    expect(computeAutoBudget(2000, [yearly], '2026-07').recurringExpenses).toBe(0);
+    expect(computeAutoBudget(2000, [yearly], '2026-12').recurringExpenses).toBe(0);
+  });
+
+  it('charges a yearly expense its full amount in its anniversary month in computeAutoBudget', () => {
+    const yearly = rec({ amount: 1200, cadence: 'annuel' });
+    expect(computeAutoBudget(2000, [yearly], '2026-01').recurringExpenses).toBe(1200);
+    expect(computeAutoBudget(2000, [yearly], '2027-01').recurringExpenses).toBe(1200);
+  });
+
+  it('charges a weekly expense once per occurrence inside the period in computeAutoBudget', () => {
+    const weekly = rec({ amount: 10, cadence: 'hebdo', createdAt: WEEKLY_CREATED });
+    const b = computeAutoBudget(100, [weekly], MONTH);
+    expect(b.recurringExpenses).toBe(50);
+    expect(b.total).toBe(50);
   });
 
   it('counts recurring income that has not been confirmed yet as expected income', () => {
@@ -159,8 +180,9 @@ describe('computeAutoBudget', () => {
   });
 
   it('rounds the total to cents', () => {
-    const b = computeAutoBudget(100, [rec({ amount: 10, cadence: 'hebdo' })], MONTH);
-    expect(b.total).toBe(56.67);
+    const b = computeAutoBudget(1, [rec({ id: 'a', amount: 0.1 }), rec({ id: 'b', amount: 0.2 })], MONTH);
+    expect(b.recurringExpenses).toBe(0.3);
+    expect(b.total).toBe(0.7);
   });
 
   // Paid on the 26th, the salary that lands in August funds September. The
@@ -209,12 +231,56 @@ describe('computeAutoBudget', () => {
 // have not been debited yet — a settled bill is already out of the balance, and
 // subtracting it again would count the same rent twice.
 describe('upcomingCommitments', () => {
-  it('sums the unsettled expense templates as monthly equivalents', () => {
+  it('sums the unsettled expense templates at their owed amounts', () => {
     const total = upcomingCommitments(
-      [rec({ id: 'a', amount: 600 }), rec({ id: 'b', amount: 1200, cadence: 'annuel' })],
+      [
+        rec({ id: 'a', amount: 600 }),
+        rec({ id: 'b', amount: 1200, cadence: 'annuel' }), // not its month
+        rec({ id: 'c', amount: 30, cadence: 'hebdo', createdAt: WEEKLY_CREATED }), // 5 x 30
+      ],
       MONTH,
     );
-    expect(total).toBe(700);
+    expect(total).toBe(750);
+  });
+
+  it('owes a yearly bill nothing outside its anniversary month', () => {
+    const yearly = rec({ amount: 1200, cadence: 'annuel' });
+    expect(upcomingCommitments([yearly], '2026-07')).toBe(0);
+    expect(upcomingCommitments([yearly], '2026-12')).toBe(0);
+  });
+
+  it('owes a yearly bill its full amount in its anniversary month and drops it once settled', () => {
+    const yearly = rec({ amount: 1200, cadence: 'annuel' });
+    expect(upcomingCommitments([yearly], '2026-01')).toBe(1200);
+    const paid = rec({
+      amount: 1200,
+      cadence: 'annuel',
+      history: [{ month: '2026-01', amount: 1200, transactionId: 'tx-1' }],
+    });
+    expect(upcomingCommitments([paid], '2026-01')).toBe(0);
+  });
+
+  it('owes each unsettled weekly occurrence in the period at full amount', () => {
+    const weekly = rec({ amount: 30, cadence: 'hebdo', createdAt: WEEKLY_CREATED });
+    expect(upcomingCommitments([weekly], MONTH)).toBe(150);
+    const onePaid = rec({
+      amount: 30,
+      cadence: 'hebdo',
+      createdAt: WEEKLY_CREATED,
+      history: [{ month: MONTH, amount: 30, transactionId: 'tx-1', occurrence: '2026-07-09' }],
+    });
+    expect(upcomingCommitments([onePaid], MONTH)).toBe(120);
+  });
+
+  it('owes a passed pay cycle’s unfilled monthly bill at its full amount', () => {
+    const salaries = ['2026-06-26', '2026-07-26'];
+    const paidLatest = rec({
+      amount: 600,
+      dueDay: 26,
+      history: [{ month: '2026-07', amount: 600, transactionId: 'tx-1', occurrence: '2026-07-26' }],
+    });
+    expect(upcomingCommitments([paidLatest], '2026-06-26', salaries)).toBe(600);
+    expect(upcomingCommitments([paidLatest], '2026-07-26', salaries)).toBe(0);
   });
 
   it('drops a bill already settled this calendar month', () => {

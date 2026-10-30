@@ -4,8 +4,13 @@ import { db } from '@/db/db';
 import { uid } from '@/lib/id';
 import { round2 } from '@/lib/calc';
 import { isConfirmedIn } from '@/lib/recurring';
-import { occurrenceOf } from '@/lib/recurringSchedule';
-import { periodOf } from '@/lib/period';
+import {
+  isOccurrencePaidIn,
+  occurrenceOf,
+  paidMonths,
+  paidOccurrences,
+} from '@/lib/recurringSchedule';
+import { periodBounds, periodOf } from '@/lib/period';
 import type {
   Budget,
   Cadence,
@@ -47,11 +52,81 @@ function settledIn(r: Recurring, month: string, salaries: string[]): boolean {
   );
 }
 
+/** 'YYYY-MM-DD' of an ISO instant on the LOCAL calendar (same basis as
+ *  recurringDueDays). */
+function localDateOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+const DAY_MS = 86_400_000;
+
+function utcDay(date: string): number {
+  return Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)));
+}
+
+function addDays(date: string, days: number): string {
+  return new Date(utcDay(date) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
 /**
- * The bills of the cycle that have not been debited yet, as monthly
- * equivalents. This is what stands between the balance and what is really free:
- * a settled bill is already out of the balance, so only the unsettled ones are
- * subtracted — never both.
+ * What an expense template owes in the period `month` — a schedule, never a
+ * rate. `month` is a pay-cycle key ('YYYY-MM-DD') or a calendar month
+ * ('YYYY-MM').
+ *
+ *  - monthly: its full amount.
+ *  - yearly: its full amount in the calendar month of its creation
+ *    anniversary, nothing in any other month.
+ *  - weekly: its full amount for each occurrence (creation date + 7k days)
+ *    falling inside the period.
+ *
+ * With `unsettledOnly`, instalments already paid are left out: they are
+ * already out of the balance.
+ */
+function owedAmount(
+  r: Recurring,
+  month: string,
+  salaries: string[],
+  unsettledOnly: boolean,
+): number {
+  if (r.cadence === 'mensuel') {
+    if (unsettledOnly) {
+      const settled =
+        month.length > 7 ? paidMonths(r, salaries).has(month) : isOccurrencePaidIn(r, month, salaries);
+      if (settled) return 0;
+    }
+    return r.amount;
+  }
+
+  const createdOn = localDateOf(r.createdAt);
+
+  if (r.cadence === 'annuel') {
+    const calendar = month.slice(0, 7);
+    const born = createdOn.slice(0, 7);
+    if (calendar < born || calendar.slice(5, 7) !== born.slice(5, 7)) return 0;
+    if (unsettledOnly && paidMonths(r, salaries).has(calendar)) return 0;
+    return r.amount;
+  }
+
+  // Weekly: every occurrence inside [start, end) on the creation weekday.
+  const { start, end } = periodBounds(month, salaries);
+  const paid = unsettledOnly ? paidOccurrences(r) : new Set<string>();
+  const first = Math.max(0, Math.ceil((utcDay(start) - utcDay(createdOn)) / (7 * DAY_MS)));
+  let total = 0;
+  for (let date = addDays(createdOn, first * 7); date < end; date = addDays(date, 7)) {
+    if (date >= start && !paid.has(date)) total += r.amount;
+  }
+  return total;
+}
+
+/**
+ * What the period still owes in bills that have not been debited yet, each on
+ * its own schedule (see `owedAmount`). This is what stands between the balance
+ * and what is really free: a settled bill is already out of the balance, so only
+ * the unsettled ones are subtracted — never both.
  */
 export function upcomingCommitments(
   recurrings: Recurring[],
@@ -60,8 +135,8 @@ export function upcomingCommitments(
 ): number {
   return round2(
     recurrings
-      .filter((r) => r.direction === 'expense' && !settledIn(r, month, salaries))
-      .reduce((s, r) => s + monthlyEquivalent(r.amount, r.cadence), 0),
+      .filter((r) => r.direction === 'expense')
+      .reduce((s, r) => s + owedAmount(r, month, salaries, true), 0),
   );
 }
 
@@ -72,7 +147,7 @@ export function variableExpenses(transactions: Transaction[]): Transaction[] {
 export interface AutoBudget {
   /** Booked income plus recurring income still due this month. */
   income: number;
-  /** Every recurring expense, as its monthly equivalent. */
+  /** Every recurring expense owed in the period, on its own schedule. */
   recurringExpenses: number;
   /** What is left to allocate: income − commitments, floored at zero. */
   total: number;
@@ -105,9 +180,11 @@ export function computeAutoBudget(
   let recurringExpenses = 0;
 
   for (const r of recurrings) {
-    const monthly = monthlyEquivalent(r.amount, r.cadence);
-    if (r.direction === 'expense') recurringExpenses += monthly;
-    else if (!settledIn(r, month, salaries)) stillDue += monthly;
+    if (r.direction === 'expense') {
+      recurringExpenses += owedAmount(r, month, salaries, false);
+    } else if (!settledIn(r, month, salaries)) {
+      stillDue += monthlyEquivalent(r.amount, r.cadence);
+    }
   }
 
   const income = round2(actualIncome + stillDue);
