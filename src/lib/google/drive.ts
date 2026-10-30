@@ -3,6 +3,7 @@
 
 import type { BackupPayload } from '@/lib/data';
 import { gzipSupported, gzipText, decodeBackupBytes } from '@/lib/gzip';
+import { DriveHttpError } from './auth';
 
 const DRIVE_FILES = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD_FILES = 'https://www.googleapis.com/upload/drive/v3/files';
@@ -86,7 +87,7 @@ export async function uploadBackupToFolder(
         /* ignore */
       }
     }
-    throw new Error(`google-upload-failed (${res.status}) ${detail}`);
+    throw new DriveHttpError(res.status, `google-upload-failed (${res.status}) ${detail}`);
   }
   return (await res.json()) as { id: string; name: string };
 }
@@ -109,7 +110,7 @@ export async function downloadBackupFile(fileId: string, token: string): Promise
     } catch {
       /* ignore */
     }
-    throw new Error(`google-download-failed (${res.status}) ${detail}`);
+    throw new DriveHttpError(res.status, `google-download-failed (${res.status}) ${detail}`);
   }
   return decodeBackupBytes(await res.arrayBuffer());
 }
@@ -139,7 +140,7 @@ export async function listBackupsInFolder(
     } catch {
       /* ignore */
     }
-    throw new Error(`google-list-failed (${res.status}) ${detail}`);
+    throw new DriveHttpError(res.status, `google-list-failed (${res.status}) ${detail}`);
   }
   const json = (await res.json()) as { files?: DriveBackupMeta[] };
   return json.files ?? [];
@@ -153,7 +154,7 @@ export async function deleteFile(fileId: string, token: string): Promise<void> {
   });
   // 204 = deleted. 404 = already gone (treat as success — idempotent prune).
   if (!res.ok && res.status !== 404) {
-    throw new Error(`google-delete-failed (${res.status})`);
+    throw new DriveHttpError(res.status, `google-delete-failed (${res.status})`);
   }
 }
 
@@ -174,7 +175,7 @@ export async function findFolderByName(
     } catch {
       /* ignore */
     }
-    throw new Error(`google-find-folder-failed (${res.status}) ${detail}`);
+    throw new DriveHttpError(res.status, `google-find-folder-failed (${res.status}) ${detail}`);
   }
   const json = (await res.json()) as { files?: { id: string }[] };
   return json.files?.[0] ?? null;
@@ -197,7 +198,7 @@ export async function createFolder(name: string, token: string): Promise<{ id: s
     } catch {
       /* ignore */
     }
-    throw new Error(`google-create-folder-failed (${res.status}) ${detail}`);
+    throw new DriveHttpError(res.status, `google-create-folder-failed (${res.status}) ${detail}`);
   }
   return (await res.json()) as { id: string };
 }

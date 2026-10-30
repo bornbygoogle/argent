@@ -63,6 +63,20 @@ export class AuthNotConfiguredError extends Error {
   }
 }
 
+/**
+ * A Drive REST call answered with a non-success HTTP status. Carries the real
+ * status so callers decide on it, never on the message text.
+ */
+export class DriveHttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'DriveHttpError';
+  }
+}
+
 export interface Session {
   accessToken: string;
   expiresAt: number;
@@ -155,7 +169,7 @@ export async function withTokenRefresh<T>(op: (token: string) => Promise<T>): Pr
   try {
     return await op(token);
   } catch (e) {
-    if (e instanceof Error && /401/.test(e.message)) {
+    if (e instanceof DriveHttpError && e.status === 401) {
       clearCachedAccessToken();
       return op(await getValidAccessToken());
     }

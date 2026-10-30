@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   getValidAccessToken, clearCachedAccessToken,
   AuthRevokedError, AuthOfflineError, AuthTransientError, AuthNoSessionError,
+  withTokenRefresh, DriveHttpError,
 } from './auth';
 
 const ok = (body: unknown) =>
@@ -103,5 +104,60 @@ describe('getValidAccessToken', () => {
     expect(url).toBe('/api/auth/token');
     expect(init.method).toBe('POST');
     expect(init.credentials).toBe('same-origin');
+  });
+});
+
+describe('withTokenRefresh', () => {
+  // Each call to the token endpoint yields a distinct token, so the test can
+  // tell the stale token from the freshly fetched one.
+  const tokenFetch = () => {
+    let n = 0;
+    const f = vi.fn().mockImplementation(async () =>
+      ok({ accessToken: `token-${++n}`, expiresAt: future(), email: null }));
+    vi.stubGlobal('fetch', f);
+    return f;
+  };
+
+  it('does not retry a 500 error whose message contains 401', async () => {
+    const f = tokenFetch();
+    const failure = new DriveHttpError(500, 'google-upload-failed (500) {"id":"x401y"}');
+    const op = vi.fn().mockRejectedValue(failure);
+
+    await expect(withTokenRefresh(op)).rejects.toBe(failure);
+
+    expect(op).toHaveBeenCalledTimes(1);
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries once on a 401 status with an unrelated message', async () => {
+    const f = tokenFetch();
+    const op = vi.fn()
+      .mockRejectedValueOnce(new DriveHttpError(401, 'unauthorized'))
+      .mockResolvedValueOnce('done');
+
+    expect(await withTokenRefresh(op)).toBe('done');
+
+    expect(op).toHaveBeenCalledTimes(2);
+    expect(op.mock.calls[0][0]).toBe('token-1');
+    expect(op.mock.calls[1][0]).toBe('token-2');
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws the second 401 without a third attempt', async () => {
+    tokenFetch();
+    const op = vi.fn().mockRejectedValue(new DriveHttpError(401, 'unauthorized'));
+
+    await expect(withTokenRefresh(op)).rejects.toBeInstanceOf(DriveHttpError);
+
+    expect(op).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a plain Error whose message mentions 401', async () => {
+    tokenFetch();
+    const op = vi.fn().mockRejectedValue(new Error('401'));
+
+    await expect(withTokenRefresh(op)).rejects.toThrow('401');
+
+    expect(op).toHaveBeenCalledTimes(1);
   });
 });
