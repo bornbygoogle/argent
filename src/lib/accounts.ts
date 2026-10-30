@@ -90,6 +90,14 @@ export async function deleteAccountWithReassign(
       });
     }
 
+    // 2b. Partner legs sit on another account (the target or a third one), so
+    // step 2 never selected them: repoint their counterAccountId too, or it
+    // dangles on the deleted id and step 3 cannot pair the legs.
+    const partners = await db.transactions.filter((t) => t.counterAccountId === id).toArray();
+    for (const t of partners) {
+      await db.transactions.update(t.id, { counterAccountId: reassignToId });
+    }
+
     // 3. Collapse transfers now sitting on both legs of the target account.
     const onTarget = await db.transactions.where('accountId').equals(reassignToId).toArray();
     const byGroup = new Map<string, Transaction[]>();
