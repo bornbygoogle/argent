@@ -1,11 +1,18 @@
 // happy-dom ships no IndexedDB, so Dexie needs a shim. This import must come
 // before anything that pulls in '@/db/db'.
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import i18n from '@/i18n';
+import { exportBackup, downloadBackup } from '@/lib/data';
+
+vi.mock('@/lib/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data')>()),
+  exportBackup: vi.fn(),
+  downloadBackup: vi.fn(),
+}));
 import { AccountScopeProvider } from '@/store/AccountScopeContext';
 import { Statistics } from '@/features/statistics/Statistics';
 import { currentMonth } from '@/lib/date';
@@ -182,5 +189,60 @@ describe('Statistics category filter', () => {
 
     expect(await screen.findByText('No spend for this filter')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Category/i })).toBeInTheDocument();
+  });
+});
+
+describe('Statistics week view and export', () => {
+  const realTZ = process.env.TZ;
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (realTZ === undefined) delete process.env.TZ;
+    else process.env.TZ = realTZ;
+    vi.mocked(exportBackup).mockReset();
+    vi.mocked(downloadBackup).mockReset();
+  });
+
+  it('labels the week bars with the right weekday west of UTC', async () => {
+    process.env.TZ = 'America/New_York';
+    // Local noon on Friday 2026-10-30.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 30, 12, 0, 0));
+    await db.transactions.add({ ...expense('t-today', 12, 'cat-alpha'), date: '2026-10-30' });
+
+    const user = userEvent.setup({ advanceTimers: () => {} });
+    renderStats();
+    await user.click(await screen.findByRole('button', { name: 'Week' }));
+
+    // Sat, Sun, Mon, Tue, Wed, Thu, Fri (stats.weekShort is Monday-first).
+    const expected = [5, 6, 0, 1, 2, 3, 4].map((i) => i18n.t(`stats.weekShort.${i}`));
+    await waitFor(() => {
+      const titles = Array.from(document.querySelectorAll('div[title]')).map((el) =>
+        el.getAttribute('title'),
+      );
+      expect(titles).toEqual(expected);
+    });
+  });
+
+  it('shows the export error banner when the backup export fails', async () => {
+    vi.mocked(exportBackup).mockRejectedValue(new Error('boom'));
+    const user = userEvent.setup();
+    renderStats();
+
+    await user.click(screen.getByRole('button', { name: i18n.t('settings.export') }));
+
+    expect(await screen.findByText(i18n.t('settings.exportError'))).toBeInTheDocument();
+    expect(downloadBackup).not.toHaveBeenCalled();
+  });
+
+  it('does not show the export error banner when the export succeeds', async () => {
+    vi.mocked(exportBackup).mockResolvedValue({} as Awaited<ReturnType<typeof exportBackup>>);
+    const user = userEvent.setup();
+    renderStats();
+
+    await user.click(screen.getByRole('button', { name: i18n.t('settings.export') }));
+
+    await waitFor(() => expect(downloadBackup).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(i18n.t('settings.exportError'))).not.toBeInTheDocument();
   });
 });

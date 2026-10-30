@@ -20,9 +20,8 @@ import {
   previewCurrency,
   isValidCurrencyCode,
 } from '@/lib/currency';
+import { exportBackupToFile } from '@/lib/backupExport';
 import {
-  exportBackup,
-  downloadBackup,
   parseBackupBlob,
   importBackup,
   clearAllData,
@@ -113,11 +112,7 @@ export function Settings() {
 
   const handleExport = async () => {
     setErr(null);
-    try {
-      downloadBackup(await exportBackup());
-    } catch {
-      setErr(t('settings.exportError'));
-    }
+    if (!(await exportBackupToFile())) setErr(t('settings.exportError'));
   };
 
   const handleImportFile = async (file: File | undefined) => {

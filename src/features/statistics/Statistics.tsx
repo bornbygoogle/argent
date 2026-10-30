@@ -24,7 +24,8 @@ import {
   todayISO,
 } from '@/lib/date';
 import { formatCurrency, formatMonth } from '@/lib/format';
-import { exportBackup, downloadBackup } from '@/lib/data';
+import { exportBackupToFile } from '@/lib/backupExport';
+import { Banner } from '@/components/ui/Banner';
 
 type Period = 'month' | 'week' | 'year';
 const DAY_MS = 86_400_000;
@@ -52,6 +53,7 @@ export function Statistics() {
   const [catId, setCatId] = useState('');
   const [subId, setSubId] = useState('');
   const [allCats, setAllCats] = useState(false);
+  const [exportFailed, setExportFailed] = useState(false);
 
   const allExpenses = useMemo(() => scoped.filter((tx) => tx.kind === 'expense'), [scoped]);
   const expenses = useMemo(
@@ -111,14 +113,15 @@ export function Statistics() {
       return { inCur, inPrev, buckets, prevLabel: String(year - 1) };
     }
     // week: last 7 days vs the 7 before
-    const todayN = new Date();
-    todayN.setHours(0, 0, 0, 0);
     const inCur = expenses.filter((e) => e.date >= isoDaysAgo(6) && e.date <= todayISO());
     const inPrev = expenses.filter((e) => e.date >= isoDaysAgo(13) && e.date < isoDaysAgo(6));
     const buckets = Array.from({ length: 7 }, (_, i) => {
       const iso = isoDaysAgo(6 - i);
       const total = inCur.filter((e) => e.date === iso).reduce((a, e) => a + e.amount, 0);
-      const wd = new Date(iso);
+      // Local parts, not new Date(iso): a date-only string parses as UTC
+      // midnight, which is still the previous day west of UTC.
+      const [y, m, d] = iso.split('-').map(Number);
+      const wd = new Date(y, m - 1, d);
       return { key: t(`stats.weekShort.${(wd.getDay() + 6) % 7}`), total };
     });
     return { inCur, inPrev, buckets, prevLabel: t('stats.lastWeek') };
@@ -143,7 +146,8 @@ export function Statistics() {
   const maxBucket = Math.max(1, ...view.buckets.map((b) => b.total));
 
   const handleExport = async () => {
-    downloadBackup(await exportBackup());
+    setExportFailed(false);
+    if (!(await exportBackupToFile())) setExportFailed(true);
   };
 
   return (
@@ -158,6 +162,7 @@ export function Statistics() {
       />
 
       <main className="content" style={{ paddingBottom: 96, gap: 14 }}>
+        {exportFailed && <Banner tone="danger" icon="AlertCircle">{t('settings.exportError')}</Banner>}
         <Segmented<Period>
           value={period}
           onChange={setPeriod}
@@ -232,7 +237,7 @@ export function Statistics() {
                   const h = Math.round((b.total / maxBucket) * 70) + (b.total > 0 ? 4 : 0);
                   const isLast = i === view.buckets.length - 1;
                   return (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', height: '100%' }}>
+                    <div key={i} title={b.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', height: '100%' }}>
                       <div
                         style={{
                           width: '100%',
