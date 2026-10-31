@@ -2,7 +2,7 @@
 import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
-import { monthOf, todayISO } from '@/lib/date';
+import { localDateOf, monthOf, todayISO } from '@/lib/date';
 import { periodBounds, periodOf, salaryDatesFrom } from '@/lib/period';
 import { nextUnpaidOccurrence, paidMonths, periodKeyFor } from '@/lib/recurringSchedule';
 import { sumExpenses, sumIncome } from '@/lib/calc';
@@ -278,15 +278,6 @@ export interface OwedRecurring {
   /** 'idle': nothing is owed at all (a yearly expense outside its anniversary
    *  month). 'owed': the instalment is unpaid. 'settled': its period holds one. */
   status: 'owed' | 'settled' | 'idle';
-}
-
-/** 'YYYY-MM-DD' of an ISO instant on the LOCAL calendar, the basis of `todayISO`. */
-function localDateOf(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 /**

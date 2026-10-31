@@ -3,6 +3,7 @@
 import { db } from '@/db/db';
 import { uid } from '@/lib/id';
 import { round2 } from '@/lib/calc';
+import { DAY_MS, addDays, localDateOf, utcDay } from '@/lib/date';
 import { isConfirmedIn } from '@/lib/recurring';
 import {
   isOccurrencePaidIn,
@@ -50,26 +51,6 @@ function settledIn(r: Recurring, month: string, salaries: string[]): boolean {
   return r.history.some(
     (h) => !!h.transactionId && periodOf(occurrenceOf(h, r), salaries) === month,
   );
-}
-
-/** 'YYYY-MM-DD' of an ISO instant on the LOCAL calendar (same basis as
- *  recurringDueDays). */
-function localDateOf(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
-const DAY_MS = 86_400_000;
-
-function utcDay(date: string): number {
-  return Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)));
-}
-
-function addDays(date: string, days: number): string {
-  return new Date(utcDay(date) + days * DAY_MS).toISOString().slice(0, 10);
 }
 
 /**

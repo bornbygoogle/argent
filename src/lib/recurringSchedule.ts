@@ -9,7 +9,7 @@
 // The day is clamped at read time, never rewritten: a 31 stored against a
 // February must still mean the 31st in March. And the day never decides whether
 // a row is shown — a bill due on the 30th is still the month's work on the 28th.
-import { daysInMonth, nextMonth } from '@/lib/date';
+import { daysInMonth, localDateOf, nextMonth } from '@/lib/date';
 import { periodBounds, periodOf } from '@/lib/period';
 import type { Recurring, RecurringHistoryEntry } from '@/types/models';
 
@@ -51,17 +51,6 @@ export function paidOccurrences(r: Recurring): Set<string> {
   return new Set(
     r.history.filter((h) => !!h.transactionId).map((h) => occurrenceOf(h, r)),
   );
-}
-
-/** 'YYYY-MM-DD' of an ISO instant on the LOCAL calendar — the same basis as
- *  `todayISO`. `createdAt.slice(0, 10)` is the UTC date, which near midnight is
- *  a day off the local one it gets compared with. */
-function localDateOf(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 /**

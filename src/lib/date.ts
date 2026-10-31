@@ -39,12 +39,29 @@ export function currentMonth(): string {
 
 /** Today shifted by `offset` days (negative = past), as 'YYYY-MM-DD' (local). */
 export function addDaysISO(offset: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  const y = d.getFullYear();
+  return addDays(todayISO(), offset);
+}
+
+/** 'YYYY-MM-DD' of an ISO instant on the LOCAL calendar (same basis as
+ *  todayISO). `iso.slice(0, 10)` is the UTC date, a day off near midnight. */
+export function localDateOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+export const DAY_MS = 86_400_000;
+
+/** UTC midnight (ms) of a 'YYYY-MM-DD' date. */
+export function utcDay(date: string): number {
+  return Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)));
+}
+
+/** A 'YYYY-MM-DD' date shifted by `days` calendar days. */
+export function addDays(date: string, days: number): string {
+  return new Date(utcDay(date) + days * DAY_MS).toISOString().slice(0, 10);
 }
 
 /** Number of days in a given 'YYYY-MM'. */
