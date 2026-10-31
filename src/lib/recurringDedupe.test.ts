@@ -216,8 +216,8 @@ describe('dedupeRecurringMonths', () => {
 
   it('leaves a history entry whose transaction the user deleted by hand', async () => {
     // Nothing here is over the ceiling, so the pass must not touch history at
-    // all. Dropping such an entry would reopen a settled month and invite a
-    // fresh duplicate — the very thing this pass exists to stop.
+    // all. It deliberately leaves legacy dangling entries as stored: hand
+    // deletes are now cleared by deleteTransaction, not by this startup pass.
     await db.transactions.add(tx('tx-1', '2026-08-05', '2026-08-01T10:00:00.000Z'));
     await db.recurrings.add(
       rec({ history: [entry('tx-1', '2026-08-05'), entry('tx-gone', '2026-07-05')] }),

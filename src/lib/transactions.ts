@@ -81,8 +81,50 @@ export async function updateTransaction(
   await db.transactions.update(id, next);
 }
 
+/**
+ * Delete rows and, in the caller's open transaction, every recurring history
+ * entry that names any of them. A history entry asserts "this instalment was
+ * settled by transaction X"; once X is gone the instalment is no longer backed
+ * by a real movement, so the entry goes too and the period reopens.
+ *
+ * Callers must already be inside a 'rw' transaction on db.transactions and
+ * db.recurrings. Re-implements recurring.ts's legIdsOf rather than importing
+ * it: recurring.ts already imports this module.
+ */
+async function deleteRowsAndHistory(ids: string[]): Promise<void> {
+  const doomed = new Set(ids);
+  const recurrings = await db.recurrings.toArray();
+  const named = recurrings.filter((r) =>
+    r.history.some((h) => h.transactionId && doomed.has(h.transactionId)),
+  );
+  await db.transactions.bulkDelete([...doomed]);
+  for (const r of named) {
+    const history = r.history.filter((h) => !h.transactionId || !doomed.has(h.transactionId));
+    await db.recurrings.update(r.id, { history });
+  }
+}
+
+/**
+ * Rows a hand delete of `id` removes: just `id`, unless a history entry names
+ * it or its transfer sibling — then the whole group, like unconfirmRecurring,
+ * since a settled transfer is two rows and history names only the out leg.
+ */
+async function idsToDelete(id: string): Promise<string[]> {
+  const tx = await db.transactions.get(id);
+  if (!tx?.transferGroupId) return [id];
+  const legs = await db.transactions.where('transferGroupId').equals(tx.transferGroupId).toArray();
+  const legIds = new Set(legs.map((l) => l.id));
+  const recurrings = await db.recurrings.toArray();
+  const settled = recurrings.some((r) =>
+    r.history.some((h) => h.transactionId && legIds.has(h.transactionId)),
+  );
+  return settled ? [...legIds] : [id];
+}
+
 export async function deleteTransaction(id: string): Promise<void> {
-  await db.transactions.delete(id);
+  await db.transaction('rw', db.transactions, db.recurrings, async () => {
+    await deleteRowsAndHistory(await idsToDelete(id));
+  });
 }
 
 export async function getTransaction(id: string): Promise<Transaction | undefined> {
@@ -204,8 +246,8 @@ export async function updateTransfer(
 
 /** Delete both legs of a transfer. */
 export async function deleteTransfer(groupId: string): Promise<void> {
-  await db.transaction('rw', db.transactions, async () => {
+  await db.transaction('rw', db.transactions, db.recurrings, async () => {
     const legs = await db.transactions.where('transferGroupId').equals(groupId).toArray();
-    await db.transactions.bulkDelete(legs.map((l) => l.id));
+    await deleteRowsAndHistory(legs.map((l) => l.id));
   });
 }

@@ -110,9 +110,17 @@ export async function dedupeRecurringMonths(): Promise<number> {
 
     const removed = new Set(doomed);
     // History entries are dropped only for the transactions this pass deleted.
-    // An entry whose transaction the user removed by hand is left alone: it
-    // still means "this month is settled", and clearing it would reopen the
-    // month and invite the duplicate all over again.
+    // A transaction the user removes by hand is no longer this pass's concern:
+    // deleteTransaction / deleteTransfer clear the entry that names it in the
+    // same db transaction, so the instalment reopens and can be logged again.
+    // That is safe because confirmRecurring now enforces one instalment per PAY
+    // CYCLE, counting the real transactions by the cycle their DATE falls in. A
+    // re-log after a hand delete therefore creates exactly one charge and a
+    // second press is refused. The old rule (leave the entry, since clearing it
+    // would "invite the duplicate") guarded against a calendar-month ceiling
+    // that leaked and let 620 EUR of re-log copies through; that ceiling is gone.
+    // Entries already dangling from hand deletes made before this rule are left
+    // as stored: this pass never reconciles them, and adds no startup repair.
     const history = r.history.filter((h) => !h.transactionId || !removed.has(h.transactionId));
 
     await db.transaction('rw', db.transactions, db.recurrings, async () => {
