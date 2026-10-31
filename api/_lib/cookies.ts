@@ -2,6 +2,17 @@ export const SESSION_COOKIE = 'argent_session';
 export const STATE_COOKIE = 'argent_oauth_state';
 export const VERIFIER_COOKIE = 'argent_oauth_verifier';
 
+/**
+ * The session cookie name. `__Host-` makes a browser refuse a cookie that is
+ * not Secure, has a Domain, or has a Path other than `/`, so a sibling
+ * subdomain cannot write it. It requires Secure, so plain http (local dev)
+ * keeps the unprefixed name. The temp OAuth cookies use Path=/api/auth and
+ * cannot take the prefix.
+ */
+export function sessionCookieName(secure: boolean): string {
+  return secure ? `__Host-${SESSION_COOKIE}` : SESSION_COOKIE;
+}
+
 /** 400 days — the maximum lifetime browsers will honour for a cookie. */
 export const SESSION_MAX_AGE = 34_560_000;
 /** Temp OAuth cookies only need to survive the consent round-trip. */

@@ -136,15 +136,21 @@ export async function fetchEmail(
   }
 }
 
-/** Best-effort revoke on sign-out. Never throws — sign-out must always succeed locally. */
-export async function revokeToken(token: string, f: typeof fetch = fetch): Promise<void> {
+/**
+ * Best-effort revoke on sign-out. Never throws — sign-out must always succeed
+ * locally. Resolves true only when Google accepted the revoke (response.ok);
+ * false on a non-OK status or a network failure, so the caller can tell the
+ * user the grant may survive.
+ */
+export async function revokeToken(token: string, f: typeof fetch = fetch): Promise<boolean> {
   try {
-    await f(REVOKE_URL, {
+    const res = await f(REVOKE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ token }).toString(),
     });
+    return res.ok;
   } catch {
-    /* the local cookie is cleared regardless */
+    return false;
   }
 }

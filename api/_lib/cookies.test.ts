@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { serializeCookie, parseCookies, SESSION_COOKIE } from './cookies.js';
+import { serializeCookie, parseCookies, sessionCookieName, SESSION_COOKIE } from './cookies.js';
+
+describe('sessionCookieName', () => {
+  it('sessionCookieName returns the __Host- name when secure', () => {
+    expect(sessionCookieName(true)).toBe('__Host-argent_session');
+  });
+
+  it('sessionCookieName returns the plain name when not secure', () => {
+    expect(sessionCookieName(false)).toBe('argent_session');
+  });
+});
 
 describe('serializeCookie', () => {
   it('emits the security flags', () => {

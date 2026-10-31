@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import {
   DRIVE_FILE_SCOPE, OAuthRevokedError, OAuthUpstreamError,
   createVerifier, createState, challengeFor, buildAuthorizeUrl,
-  exchangeCode, refreshAccessToken, fetchEmail,
+  exchangeCode, refreshAccessToken, fetchEmail, revokeToken,
 } from './oauth.js';
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -124,6 +124,26 @@ describe('refreshAccessToken', () => {
     ).catch((e) => e);
     expect(err).toBeInstanceOf(OAuthUpstreamError);
     expect(err).not.toBeInstanceOf(OAuthRevokedError);
+  });
+});
+
+describe('revokeToken', () => {
+  it('revokeToken returns true when Google responds ok', async () => {
+    const f = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
+    expect(await revokeToken('rt', f as unknown as typeof fetch)).toBe(true);
+    const [url, init] = f.mock.calls[0];
+    expect(url).toBe('https://oauth2.googleapis.com/revoke');
+    expect(new URLSearchParams(init.body as string).get('token')).toBe('rt');
+  });
+
+  it('revokeToken returns false when Google responds 400', async () => {
+    const f = vi.fn().mockResolvedValue(jsonResponse({ error: 'invalid_token' }, 400));
+    expect(await revokeToken('rt', f as unknown as typeof fetch)).toBe(false);
+  });
+
+  it('revokeToken returns false and does not throw when fetch rejects', async () => {
+    const f = vi.fn().mockRejectedValue(new TypeError('network down'));
+    expect(await revokeToken('rt', f as unknown as typeof fetch)).toBe(false);
   });
 });
 

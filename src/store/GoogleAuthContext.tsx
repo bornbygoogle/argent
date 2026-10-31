@@ -63,6 +63,11 @@ export interface UseGoogleAuth {
   setNeedsReconnect: (v: boolean) => void;
   /** True when the last token attempt failed at the network layer. */
   offline: boolean;
+  /**
+   * True after a sign-out whose Google revoke failed: the local session is gone
+   * but the grant may still be live at myaccount.google.com.
+   */
+  remoteGrantMayRemain: boolean;
 }
 
 const GoogleAuthContext = createContext<UseGoogleAuth | null>(null);
@@ -74,6 +79,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
   const [busy, setBusy] = useState(false);
   const [needsReconnect, setNeedsReconnect] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [remoteGrantMayRemain, setRemoteGrantMayRemain] = useState(false);
   const [syncStatus, setSyncStatus] = useState<GoogleSyncStatus>({
     lastBackupAt: null,
     lastError: null,
@@ -114,6 +120,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
         if (cancelled) return;
         setEmail(session.email);
         setStatus('signed-in');
+        setRemoteGrantMayRemain(false);
         setNeedsReconnect(false);
         setOffline(false);
       } catch (e) {
@@ -130,6 +137,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
   }, [configured]);
 
   const signIn = useCallback((): void => {
+    setRemoteGrantMayRemain(false);
     setBusy(true);
     startSignIn();
   }, []);
@@ -137,7 +145,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
   const signOut = useCallback(async () => {
     setBusy(true);
     try {
-      await serverSignOut();
+      setRemoteGrantMayRemain(await serverSignOut());
     } finally {
       setStatus('signed-out');
       setEmail(null);
@@ -184,6 +192,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       needsReconnect,
       setNeedsReconnect,
       offline,
+      remoteGrantMayRemain,
     }),
     [
       configured,
@@ -199,6 +208,7 @@ export function GoogleAuthProvider({ children }: { children: React.ReactNode }) 
       clearRestoredJustNow,
       needsReconnect,
       offline,
+      remoteGrantMayRemain,
     ],
   );
 

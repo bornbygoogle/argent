@@ -163,6 +163,7 @@
       "backupNow": "Back up now",
       "backingUp": "Backing up…",
       "backupDone": "Backup created on Drive.",
+      "remoteGrantMayRemain": "You are signed out here, but Google's access could not be revoked. You can remove it at myaccount.google.com.",
       "backupError": "The last automatic backup failed — it will retry on the next change.",
       "restoredFromDrive": "Your data was just restored from Google Drive.",
       "restoreLatest": "Restore latest backup",

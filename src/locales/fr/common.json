@@ -163,6 +163,7 @@
       "backupNow": "Sauvegarder maintenant",
       "backingUp": "Sauvegarde en cours…",
       "backupDone": "Sauvegarde créée sur Drive.",
+      "remoteGrantMayRemain": "Vous êtes déconnecté ici, mais l'accès Google n'a pas pu être révoqué. Vous pouvez le supprimer sur myaccount.google.com.",
       "backupError": "La dernière sauvegarde automatique a échoué — un nouvel essai aura lieu à la prochaine modification.",
       "restoredFromDrive": "Vos données viennent d'être restaurées depuis Google Drive.",
       "restoreLatest": "Restaurer la dernière sauvegarde",

@@ -2,7 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { ServerEnv } from './env.js';
 import { openSession, sealSession } from './session.js';
 import {
-  SESSION_COOKIE,
+  sessionCookieName,
   STATE_COOKIE,
   VERIFIER_COOKIE,
   SESSION_MAX_AGE,
@@ -54,9 +54,8 @@ function safeEqual(a: string, b: string): boolean {
  *  2. `Sec-Fetch-Site` — a Fetch Metadata header. Page script cannot set it
  *     (it is forbidden), so a cross-site caller cannot forge `same-origin`.
  *
- * Only when a request carries neither does this fall through to allow, and only
- * because such a client predates both headers — there SameSite=Lax is the
- * control, not this function.
+ * A request carrying neither presents no origin evidence and is refused. A real
+ * browser always sends one of them; only a non-browser client omits both.
  */
 function sameOrigin(request: Request, env: ServerEnv): boolean {
   const origin = request.headers.get('origin');
@@ -66,7 +65,7 @@ function sameOrigin(request: Request, env: ServerEnv): boolean {
   // 'same-site' is deliberately refused: a sibling subdomain is not us.
   if (site) return site === 'same-origin';
 
-  return true;
+  return false;
 }
 
 export async function handleStart(_request: Request, deps: Deps): Promise<Response> {
@@ -157,7 +156,7 @@ export async function handleCallback(request: Request, deps: Deps): Promise<Resp
       ['location', `${env.appOrigin}/settings?google=connected`],
       [
         'set-cookie',
-        serializeCookie(SESSION_COOKIE, sealed, {
+        serializeCookie(sessionCookieName(env.secure), sealed, {
           maxAge: SESSION_MAX_AGE,
           secure: env.secure,
         }),
@@ -182,7 +181,7 @@ export async function handleToken(request: Request, deps: Deps): Promise<Respons
     return Response.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  const sealed = parseCookies(request.headers.get('cookie'))[SESSION_COOKIE];
+  const sealed = parseCookies(request.headers.get('cookie'))[sessionCookieName(env.secure)];
   const session = sealed ? openSession(sealed, env.sessionKey) : null;
   if (!session) {
     return new Response(JSON.stringify({ error: 'no-session' }), {
@@ -214,7 +213,7 @@ export async function handleToken(request: Request, deps: Deps): Promise<Respons
       // The grant is genuinely dead — drop the cookie so the UI stops retrying.
       return new Response(JSON.stringify({ error: 'revoked' }), {
         status: 401,
-        headers: headers([...noStore, ['set-cookie', expired(SESSION_COOKIE, env)]]),
+        headers: headers([...noStore, ['set-cookie', expired(sessionCookieName(env.secure), env)]]),
       });
     }
     // Transient. Keep the cookie: a blip must never destroy a valid grant.
@@ -234,15 +233,17 @@ export async function handleSignout(request: Request, deps: Deps): Promise<Respo
     return Response.json({ error: 'forbidden' }, { status: 403 });
   }
 
-  const sealed = parseCookies(request.headers.get('cookie'))[SESSION_COOKIE];
+  const name = sessionCookieName(env.secure);
+  const sealed = parseCookies(request.headers.get('cookie'))[name];
   const session = sealed ? openSession(sealed, env.sessionKey) : null;
-  if (session) await revokeToken(session.rt, deps.fetchImpl);
+  // Signing out locally always succeeds; the revoke outcome only decides
+  // whether the client is told the Google grant may survive.
+  const revoked = session ? await revokeToken(session.rt, deps.fetchImpl) : true;
 
-  return new Response(null, {
-    status: 204,
-    headers: headers([
-      ['set-cookie', expired(SESSION_COOKIE, env)],
-      ['cache-control', 'no-store'],
-    ]),
-  });
+  const out: [string, string][] = [
+    ['set-cookie', expired(name, env)],
+    ['cache-control', 'no-store'],
+  ];
+  if (!revoked) out.push(['x-remote-revoke', 'failed']);
+  return new Response(null, { status: 204, headers: headers(out) });
 }

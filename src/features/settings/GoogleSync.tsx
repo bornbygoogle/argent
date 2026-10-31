@@ -35,6 +35,7 @@ export function GoogleSync() {
     syncStatus,
     restoredJustNow,
     clearRestoredJustNow,
+    remoteGrantMayRemain,
   } = useGoogleAuth();
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -135,6 +136,14 @@ export function GoogleSync() {
         <div style={{ marginBottom: 8 }}>
           <Banner tone="warn" icon="AlertCircle">
             {t('settings.google.backupError')}
+          </Banner>
+        </div>
+      )}
+      {/* Signed out locally, but Google did not confirm the revoke. */}
+      {status === 'signed-out' && remoteGrantMayRemain && (
+        <div style={{ marginBottom: 8 }}>
+          <Banner tone="warn" icon="AlertCircle">
+            {t('settings.google.remoteGrantMayRemain')}
           </Banner>
         </div>
       )}

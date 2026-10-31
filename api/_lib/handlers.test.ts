@@ -17,7 +17,10 @@ const env: ServerEnv = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-const setCookies = (r: Response) => r.headers.getSetCookie();
+// The session cookie is __Host- prefixed whenever env.secure is true.
+const SESSION = '__Host-argent_session';
+
+const setCookies =(r: Response) => r.headers.getSetCookie();
 const cookieNamed = (r: Response, name: string) =>
   setCookies(r).find((c) => c.startsWith(`${name}=`));
 
@@ -54,13 +57,13 @@ describe('handleCallback', () => {
       callbackReq('code=c&state=attacker', 'argent_oauth_state=real; argent_oauth_verifier=v'),
       { env });
     expect(res.status).toBe(400);
-    expect(cookieNamed(res, 'argent_session')).toBeUndefined();
+    expect(cookieNamed(res, SESSION)).toBeUndefined();
   });
 
   it('rejects a missing state cookie', async () => {
     const res = await handleCallback(callbackReq('code=c&state=s', ''), { env });
     expect(res.status).toBe(400);
-    expect(cookieNamed(res, 'argent_session')).toBeUndefined();
+    expect(cookieNamed(res, SESSION)).toBeUndefined();
   });
 
   it('surfaces a user denial without setting a session', async () => {
@@ -69,7 +72,7 @@ describe('handleCallback', () => {
       { env });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('google=denied');
-    expect(cookieNamed(res, 'argent_session')).toBeUndefined();
+    expect(cookieNamed(res, SESSION)).toBeUndefined();
   });
 
   it('on success seals the session, clears temp cookies, and redirects home', async () => {
@@ -84,7 +87,7 @@ describe('handleCallback', () => {
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('https://app.test/settings?google=connected');
 
-    const session = cookieNamed(res, 'argent_session')!;
+    const session = cookieNamed(res, SESSION)!;
     expect(session).toContain('HttpOnly');
     expect(session).toContain('Secure');
     expect(session).toContain('SameSite=Lax');
@@ -100,7 +103,69 @@ describe('handleCallback', () => {
       { env, fetchImpl: fetchImpl as unknown as typeof fetch });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('google=norefresh');
+    expect(cookieNamed(res, SESSION)).toBeUndefined();
+  });
+
+  it('session cookie is __Host- prefixed with Path=/ and no Domain when secure', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(json({ access_token: 'at', refresh_token: 'rt', expires_in: 3599 }))
+      .mockResolvedValueOnce(json({ user: { emailAddress: 'me@example.com' } }));
+    const res = await handleCallback(
+      callbackReq('code=c&state=s', 'argent_oauth_state=s; argent_oauth_verifier=v'),
+      { env, fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    const session = cookieNamed(res, '__Host-argent_session')!;
+    expect(session).toBeDefined();
+    expect(session).toContain('Path=/;');
+    expect(session).toContain('Secure');
+    expect(session).not.toContain('Domain');
     expect(cookieNamed(res, 'argent_session')).toBeUndefined();
+  });
+
+  it('uses the plain session cookie name when secure is false', async () => {
+    const devEnv: ServerEnv = {
+      ...env, appOrigin: 'http://localhost:3000', redirectUri: 'http://localhost:3000/api/auth/callback',
+      secure: false,
+    };
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(json({ access_token: 'at', refresh_token: 'rt', expires_in: 3599 }))
+      .mockResolvedValueOnce(json({ user: { emailAddress: 'me@example.com' } }));
+    const res = await handleCallback(
+      callbackReq('code=c&state=s', 'argent_oauth_state=s; argent_oauth_verifier=v'),
+      { env: devEnv, fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    const session = cookieNamed(res, 'argent_session')!;
+    expect(session).toBeDefined();
+    expect(session).not.toContain('Secure');
+    expect(cookieNamed(res, '__Host-argent_session')).toBeUndefined();
+
+    // The same env reads and clears the plain name on token and signout.
+    const sealed = sealSession({ rt: 'rt', em: null }, sessionKey);
+    const tokenRes = await handleToken(
+      new Request('http://localhost:3000/api/auth/token', {
+        method: 'POST',
+        headers: { cookie: `argent_session=${sealed}`, origin: 'http://localhost:3000' },
+      }),
+      { env: devEnv, fetchImpl: vi.fn().mockResolvedValue(json({ access_token: 'x', expires_in: 3599 })) as unknown as typeof fetch });
+    expect(tokenRes.status).toBe(200);
+
+    const outRes = await handleSignout(
+      new Request('http://localhost:3000/api/auth/signout', {
+        method: 'POST',
+        headers: { cookie: `argent_session=${sealed}`, origin: 'http://localhost:3000' },
+      }),
+      { env: devEnv, fetchImpl: vi.fn().mockResolvedValue(new Response('', { status: 200 })) as unknown as typeof fetch });
+    expect(cookieNamed(outRes, 'argent_session')).toContain('Max-Age=0');
+  });
+
+  it('temp OAuth cookies keep their unprefixed names', async () => {
+    const res = await handleStart(new Request('https://app.test/api/auth/start'), { env });
+    const state = cookieNamed(res, 'argent_oauth_state')!;
+    const verifier = cookieNamed(res, 'argent_oauth_verifier')!;
+    expect(state).toContain('Path=/api/auth');
+    expect(verifier).toContain('Path=/api/auth');
+    expect(cookieNamed(res, '__Host-argent_oauth_state')).toBeUndefined();
+    expect(cookieNamed(res, '__Host-argent_oauth_verifier')).toBeUndefined();
   });
 });
 
@@ -117,14 +182,14 @@ describe('handleToken', () => {
   });
 
   it('401s on an unopenable session cookie', async () => {
-    const res = await handleToken(tokenReq('argent_session=garbage'), { env });
+    const res = await handleToken(tokenReq(`${SESSION}=garbage`), { env });
     expect(res.status).toBe(401);
   });
 
   it('rejects a cross-origin request', async () => {
     const sealed = sealSession({ rt: 'rt', em: null }, sessionKey);
     const res = await handleToken(
-      tokenReq(`argent_session=${sealed}`, 'https://evil.test'), { env });
+      tokenReq(`${SESSION}=${sealed}`, 'https://evil.test'), { env });
     expect(res.status).toBe(403);
   });
 
@@ -141,7 +206,7 @@ describe('handleToken', () => {
     const noOriginReq = (extra: Record<string, string>) =>
       new Request('https://app.test/api/auth/token', {
         method: 'POST',
-        headers: { cookie: `argent_session=${sealSession({ rt: 'rt', em: null }, sessionKey)}`, ...extra },
+        headers: { cookie: `${SESSION}=${sealSession({ rt: 'rt', em: null }, sessionKey)}`, ...extra },
       });
 
     it('rejects a cross-site fetch', async () => {
@@ -161,13 +226,14 @@ describe('handleToken', () => {
       expect(res.status).toBe(200);
     });
 
-    // Browsers that send neither header predate both controls; SameSite=Lax is
-    // what protects them, so don't break them here.
-    it('allows a request that sends neither header', async () => {
+    // A real browser always sends one of the two headers; a request carrying
+    // neither presents no origin evidence and is refused.
+    it('rejects a request that sends neither header', async () => {
       const fetchImpl = vi.fn().mockResolvedValue(json({ access_token: 'fresh', expires_in: 3599 }));
       const res = await handleToken(noOriginReq({}), {
         env, fetchImpl: fetchImpl as unknown as typeof fetch });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(403);
+      expect(fetchImpl).not.toHaveBeenCalled();
     });
   });
 
@@ -175,7 +241,7 @@ describe('handleToken', () => {
     const sealed = sealSession({ rt: 'super-secret-refresh', em: 'me@example.com' }, sessionKey);
     const fetchImpl = vi.fn().mockResolvedValue(json({ access_token: 'fresh', expires_in: 3599 }));
 
-    const res = await handleToken(tokenReq(`argent_session=${sealed}`),
+    const res = await handleToken(tokenReq(`${SESSION}=${sealed}`),
       { env, fetchImpl: fetchImpl as unknown as typeof fetch });
 
     expect(res.status).toBe(200);
@@ -190,34 +256,82 @@ describe('handleToken', () => {
   it('401s AND clears the cookie when the grant is revoked', async () => {
     const sealed = sealSession({ rt: 'rt', em: null }, sessionKey);
     const fetchImpl = vi.fn().mockResolvedValue(json({ error: 'invalid_grant' }, 400));
-    const res = await handleToken(tokenReq(`argent_session=${sealed}`),
+    const res = await handleToken(tokenReq(`${SESSION}=${sealed}`),
       { env, fetchImpl: fetchImpl as unknown as typeof fetch });
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: 'revoked' });
-    expect(cookieNamed(res, 'argent_session')).toContain('Max-Age=0');
+    expect(cookieNamed(res, SESSION)).toContain('Max-Age=0');
   });
 
   it('502s WITHOUT clearing the cookie on a transient upstream failure', async () => {
     const sealed = sealSession({ rt: 'rt', em: null }, sessionKey);
     const fetchImpl = vi.fn().mockResolvedValue(json({ error: 'backend_error' }, 500));
-    const res = await handleToken(tokenReq(`argent_session=${sealed}`),
+    const res = await handleToken(tokenReq(`${SESSION}=${sealed}`),
       { env, fetchImpl: fetchImpl as unknown as typeof fetch });
     expect(res.status).toBe(502);
     // Critical: a transient blip must never destroy a valid grant.
-    expect(cookieNamed(res, 'argent_session')).toBeUndefined();
+    expect(cookieNamed(res, SESSION)).toBeUndefined();
   });
 });
 
 describe('handleSignout', () => {
+  const signoutReq = (cookie: string, headers: Record<string, string> = { origin: 'https://app.test' }) =>
+    new Request('https://app.test/api/auth/signout', {
+      method: 'POST', headers: { cookie, ...headers },
+    });
+  const sealedCookie = () => `${SESSION}=${sealSession({ rt: 'rt', em: null }, sessionKey)}`;
+
   it('clears the session cookie', async () => {
-    const sealed = sealSession({ rt: 'rt', em: null }, sessionKey);
     const fetchImpl = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
-    const res = await handleSignout(
-      new Request('https://app.test/api/auth/signout', {
-        method: 'POST', headers: { cookie: `argent_session=${sealed}`, origin: 'https://app.test' },
-      }),
+    const res = await handleSignout(signoutReq(sealedCookie()),
       { env, fetchImpl: fetchImpl as unknown as typeof fetch });
     expect(res.status).toBe(204);
-    expect(cookieNamed(res, 'argent_session')).toContain('Max-Age=0');
+    expect(cookieNamed(res, SESSION)).toContain('Max-Age=0');
+  });
+
+  it('signout rejects a request with no origin evidence and keeps the cookie', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
+    const res = await handleSignout(signoutReq(sealedCookie(), {}),
+      { env, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(res.status).toBe(403);
+    expect(cookieNamed(res, SESSION)).toBeUndefined();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('signout clears the cookie and reports no failure when Google revoke succeeds', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
+    const res = await handleSignout(signoutReq(sealedCookie()),
+      { env, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(res.status).toBe(204);
+    expect(cookieNamed(res, SESSION)).toContain('Max-Age=0');
+    expect(res.headers.get('x-remote-revoke')).toBeNull();
+  });
+
+  it('signout still clears the cookie and flags a failed revoke when Google returns 400', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(json({ error: 'invalid_token' }, 400));
+    const res = await handleSignout(signoutReq(sealedCookie()),
+      { env, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(res.status).toBe(204);
+    expect(cookieNamed(res, SESSION)).toContain('Max-Age=0');
+    expect(res.headers.get('x-remote-revoke')).toBe('failed');
+  });
+
+  it('signout still clears the cookie and flags a failed revoke when the revoke fetch throws', async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new TypeError('network down'));
+    const res = await handleSignout(signoutReq(sealedCookie()),
+      { env, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(res.status).toBe(204);
+    expect(cookieNamed(res, SESSION)).toContain('Max-Age=0');
+    expect(res.headers.get('x-remote-revoke')).toBe('failed');
+  });
+
+  it('signout with no session does not report a revoke failure', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(json({ error: 'x' }, 400));
+    const res = await handleSignout(signoutReq(''),
+      { env, fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(res.status).toBe(204);
+    expect(cookieNamed(res, SESSION)).toContain('Max-Age=0');
+    expect(res.headers.get('x-remote-revoke')).toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

@@ -185,10 +185,15 @@ export function startSignIn(): void {
   window.location.assign(START_ENDPOINT);
 }
 
-/** Revoke at Google and drop the session cookie. */
-export async function serverSignOut(): Promise<void> {
+/**
+ * Revoke at Google and drop the session cookie. Resolves true when the server
+ * reports the Google grant may survive (revoke failed), so the UI can point
+ * the user at myaccount.google.com. A non-ok response does not throw.
+ */
+export async function serverSignOut(): Promise<boolean> {
   try {
-    await fetch(SIGNOUT_ENDPOINT, { method: 'POST', credentials: 'same-origin' });
+    const res = await fetch(SIGNOUT_ENDPOINT, { method: 'POST', credentials: 'same-origin' });
+    return res.headers.get('x-remote-revoke') === 'failed';
   } finally {
     clearCachedAccessToken();
   }

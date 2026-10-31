@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   getValidAccessToken, clearCachedAccessToken,
   AuthRevokedError, AuthOfflineError, AuthTransientError, AuthNoSessionError,
-  withTokenRefresh, DriveHttpError,
+  withTokenRefresh, DriveHttpError, serverSignOut,
 } from './auth';
 
 const ok = (body: unknown) =>
@@ -104,6 +104,36 @@ describe('getValidAccessToken', () => {
     expect(url).toBe('/api/auth/token');
     expect(init.method).toBe('POST');
     expect(init.credentials).toBe('same-origin');
+  });
+});
+
+describe('serverSignOut', () => {
+  const cacheToken = async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      ok({ accessToken: 'cached', expiresAt: future(), email: null })));
+    await getValidAccessToken();
+  };
+
+  it('serverSignOut returns false when the revoke header is absent', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+    expect(await serverSignOut()).toBe(false);
+  });
+
+  it('serverSignOut returns true when the revoke-failed header is present', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(null, { status: 204, headers: { 'x-remote-revoke': 'failed' } })));
+    expect(await serverSignOut()).toBe(true);
+  });
+
+  it('serverSignOut clears the cached access token even when the revoke failed', async () => {
+    await cacheToken();
+    const f = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 204, headers: { 'x-remote-revoke': 'failed' } }))
+      .mockResolvedValueOnce(ok({ accessToken: 'after', expiresAt: future(), email: null }));
+    vi.stubGlobal('fetch', f);
+    await serverSignOut();
+    // A cache hit would return 'cached'; a cleared cache refetches.
+    expect(await getValidAccessToken()).toBe('after');
   });
 });
 
