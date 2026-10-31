@@ -21,6 +21,7 @@ import {
 import { categoryLabel } from '@/lib/labels';
 import { byCategory } from '@/lib/calc';
 import { formatCurrency } from '@/lib/format';
+import { currencySymbol, useCurrency } from '@/lib/currency';
 import { getBudget, upsertBudget } from '@/lib/budget';
 import type { Category, WarningThreshold } from '@/types/models';
 
@@ -348,6 +349,7 @@ function LimitSheet({
   onSave: (id: string, v: string) => void;
 }) {
   const { t } = useTranslation();
+  const cur = useCurrency();
   const [str, setStr] = useState(value);
   useEffect(() => setStr(value), [value, categoryId]);
   if (!categoryId) return null;
@@ -370,7 +372,7 @@ function LimitSheet({
             className="muted"
             style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontWeight: 500 }}
           >
-            €
+            {currencySymbol(cur)}
           </span>
         </div>
         <div className="col gap-2">

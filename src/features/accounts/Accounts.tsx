@@ -17,6 +17,7 @@ import {
 } from '@/hooks/selectors';
 import { accountBalance, totalBalance } from '@/lib/calc';
 import { formatCurrency } from '@/lib/format';
+import { currencySymbol, useCurrency } from '@/lib/currency';
 import {
   createAccount,
   deleteAccountWithReassign,
@@ -37,6 +38,7 @@ export function Accounts() {
   const scopedPath = useScopedPath();
   const goBack = useGoBack('/settings');
   const { settings, update } = useSettings();
+  const cur = useCurrency();
   const accounts = useAccountsIncludingArchived();
   const allTx = useAllTransactions();
   const [editing, setEditing] = useState<EditTarget | null>(null);
@@ -68,7 +70,7 @@ export function Accounts() {
             {formatCurrency(netWorth)}
           </div>
           <div className="caption" style={{ color: 'rgba(255,255,255,.85)', marginTop: 6 }}>
-            {accounts.length} · €
+            {accounts.length} · {currencySymbol(cur)}
           </div>
         </Hero>
 
@@ -203,6 +205,7 @@ function AccountFormSheet({
   onDelete: (account: Account) => void;
 }) {
   const { t } = useTranslation();
+  const cur = useCurrency();
   const existing = target === 'new' ? undefined : target;
 
   const [name, setName] = useState(existing?.name ?? '');
@@ -293,7 +296,7 @@ function AccountFormSheet({
             className="muted"
             style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontWeight: 500 }}
           >
-            €
+            {currencySymbol(cur)}
           </span>
         </div>
 

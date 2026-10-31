@@ -34,6 +34,7 @@ import {
   incomeSubtypeLabel,
 } from '@/lib/labels';
 import { getLocale, formatSignedCurrency } from '@/lib/format';
+import { currencySymbol, useCurrency } from '@/lib/currency';
 import { todayISO, addDaysISO } from '@/lib/date';
 import type { Transaction, TransactionKind } from '@/types/models';
 
@@ -50,6 +51,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   const [searchParams] = useSearchParams();
   const { scope } = useAccountScope();
   const { settings, update } = useSettings();
+  const cur = useCurrency();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const accounts = useAccounts();
@@ -295,7 +297,7 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
             <span className="amount" style={{ color: amountColor }}>
               {displayAmount(amountStr, locale)}
             </span>
-            <span className="h2 muted">€</span>
+            <span className="h2 muted">{currencySymbol(cur)}</span>
           </div>
           <div className="chip-row" style={{ justifyContent: 'center', marginTop: 8 }}>
             {QUICK_ADDS.map((n) => (

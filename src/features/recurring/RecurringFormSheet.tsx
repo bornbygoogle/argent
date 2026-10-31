@@ -11,6 +11,7 @@ import { useAccounts, useCategories, useIncomeTypes } from '@/hooks/selectors';
 import { useAccountScope } from '@/store/AccountScopeContext';
 import { categoryLabel, incomeTypeLabel } from '@/lib/labels';
 import { createRecurring, updateRecurring, deleteRecurring } from '@/lib/recurring';
+import { currencySymbol, useCurrency } from '@/lib/currency';
 import type { Cadence, RecurringDirection, Recurring as RecurringT } from '@/types/models';
 
 type Target = 'new' | RecurringT;
@@ -25,6 +26,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
   const categories = useCategories();
   const incomeTypes = useIncomeTypes();
   const { scope } = useAccountScope();
+  const cur = useCurrency();
   const existing = target === 'new' ? undefined : target;
 
   const scopeAccount = scope !== 'all' ? accounts.find((a) => a.id === scope) : undefined;
@@ -172,7 +174,7 @@ export function RecurringFormSheet({ target, onClose }: { target: Target; onClos
                   className="tnum"
                   style={{ width: 110, height: 32, background: 'transparent', border: 'none', fontSize: 16, fontWeight: 600, fontFamily: 'inherit', color: 'var(--neutral-900)', textAlign: 'right', paddingRight: 16 }}
                 />
-                <span className="muted" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontWeight: 500 }}>€</span>
+                <span className="muted" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontWeight: 500 }}>{currencySymbol(cur)}</span>
               </div>
             </div>
           </div>

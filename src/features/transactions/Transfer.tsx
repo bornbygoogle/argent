@@ -19,6 +19,7 @@ import { useToast } from '@/store/ToastContext';
 import { addTransfer, deleteTransfer, updateTransfer } from '@/lib/transactions';
 import { todayISO } from '@/lib/date';
 import { getLocale, formatCurrency } from '@/lib/format';
+import { currencySymbol, useCurrency } from '@/lib/currency';
 
 type Picker = 'from' | 'to' | null;
 
@@ -30,6 +31,7 @@ export function Transfer() {
   const { groupId } = useParams<{ groupId: string }>();
   const { scope } = useAccountScope();
   const { settings, update } = useSettings();
+  const cur = useCurrency();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const accounts = useAccounts();
@@ -233,7 +235,7 @@ export function Transfer() {
             <span className="amount" style={{ color: 'var(--primary-600)', fontSize: 34 }}>
               {displayAmount(amountStr, locale)}
             </span>
-            <span className="h2 muted">€</span>
+            <span className="h2 muted">{currencySymbol(cur)}</span>
           </div>
         </div>
 

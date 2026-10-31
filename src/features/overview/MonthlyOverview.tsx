@@ -34,6 +34,7 @@ import {
   mondayIndex,
 } from '@/lib/date';
 import { formatCurrency, formatMonth } from '@/lib/format';
+import { currencySymbol, useCurrency } from '@/lib/currency';
 
 const WEEK_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const R = 46;
@@ -42,6 +43,7 @@ const C = 2 * Math.PI * R; // ≈ 289
 export function MonthlyOverview() {
   const { t } = useTranslation();
   const { scope, setScope, accounts } = useAccountScope();
+  const cur = useCurrency();
   const categoryMap = useCategoryMap();
   const scoped = useScopedTransactions(scope);
   const [month, setMonth] = useState<string>(currentMonth());
@@ -254,7 +256,7 @@ export function MonthlyOverview() {
                   ))}
                 </g>
                 <text x={60} y={58} textAnchor="middle" fontSize={15} fontWeight={700} fill="var(--neutral-900)">
-                  {Math.round(curTotal).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}€
+                  {Math.round(curTotal).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}{currencySymbol(cur)}
                 </text>
                 <text x={60} y={74} textAnchor="middle" fontSize={9} fill="var(--neutral-400)">
                   {formatMonth(month).slice(0, 4).toLowerCase()}

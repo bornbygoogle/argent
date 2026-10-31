@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettings } from '@/store/SettingsContext';
 import { useAccountScope } from '@/store/AccountScopeContext';
 import { createAccount } from '@/lib/accounts';
+import { currencySymbol, useCurrency } from '@/lib/currency';
 import { ACCOUNT_TYPE_DEFAULTS } from '@/db/seed';
 import { Icon } from '@/components/ui/Icon';
 import { Field } from '@/components/ui/Field';
@@ -31,6 +32,7 @@ export function Onboarding() {
   const navigate = useNavigate();
   const { update } = useSettings();
   const { setScope } = useAccountScope();
+  const cur = useCurrency();
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -134,7 +136,7 @@ export function Onboarding() {
               }}
             >
               <TintedIcon color="var(--accent-green)" icon="ShoppingCart" variant="cat-sm" />
-              <span style={{ fontSize: 12, fontWeight: 600 }}>−8,40&nbsp;€</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>−8,40&nbsp;{currencySymbol(cur)}</span>
             </div>
             <div
               style={{
@@ -151,7 +153,7 @@ export function Onboarding() {
               }}
             >
               <TintedIcon color="var(--accent-clay)" icon="Utensils" variant="cat-sm" />
-              <span style={{ fontSize: 12, fontWeight: 600 }}>−14,00&nbsp;€</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>−14,00&nbsp;{currencySymbol(cur)}</span>
             </div>
           </div>
 
@@ -263,7 +265,7 @@ export function Onboarding() {
             className="muted"
             style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontWeight: 500 }}
           >
-            €
+            {currencySymbol(cur)}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--neutral-400)' }}>

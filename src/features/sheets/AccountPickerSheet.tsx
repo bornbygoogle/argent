@@ -84,7 +84,7 @@ export function AccountPickerSheet({
             {/* Name left, balance right. These were nested in an .r-main span,
                 but the rule that stacks title over subtitle is scoped to .row,
                 which this button is not — so they rendered as one run of text,
-                "CIC Commun6 044,23 €". */}
+                "CIC Commun6 044,23" followed by the currency symbol. */}
             <span
               style={{
                 flex: 1,
