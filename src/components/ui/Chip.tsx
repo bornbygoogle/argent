@@ -7,8 +7,6 @@ interface ChipProps {
   selected: boolean;
   /** Optional leading icon (rendered inline in currentColor, like the mocks). */
   icon?: string;
-  /** Unused for default rendering since the mock chips inherit color; kept for API compat. */
-  tint?: string;
   variant?: Variant;
   label: ReactNode;
   onClick?: () => void;

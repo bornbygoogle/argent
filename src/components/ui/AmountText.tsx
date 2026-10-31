@@ -1,11 +1,8 @@
 import { formatSignedCurrency } from '@/lib/format';
-import type { Locale } from '@/types/models';
 
 interface AmountTextProps {
   /** Signed amount: positive = income (green), negative = expense (ink). */
   amount: number;
-  /** Accepted for back-compat; currently ignored (French-first). */
-  locale?: Locale;
   className?: string;
 }
 

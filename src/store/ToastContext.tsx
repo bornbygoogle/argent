@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 export type ToastTone = 'success' | 'error' | 'info';
 
@@ -27,6 +27,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const seq = useRef(0);
 
+  // Pending timers must not outlive the provider: they would fire setToasts on
+  // an unmounted tree.
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const timer of pending.values()) clearTimeout(timer);
+      pending.clear();
+    };
+  }, []);
+
   const dismiss = useCallback((id: string) => {
     setToasts((list) => list.filter((t) => t.id !== id));
     const timer = timers.current.get(id);
@@ -37,7 +47,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const push = useCallback(
-    (tone: ToastTone, message: string, duration = DEFAULT_DURATION) => {
+    (tone: ToastTone, message: string, requested = DEFAULT_DURATION) => {
+      // A non-positive (or non-finite) duration is clamped to the default rather
+      // than read as "dismiss at once": setTimeout(…, 0) would remove the toast
+      // before it could ever be seen.
+      const duration = Number.isFinite(requested) && requested > 0 ? requested : DEFAULT_DURATION;
       // Counter-based id: Date.now()/Math.random() are fine at runtime, but a
       // monotonic counter guarantees uniqueness even for same-tick bursts.
       seq.current += 1;

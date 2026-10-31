@@ -139,10 +139,13 @@ describe('AccountScopeProvider keeps you on the screen you are on', () => {
   it('drops an account param that no longer resolves, without leaving the screen', async () => {
     renderAt('/budget?account=deleted-account');
 
+    // Scope reads 'all' from the first render, before accounts have loaded, so
+    // waiting on it alone races the cleanup: wait for the param to be dropped.
+    await ready();
     await waitFor(() => {
-      expect(screen.getByTestId('scope')).toHaveTextContent('all');
+      expect(screen.getByTestId('search')).not.toHaveTextContent('deleted-account');
     });
+    expect(screen.getByTestId('scope')).toHaveTextContent('all');
     expect(screen.getByTestId('path')).toHaveTextContent('/budget');
-    expect(screen.getByTestId('search')).not.toHaveTextContent('deleted-account');
   });
 });

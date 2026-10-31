@@ -244,7 +244,7 @@ function IncomeTypeFormSheet({
               <div className="r-main">
                 <div className="r-title">
                   {label || t('incomeTypes.namePlaceholder')}
-                  {subtypes.length > 0 && `(${incomeSubtypeLabel(subtypes[0])})`}
+                  {subtypes.length > 0 && ` (${incomeSubtypeLabel(subtypes[0])})`}
                 </div>
               </div>
             </div>

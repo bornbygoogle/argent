@@ -13,11 +13,13 @@ import {
   useRecentMovements,
   useOwedRecurrings,
   useScopedRecurrings,
+  useScopedTransactions,
   useBudgetPeriod,
   useVariableExpenses,
 } from '@/hooks/selectors';
 import { accountBalance, isTransfer, totalBalance } from '@/lib/calc';
 import { currentMonth } from '@/lib/date';
+import { periodOf } from '@/lib/period';
 import { formatCurrency, formatSignedCurrency } from '@/lib/format';
 import { confirmRecurring } from '@/lib/recurring';
 import { upcomingCommitments } from '@/lib/budget';
@@ -49,6 +51,7 @@ export function Dashboard() {
   const accountMap = useAccountMap();
   const categoryMap = useCategoryMap();
   const allTx = useAllTransactions();
+  const scopedTx = useScopedTransactions(scope);
   const summary = useMonthSummary(currentMonth(), scope);
   const recent = useRecentMovements(scope, 6);
   // What is owed is derived once (pay cycles, same scope as the hero below), so
@@ -99,12 +102,13 @@ export function Dashboard() {
   // pure noise in a list whose whole job is to be scannable.
   const showRowAccount = scope === 'all' && accounts.length > 1;
 
-  // Most-used expense categories this month, so the commonest entry is one tap
-  // from the home screen instead of three.
+  // Most-used expense categories in the current pay period and account scope,
+  // so the commonest entry is one tap from the home screen instead of three.
   const topCategories = (() => {
     const counts = new Map<string, number>();
-    for (const tx of allTx) {
+    for (const tx of scopedTx) {
       if (tx.kind !== 'expense' || !tx.categoryId) continue;
+      if (periodOf(tx.date, period.salaries) !== period.month) continue;
       counts.set(tx.categoryId, (counts.get(tx.categoryId) ?? 0) + 1);
     }
     return [...counts.entries()]

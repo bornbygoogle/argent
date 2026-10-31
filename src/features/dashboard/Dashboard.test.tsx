@@ -383,6 +383,77 @@ describe('Dashboard — payday read from the salary that landed', () => {
   });
 });
 
+describe('Dashboard — quick-log tiles follow the period and the scope', () => {
+  const category = (id: string, name: string, sortOrder: number) => ({
+    id,
+    name,
+    icon: 'ShoppingCart',
+    color: '#7C3AED',
+    isDefault: false,
+    sortOrder,
+  });
+  const expense = (id: string, accountId: string, categoryId: string, date: string): Transaction => ({
+    id,
+    kind: 'expense',
+    accountId,
+    categoryId,
+    amount: 10,
+    date,
+    createdAt: `${date}T10:00:00.000Z`,
+    updatedAt: `${date}T10:00:00.000Z`,
+  });
+  const salary = (): Transaction => ({
+    id: 'tx-sal',
+    kind: 'income',
+    accountId: 'acc-1',
+    amount: 2900,
+    date: '2026-08-26',
+    incomeType: 'Salaire',
+    createdAt: '2026-08-26T10:00:00.000Z',
+    updatedAt: '2026-08-26T10:00:00.000Z',
+  });
+  const tiles = () => [...document.querySelectorAll('.ql-lbl')].map((n) => n.textContent);
+
+  beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 27, 10, 0, 0)); // 27 Aug 2026, cycle opened on the 26th
+    await db.accounts.add({ ...account('acc-2', 'Épargne'), order: 1 });
+    await db.categories.bulkAdd([category('c-old', 'OldHabit', 0), category('c-new', 'NewHabit', 1)]);
+  });
+
+  it('orders quick-log tiles by the current pay period rather than all time', async () => {
+    await db.transactions.bulkAdd([
+      salary(),
+      // Three entries in the previous cycle: all-time they would lead.
+      expense('e-1', 'acc-1', 'c-old', '2026-08-05'),
+      expense('e-2', 'acc-1', 'c-old', '2026-08-10'),
+      expense('e-3', 'acc-1', 'c-old', '2026-08-15'),
+      expense('e-4', 'acc-1', 'c-new', '2026-08-27'),
+    ]);
+
+    renderDashboard();
+
+    await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
+    expect(tiles()).toEqual(['NewHabit']);
+  });
+
+  it('orders quick-log tiles by the selected account scope', async () => {
+    await db.transactions.bulkAdd([
+      salary(),
+      // Three entries in this cycle, but on another account.
+      expense('e-1', 'acc-2', 'c-old', '2026-08-27'),
+      expense('e-2', 'acc-2', 'c-old', '2026-08-27'),
+      expense('e-3', 'acc-2', 'c-old', '2026-08-27'),
+      expense('e-4', 'acc-1', 'c-new', '2026-08-27'),
+    ]);
+
+    renderScoped('/?account=acc-1');
+
+    await waitFor(() => expect(tiles().length).toBeGreaterThan(0));
+    expect(tiles()).toEqual(['NewHabit']);
+  });
+});
+
 // A debited bill must not move the figure: the balance drops and the upcoming
 // bills drop by the same amount. Only real spending moves it.
 describe('Dashboard — a settled bill leaves the figure alone', () => {
