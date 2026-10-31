@@ -149,8 +149,13 @@ export function Transfer() {
 
   const handleDelete = async () => {
     if (!groupId) return;
-    await deleteTransfer(groupId);
-    goBack();
+    try {
+      await deleteTransfer(groupId);
+      goBack();
+    } catch {
+      setConfirmOpen(false);
+      toast.error(t('form.deleteError'));
+    }
   };
 
   if (loadingLegs || missingTransfer) {

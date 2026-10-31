@@ -8,6 +8,8 @@ import type { Transaction, TransactionKind } from '@/types/models';
 export interface TransactionInput {
   amount: number;
   accountId: string;
+  /** On update, empty string clears it: stored as undefined, and resolved to
+   *  'cat-autre' at read time (calc.ts). */
   categoryId?: string;
   /** Empty string clears it. Always dropped when the category changes without
    *  a matching sub-category being supplied in the same patch. */
@@ -58,7 +60,7 @@ export async function updateTransaction(
   const next: Partial<Transaction> = { updatedAt: nowISO() };
   if (patch.amount !== undefined) next.amount = round2(patch.amount);
   if (patch.accountId !== undefined) next.accountId = patch.accountId;
-  if (patch.categoryId !== undefined) next.categoryId = patch.categoryId;
+  if (patch.categoryId !== undefined) next.categoryId = patch.categoryId || undefined;
   // A sub-category is scoped to its category, so moving the category orphans
   // it. Clear it unless this same patch names a replacement.
   if (patch.subcategoryId !== undefined) {

@@ -253,6 +253,7 @@
     "selectAccount": "Select an account",
     "saved": "Saved",
     "saveError": "Could not save",
+    "deleteError": "Could not delete",
     "subcategory": "Sub-category",
     "selectSubcategory": "Choose a sub-category",
     "noSubcategory": "None",

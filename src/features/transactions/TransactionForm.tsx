@@ -87,11 +87,17 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
   ]);
 
   const [amountStr, setAmountStr] = useState(transaction ? String(transaction.amount) : '');
+  const [pickedCategoryId, setCategoryId] = useState(transaction?.categoryId ?? '');
   // A new expense can arrive with its category already chosen, from the home
-  // screen's quick-log tiles. Editing an existing movement always wins.
-  const [categoryId, setCategoryId] = useState(
-    transaction?.categoryId ?? (isExpense ? presetCategoryId : '') ?? '',
-  );
+  // screen's quick-log tiles. Editing an existing movement always wins. The
+  // preset is checked against the loaded categories (derived rather than seeded
+  // into state, since they arrive after the first render): an unknown id is
+  // ignored, as if no preset had been given.
+  const categoryId =
+    pickedCategoryId ||
+    (!isEdit && isExpense && categories.some((c) => c.id === presetCategoryId)
+      ? presetCategoryId
+      : '');
   const [subcategoryId, setSubcategoryId] = useState(transaction?.subcategoryId ?? '');
   const [incomeType, setIncomeType] = useState(transaction?.incomeType ?? 'Autre');
   const [incomeSubtypeId, setIncomeSubtypeId] = useState(transaction?.incomeSubtypeId ?? '');
@@ -210,8 +216,13 @@ export function TransactionForm({ kind, transaction }: TransactionFormProps) {
 
   const handleDelete = async () => {
     if (!transaction) return;
-    await deleteTransaction(transaction.id);
-    goBack();
+    try {
+      await deleteTransaction(transaction.id);
+      goBack();
+    } catch {
+      setConfirmOpen(false);
+      toast.error(t('form.deleteError'));
+    }
   };
 
   return (
