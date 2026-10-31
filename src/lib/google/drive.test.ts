@@ -6,6 +6,7 @@ import {
   backupFileName,
   uploadBackupToFolder,
   downloadBackupFile,
+  deleteFile,
 } from './drive';
 import { gzipText } from '@/lib/gzip';
 
@@ -147,6 +148,142 @@ describe('downloadBackupFile', () => {
     const text = '{"app":"argent","version":1,"note":"café"}';
     stubBytes(new TextEncoder().encode(text));
     expect(await downloadBackupFile('f1', 'token')).toBe(text);
+  });
+});
+
+/**
+ * A file id is interpolated into the request path, and the request carries the
+ * user's OAuth bearer token. An id that is not a bare Drive id could change
+ * which endpoint is hit, so it must be rejected before any fetch is made.
+ */
+describe('deleteFile id validation', () => {
+  function stubNoFetch() {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 } as unknown as Response);
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('deleteFile rejects an id containing a slash, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(deleteFile('a/b', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('deleteFile rejects an id containing a query string, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(deleteFile('abc?alt=media', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('deleteFile rejects an id containing a fragment, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(deleteFile('abc#frag', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('deleteFile rejects a dot-dot id, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(deleteFile('..', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('deleteFile rejects a single-dot id, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(deleteFile('.', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('deleteFile rejects an id containing a backslash, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(deleteFile('a\\b', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('deleteFile rejects a percent-encoded slash id, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(deleteFile('a%2Fb', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('deleteFile rejects an empty id, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(deleteFile('', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('deleteFile still deletes a well-formed id', async () => {
+    const fetchMock = stubNoFetch();
+    await deleteFile('1aB_c-9', 'token');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://www.googleapis.com/drive/v3/files/1aB_c-9');
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+  });
+});
+
+describe('downloadBackupFile id validation', () => {
+  function stubNoFetch() {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200, arrayBuffer: async () => new TextEncoder().encode('{}').buffer,
+    } as unknown as Response);
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('downloadBackupFile rejects an id containing a slash, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(downloadBackupFile('a/b', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('downloadBackupFile rejects an id containing a query string, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(downloadBackupFile('abc?x=1', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('downloadBackupFile rejects an id containing a fragment, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(downloadBackupFile('abc#frag', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('downloadBackupFile rejects a dot-dot id, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(downloadBackupFile('..', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('downloadBackupFile rejects a single-dot id, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(downloadBackupFile('.', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('downloadBackupFile rejects an id containing a backslash, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(downloadBackupFile('a\\b', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('downloadBackupFile rejects a percent-encoded slash id, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(downloadBackupFile('a%2Fb', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('downloadBackupFile rejects an empty id, without fetching', async () => {
+    const fetchMock = stubNoFetch();
+    await expect(downloadBackupFile('', 'token')).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('downloadBackupFile still reads a well-formed id', async () => {
+    const fetchMock = stubNoFetch();
+    await downloadBackupFile('1aB_c-9', 'token');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://www.googleapis.com/drive/v3/files/1aB_c-9?alt=media',
+    );
   });
 });
 

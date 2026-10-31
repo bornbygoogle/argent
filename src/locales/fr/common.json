@@ -11,6 +11,9 @@
     "settings": "Réglages"
   },
   "common": {
+    "crashTitle": "Une erreur est survenue",
+    "crashBody": "L'application a rencontré un problème inattendu. Vos données sont conservées sur cet appareil. Recharger règle généralement le problème.",
+    "reload": "Recharger",
     "cancel": "Annuler",
     "save": "Enregistrer",
     "ok": "OK",

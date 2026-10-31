@@ -11,6 +11,9 @@
     "settings": "Settings"
   },
   "common": {
+    "crashTitle": "Something went wrong",
+    "crashBody": "The app hit an unexpected problem. Your data is safe on this device. Reloading usually fixes it.",
+    "reload": "Reload",
     "cancel": "Cancel",
     "save": "Save",
     "ok": "OK",

@@ -23,6 +23,19 @@ export function escapeDriveQueryValue(value: string): string {
 }
 
 /**
+ * Guard a file id before it is interpolated into a request path.
+ *
+ * Every such request carries the user's OAuth bearer token, so an id holding
+ * `/`, `?`, `#` or `..` must not be allowed to redirect it to another endpoint.
+ * Validation is used rather than encodeURIComponent because encoding leaves `.`
+ * and `..` intact. Drive ids are letters, digits, `_` and `-`. A plain Error is
+ * thrown (not DriveHttpError) since no HTTP status exists; nothing is fetched.
+ */
+function assertDriveId(id: string): void {
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error('invalid-drive-file-id');
+}
+
+/**
  * Timestamped filename: argent-backup-YYYY-MM-DDTHH-MM.json[.gz]
  *
  * The `argent-backup-` prefix is load-bearing — listBackupsInFolder searches
@@ -100,6 +113,7 @@ export async function uploadBackupToFolder(
  * existed is uncompressed, and those must keep restoring.
  */
 export async function downloadBackupFile(fileId: string, token: string): Promise<string> {
+  assertDriveId(fileId);
   const res = await fetch(`${DRIVE_FILES}/${fileId}?alt=media`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -146,8 +160,9 @@ export async function listBackupsInFolder(
   return json.files ?? [];
 }
 
-/** Delete a file by id (used to prune backups older than the keep-last-5). */
+/** Delete a file by id (used to prune backups the tiered retention policy drops). */
 export async function deleteFile(fileId: string, token: string): Promise<void> {
+  assertDriveId(fileId);
   const res = await fetch(`${DRIVE_FILES}/${fileId}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
