@@ -280,20 +280,28 @@ export async function unconfirmRecurring(
   recurring: Recurring,
   occurrence: string = dueDateFor(recurring, currentMonth()),
 ): Promise<void> {
-  // The caller names the instalment through today's due day, which stopped
-  // matching the stored one the moment that day was edited — so resolve the
-  // period it points at (the pay cycle holding that date), not the date itself.
-  const salaries = await salaryDates();
-  const entry = paidEntryIn(recurring, periodKeyFor(recurring, occurrence, salaries), salaries);
-  if (!entry?.transactionId) return;
-  const txId = entry.transactionId;
+  // Everything runs inside one transaction against a freshly read template, as
+  // in confirmRecurring. The caller's snapshot is as old as its last render;
+  // rewriting history from it would erase every entry added since, reopening
+  // periods whose transactions still exist.
   await db.transaction('rw', db.transactions, db.recurrings, async () => {
+    const r = await db.recurrings.get(recurring.id);
+    if (!r) return;
+
+    // The caller names the instalment through today's due day, which stopped
+    // matching the stored one the moment that day was edited — so resolve the
+    // period it points at (the pay cycle holding that date), not the date itself.
+    const salaries = await salaryDates();
+    const entry = paidEntryIn(r, periodKeyFor(r, occurrence, salaries), salaries);
+    if (!entry?.transactionId) return;
+    const txId = entry.transactionId;
+
     // A settled transfer is two rows. Deleting only the one history names
     // leaves the receiver holding money no account ever sent.
     const tx = await db.transactions.get(txId);
     await db.transactions.bulkDelete(await legIdsOf(tx, txId));
-    const history = recurring.history.filter((h) => h.transactionId !== txId);
-    await db.recurrings.update(recurring.id, { history });
+    const history = r.history.filter((h) => h.transactionId !== txId);
+    await db.recurrings.update(r.id, { history });
   });
 }
 

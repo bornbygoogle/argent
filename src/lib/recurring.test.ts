@@ -467,6 +467,51 @@ describe('unconfirmRecurring', () => {
     expect(await db.transactions.count()).toBe(0);
     expect((await load(id)).history).toHaveLength(0);
   });
+
+  it("keeps a history entry written after the caller's snapshot", async () => {
+    freeze(2026, 7, 9);
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    const augustTx = await confirmRecurring(await load(id));
+    const stale = await load(id); // what the screen rendered with
+
+    // Another instalment is settled after that render.
+    await db.transactions.add({
+      id: 'july-tx',
+      kind: 'expense',
+      accountId: 'acc-1',
+      amount: 600,
+      date: '2026-07-05',
+      recurringSourceId: id,
+      createdAt: '2026-07-05T10:00:00.000Z',
+      updatedAt: '2026-07-05T10:00:00.000Z',
+    });
+    await db.recurrings.update(id, {
+      history: [
+        ...stale.history,
+        { month: '2026-07', amount: 600, transactionId: 'july-tx', occurrence: '2026-07-05' },
+      ],
+    });
+
+    await unconfirmRecurring(stale);
+
+    expect(await db.transactions.get(augustTx!)).toBeUndefined();
+    const history = (await load(id)).history;
+    expect(history.map((h) => h.transactionId)).toEqual(['july-tx']);
+    expect(await db.transactions.get('july-tx')).toBeDefined();
+  });
+
+  it('does nothing when the template is deleted before the call', async () => {
+    freeze(2026, 7, 9);
+    const id = await createRecurring({ ...base, dueDay: 5 });
+    const txId = await confirmRecurring(await load(id));
+    const stale = await load(id);
+    await db.recurrings.delete(id);
+
+    await expect(unconfirmRecurring(stale)).resolves.toBeUndefined();
+
+    expect(await db.recurrings.get(id)).toBeUndefined();
+    expect(await db.transactions.get(txId!)).toBeDefined();
+  });
 });
 
 describe('dueDay writes', () => {
