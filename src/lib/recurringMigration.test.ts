@@ -182,6 +182,112 @@ describe('backfillOccurrences', () => {
   });
 });
 
+const salary = (id: string, date: string): Transaction => ({
+  ...tx(id, date),
+  kind: 'income',
+  incomeType: 'Salaire',
+});
+
+// Settlement is keyed to pay cycles: a cycle opens at each Salaire. The pass
+// must judge attribution by the cycle (monthly) or calendar month (weekly,
+// yearly) of the payment, never by the calendar month of a monthly payment.
+describe('backfillOccurrences with pay cycles', () => {
+  // Cycle '2026-08-26' runs to 2026-09-26; a bill due on the 30th falls on
+  // 30 August, inside it, and is paid on 2 September.
+  const cycleEntry = (over: Partial<Recurring['history'][number]> = {}) => ({
+    month: '2026-09',
+    amount: 20,
+    transactionId: 'tx-1',
+    ...over,
+  });
+
+  beforeEach(async () => {
+    await db.transactions.bulkAdd([salary('s-1', '2026-07-26'), salary('s-2', '2026-08-26')]);
+    await db.transactions.add(tx('tx-1', '2026-09-02'));
+  });
+
+  it('leaves a correctly attributed cycle entry untouched when the payment falls in the next calendar month', async () => {
+    const history = [cycleEntry({ occurrence: '2026-08-30' })];
+    await db.recurrings.add(rec({ dueDay: 30, history }));
+
+    expect(await backfillOccurrences()).toBe(0);
+    expect((await load()).history).toEqual(history);
+  });
+
+  it('is idempotent for cycle entries — a second run writes nothing', async () => {
+    await db.recurrings.add(rec({ dueDay: 30, history: [cycleEntry()] }));
+
+    expect(await backfillOccurrences()).toBe(1);
+    expect((await load()).history[0].occurrence).toBe('2026-08-30');
+    expect(await backfillOccurrences()).toBe(0);
+    expect((await load()).history[0].occurrence).toBe('2026-08-30');
+  });
+
+  it('repairs a misattributed monthly entry onto the instalment of the cycle its payment sits in', async () => {
+    // Stamped with the previous cycle's instalment (cycle 2026-07-26).
+    await db.recurrings.add(
+      rec({ dueDay: 30, history: [cycleEntry({ occurrence: '2026-07-30' })] }),
+    );
+
+    expect(await backfillOccurrences()).toBe(1);
+    expect((await load()).history[0].occurrence).toBe('2026-08-30');
+  });
+
+  it('fills a legacy entry without occurrence with the instalment of its cycle', async () => {
+    await db.recurrings.add(rec({ dueDay: 30, history: [cycleEntry()] }));
+
+    await backfillOccurrences();
+
+    const r = await load();
+    expect(r.history[0].occurrence).toBe('2026-08-30');
+    expect(r.history[0].month).toBe('2026-09');
+  });
+
+  it('names a date inside the cycle when no due date lands in it', async () => {
+    // Cycle 2026-08-26 → 2026-09-05 holds neither 15 August nor 15 September.
+    await db.transactions.add(salary('s-3', '2026-09-05'));
+    await db.transactions.add(tx('tx-2', '2026-09-01'));
+    await db.recurrings.add(
+      rec({ dueDay: 15, history: [cycleEntry({ transactionId: 'tx-2' })] }),
+    );
+
+    await backfillOccurrences();
+
+    const occurrence = (await load()).history[0].occurrence!;
+    expect(occurrence >= '2026-08-26' && occurrence < '2026-09-05').toBe(true);
+    expect(await backfillOccurrences()).toBe(0);
+  });
+
+  it('keeps the calendar-month instalment for a weekly or yearly template even when a Salaire exists', async () => {
+    for (const cadence of ['hebdo', 'annuel'] as const) {
+      await db.recurrings.clear();
+      await db.recurrings.add(rec({ cadence, dueDay: 30, history: [cycleEntry()] }));
+
+      await backfillOccurrences();
+
+      expect((await load()).history[0].occurrence).toBe('2026-09-30');
+    }
+  });
+
+  it('keeps the due-date fallback for an entry with no transactionId and for a deleted transaction when a Salaire exists', async () => {
+    await db.recurrings.add(
+      rec({
+        dueDay: 30,
+        history: [
+          { month: '2026-09', amount: 20 },
+          { month: '2026-08', amount: 20, transactionId: 'missing' },
+        ],
+      }),
+    );
+
+    await backfillOccurrences();
+
+    const r = await load();
+    expect(r.history[0].occurrence).toBe('2026-09-30');
+    expect(r.history[1].occurrence).toBe('2026-08-30');
+  });
+});
+
 // The live rows that jammed: on 2 September 2026 three templates — Bouygues and
 // the two "Garantie décès" — refused every press with "this month already holds
 // an entry", and had done since July. Each carried one history entry stamped
