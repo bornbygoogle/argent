@@ -100,15 +100,6 @@ export function formatDayHeader(iso: string, locale: Locale = getLocale()): stri
   }).format(date);
 }
 
-/** Short time HH:mm (optionally from a full ISO timestamp). */
-export function formatTime(iso: string, locale: Locale = getLocale()): string {
-  const date = new Date(iso);
-  return new Intl.DateTimeFormat(localeTag(locale), {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-}
-
 /** Localized long month + year, e.g. "Juin 2026" / "June 2026". */
 export function formatMonth(month: string, locale: Locale = getLocale()): string {
   const [y, m] = month.split('-').map(Number);

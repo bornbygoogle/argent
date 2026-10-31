@@ -12,6 +12,7 @@ import {
   useTransaction,
   useTransfer,
 } from '@/hooks/selectors';
+import * as selectors from '@/hooks/selectors';
 import type { Account, Category, IncomeType, Recurring, Transaction } from '@/types/models';
 
 const tx = (over: Partial<Transaction> = {}): Transaction => ({
@@ -242,5 +243,13 @@ describe('selectors do not mutate the live-query array', () => {
 
     expect(source.map((t) => t.key)).toEqual(before);
     expect(result.current).not.toBe(source);
+  });
+});
+
+// A calendar-year grouping contradicts the pay-cycle period model, so the
+// helper was removed rather than left as a trap for the next caller.
+describe('removed selectors', () => {
+  it('no longer exports useYearExpenses', () => {
+    expect('useYearExpenses' in selectors).toBe(false);
   });
 });

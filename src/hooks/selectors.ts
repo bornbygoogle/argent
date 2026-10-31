@@ -352,12 +352,3 @@ export function useMonthExpenses(
     [tx, month, salaries],
   );
 }
-
-/** Expenses within the current scope for a calendar year ('YYYY'). */
-export function useYearExpenses(year: number, scope: AccountScope): Transaction[] {
-  const tx = useScopedTransactions(scope);
-  return useMemo(
-    () => tx.filter((t) => t.kind === 'expense' && t.date.slice(0, 4) === String(year)),
-    [tx, year],
-  );
-}

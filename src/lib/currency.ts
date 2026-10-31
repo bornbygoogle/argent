@@ -42,11 +42,6 @@ export function currencyLocale(code: string): string {
   return c ? c.locale : appLocaleTag();
 }
 
-/** Whether a code is a known ISO 4217 currency (Intl throws on invalid codes). */
-export function isCurated(code: string): boolean {
-  return CURATED_BY_CODE.has((code || '').toUpperCase());
-}
-
 /** Validate a 3-letter ISO 4217 code by asking Intl to format it. */
 export function isValidCurrencyCode(code: string): boolean {
   const c = (code || '').trim().toUpperCase();

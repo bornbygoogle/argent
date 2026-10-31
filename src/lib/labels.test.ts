@@ -8,6 +8,7 @@ import {
   incomeTypeWithSubLabel,
   transactionLabel,
 } from '@/lib/labels';
+import * as labels from '@/lib/labels';
 import type {
   Category,
   IncomeSubtype,
@@ -230,5 +231,11 @@ describe('transactionLabel with income sub-types', () => {
       incomeSubtypeById: orphanSub,
     });
     expect(label).toBe('Mystere(Part)');
+  });
+});
+
+describe('removed labels', () => {
+  it('no longer exports incomeTypeRecordLabel', () => {
+    expect('incomeTypeRecordLabel' in labels).toBe(false);
   });
 });

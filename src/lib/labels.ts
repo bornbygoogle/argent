@@ -69,11 +69,6 @@ export function incomeTypeWithSubLabel(
   return joinSub(incomeTypeLabel(t, it), sub && incomeSubtypeLabel(sub));
 }
 
-/** Alias kept for callers that already hold the record. */
-export function incomeTypeRecordLabel(t: TFunction, it: IncomeType): string {
-  return incomeTypeLabel(t, it);
-}
-
 /** Lookup tables a transaction label may need. Passed by name rather than
  *  position: a row needs two axes (category and income type), each with its own
  *  sub-level, and four positional maps invite silent argument swaps. */

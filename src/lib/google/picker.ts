@@ -66,11 +66,3 @@ export function pickFolder(token: string, title: string): Promise<Picked | null>
     builder.addView(view);
   });
 }
-
-/** Let the user pick a Drive file (a previously-saved backup to restore). */
-export function pickFile(token: string, title: string): Promise<Picked | null> {
-  return show(token, title, (builder, g) => {
-    const view = new g.picker!.DocsView().setIncludeFolders(true).setMimeTypes('application/json');
-    builder.addView(view);
-  });
-}
