@@ -168,6 +168,8 @@ describe('Dashboard — To confirm section', () => {
       rec('r-1', 'Carrefour Banque'),
       rec('r-2', 'Loyer', {
         dueDay: 30,
+        // Born in July: earlier months are not owed, so July is the only one.
+        createdAt: '2026-07-01T00:00:00.000Z',
         history: [{ month: '2026-07', amount: 20, transactionId: 'tx-1' }],
       }),
     ]);
@@ -176,6 +178,23 @@ describe('Dashboard — To confirm section', () => {
 
     await waitFor(() => expect(screen.getByText('Carrefour Banque')).toBeInTheDocument());
     expect(screen.queryByText('Loyer')).not.toBeInTheDocument();
+  });
+
+  it('lists no bill from an account the user has scoped out', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0));
+
+    await db.accounts.add({ ...account('acc-2', 'Épargne'), order: 1 });
+    await db.recurrings.bulkAdd([
+      rec('r-1', 'Loyer'),
+      rec('r-2', 'Assurance épargne', { accountId: 'acc-2' }),
+    ]);
+
+    // The hero and the list read the same scope: only CIC Commun is selected.
+    renderScoped('/?account=acc-1');
+
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+    expect(screen.queryByText('Assurance épargne')).not.toBeInTheDocument();
   });
 });
 
@@ -233,6 +252,9 @@ describe('Dashboard — logging a recurring the month can no longer hold', () =>
     await waitFor(() =>
       expect(screen.getByText(/already holds an entry/i)).toBeInTheDocument(),
     );
+    // It is the pay cycle that is full, not the calendar month.
+    expect(screen.getByText(/pay cycle already holds an entry/i)).toBeInTheDocument();
+    expect(screen.queryByText(/this month/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Transaction recorded')).not.toBeInTheDocument();
   });
 

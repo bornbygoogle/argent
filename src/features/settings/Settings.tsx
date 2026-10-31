@@ -11,9 +11,7 @@ import { TintedIcon } from '@/components/ui/TintedIcon';
 import { Sheet } from '@/components/ui/Sheet';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
-import { useRecurrings, useAccounts } from '@/hooks/selectors';
-import { isConfirmedIn } from '@/lib/recurring';
-import { currentMonth } from '@/lib/date';
+import { useOwedRecurrings, useAccounts } from '@/hooks/selectors';
 import {
   CURATED_CURRENCIES,
   currencySymbol,
@@ -100,8 +98,9 @@ export function Settings() {
   const activeLocale: Locale | 'auto' = settings.locale ?? 'auto';
   const isFr = i18n.language?.startsWith('fr');
 
-  const recurrings = useRecurrings();
-  const todoCount = recurrings.filter((r) => !isConfirmedIn(r, currentMonth())).length;
+  // The same derivation the Dashboard list and the Recurring page read, so the
+  // three can never disagree about what is owed.
+  const todoCount = useOwedRecurrings('all').owed.length;
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [clearOpen, setClearOpen] = useState(false);

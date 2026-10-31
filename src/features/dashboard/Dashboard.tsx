@@ -11,7 +11,7 @@ import {
   useCategoryMap,
   useMonthSummary,
   useRecentMovements,
-  useRecurrings,
+  useOwedRecurrings,
   useScopedRecurrings,
   useBudgetPeriod,
   useVariableExpenses,
@@ -19,7 +19,7 @@ import {
 import { accountBalance, isTransfer, totalBalance } from '@/lib/calc';
 import { currentMonth } from '@/lib/date';
 import { formatCurrency, formatSignedCurrency } from '@/lib/format';
-import { isConfirmedIn, confirmRecurring } from '@/lib/recurring';
+import { confirmRecurring } from '@/lib/recurring';
 import { upcomingCommitments } from '@/lib/budget';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useScopedPath } from '@/hooks/useScopedPath';
@@ -51,9 +51,11 @@ export function Dashboard() {
   const allTx = useAllTransactions();
   const summary = useMonthSummary(currentMonth(), scope);
   const recent = useRecentMovements(scope, 6);
-  const recurrings = useRecurrings();
-  const month = currentMonth();
-  const todoRecurring = recurrings.filter((r) => !isConfirmedIn(r, month)).slice(0, 4);
+  // What is owed is derived once (pay cycles, same scope as the hero below), so
+  // this list can never disagree with "Left to spend" about the same bill.
+  const todoRecurring = useOwedRecurrings(scope)
+    .owed.slice(0, 4)
+    .map((e) => e.recurring);
   const online = useOnlineStatus();
   const { needsReconnect, signIn, busy: googleBusy } = useGoogleAuth();
 
@@ -331,13 +333,14 @@ export function Dashboard() {
                 if (!pendingRecur) return;
                 const row = pendingRecur;
                 setPendingRecur(null);
-                // A full month comes back null and writes nothing. Reporting
-                // that as "recorded" told the user a charge was paid when it
-                // was not — the one lie a money app must never tell. Same
-                // reading as the Recurring screen's own Log button.
+                // A null means the PAY CYCLE already holds this instalment and
+                // nothing was written. Reporting that as "recorded" told the
+                // user a charge was paid when it was not — the one lie a money
+                // app must never tell. Same reading as the Recurring screen's
+                // own Log button.
                 const written = await confirmRecurring(row);
                 if (written === null) {
-                  toast.error(t('recurring.monthFullToast', { label: row.label }));
+                  toast.error(t('recurring.cycleFullToast', { label: row.label }));
                 } else {
                   toast.success(t('recurring.confirmedToast'));
                 }

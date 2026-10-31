@@ -12,17 +12,13 @@ import { Button } from '@/components/ui/Button';
 import { RecurringFormSheet } from './RecurringFormSheet';
 import {
   useRecurrings,
+  useOwedRecurrings,
   useAccounts,
   useAccountMap,
   useAllTransactions,
 } from '@/hooks/selectors';
-import {
-  isConfirmedIn,
-  confirmRecurring,
-  unconfirmRecurring,
-} from '@/lib/recurring';
-import { dueDateFor, clampedDay, occurrenceOf } from '@/lib/recurringSchedule';
-import { currentMonth } from '@/lib/date';
+import { confirmRecurring, unconfirmRecurring } from '@/lib/recurring';
+import { occurrenceOf } from '@/lib/recurringSchedule';
 import { monthlyNet, topUpNeeded } from '@/lib/recurringTotals';
 import { accountBalance } from '@/lib/calc';
 import { formatCurrency, formatSignedCurrency, formatDate } from '@/lib/format';
@@ -42,7 +38,9 @@ export function Recurring() {
   const accounts = useAccounts();
   const accountMap = useAccountMap();
   const allTx = useAllTransactions();
-  const month = currentMonth();
+  // What is owed comes from the one shared derivation (pay cycles), the same
+  // one the Dashboard list and the Settings count read.
+  const { entries, owed, settled } = useOwedRecurrings('all');
   const [mode, setMode] = useState<Mode>('todo');
   const [editing, setEditing] = useState<'new' | RecurringT | null>(null);
   const [pending, setPending] = useState<string | null>(null);
@@ -55,15 +53,18 @@ export function Recurring() {
 
   // Summary — always over the full set. The due day orders the list and dates
   // the transaction; it deliberately does not gate what is shown. A bill due on
-  // the 30th is still this month's work on the 28th, and hiding it until its
-  // day turns the screen into a count of zero while the month fills up.
-  const todo = recurrings.filter((r) => !isConfirmedIn(r, month));
-  const done = recurrings.filter((r) => isConfirmedIn(r, month));
+  // the 30th is still this cycle's work on the 28th, and hiding it until its
+  // day turns the screen into a count of zero while the cycle fills up.
+  const entryOf = new Map(entries.map((e) => [e.recurring.id, e]));
+  const todo = owed.map((e) => e.recurring);
+  const done = settled.map((e) => e.recurring);
   const todoAmount = todo.reduce((acc, r) => acc + r.amount, 0);
   const doneAmount = done.reduce((acc, r) => acc + r.amount, 0);
 
-  const byDueDay = (a: RecurringT, b: RecurringT) =>
-    clampedDay(a.dueDay ?? 1, month) - clampedDay(b.dueDay ?? 1, month);
+  const isSettled = (r: RecurringT) => entryOf.get(r.id)?.status === 'settled';
+  // The day of the instalment actually owed, which is what the row displays.
+  const dayOf = (r: RecurringT) => Number(entryOf.get(r.id)?.occurrence.slice(8, 10) ?? 1);
+  const byDueDay = (a: RecurringT, b: RecurringT) => dayOf(a) - dayOf(b);
 
   // The heading figure covers the rows actually listed, so it always adds up to
   // what is underneath it. The top-up figure deliberately does not: funding an
@@ -125,8 +126,9 @@ export function Recurring() {
   const toggle = async (r: RecurringT): Promise<Outcome> => {
     setPending(r.id);
     try {
-      if (isConfirmedIn(r, month)) {
-        await unconfirmRecurring(r, dueDateFor(r, month));
+      const entry = entryOf.get(r.id);
+      if (entry?.status === 'settled') {
+        await unconfirmRecurring(r, entry.occurrence);
         return 'unconfirmed';
       }
       return (await confirmRecurring(r)) === null ? 'full' : 'confirmed';
@@ -135,7 +137,7 @@ export function Recurring() {
     }
   };
 
-  // One account's block of rows. A row is shown whenever this month's
+  // One account's block of rows. A row is shown whenever its pay cycle's
   // instalment is unpaid, whatever its day — paying early is normal, and a bill
   // due later this month is still work the screen must admit to.
   const renderGroup = (g: { account: Account; items: RecurringT[] }) => (
@@ -187,7 +189,8 @@ export function Recurring() {
       </div>
       <div className="card tight">
         {g.items.map((r) => {
-          const confirmed = isConfirmedIn(r, month);
+          const entry = entryOf.get(r.id);
+          const confirmed = isSettled(r);
           const last = [...r.history].sort((a, b) => (a.month < b.month ? 1 : -1))[0];
           const modified = last != null && Math.abs(last.amount - r.amount) > 0.005;
           // The same template read from the receiving end: money arriving, and
@@ -209,7 +212,8 @@ export function Recurring() {
                       account: counterpart.name,
                     })}`}
                   {r.dueDay != null &&
-                    ` · ${t('recurring.dueOn', { date: formatDate(dueDateFor(r, month), 'weekday') })}`}
+                    entry &&
+                    ` · ${t('recurring.dueOn', { date: formatDate(entry.occurrence, 'weekday') })}`}
                   {modified && (
                     <>
                       {' → '}
@@ -228,7 +232,7 @@ export function Recurring() {
                 <button
                   type="button"
                   className={`confirm-btn${confirmed ? ' done' : ''}`}
-                  onClick={() => setPendingConfirm({ r, on: !isConfirmedIn(r, month) })}
+                  onClick={() => setPendingConfirm({ r, on: !confirmed })}
                   disabled={pending === r.id}
                 >
                   <Icon name="Check" size={14} strokeWidth={2.5} />
@@ -362,7 +366,7 @@ export function Recurring() {
                 setPendingConfirm(null);
                 const outcome = await toggle(r);
                 if (outcome === 'full') {
-                  toast.error(t('recurring.monthFullToast', { label: r.label }));
+                  toast.error(t('recurring.cycleFullToast', { label: r.label }));
                 } else {
                   toast.success(
                     outcome === 'confirmed'

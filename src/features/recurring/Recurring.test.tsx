@@ -178,6 +178,7 @@ describe('per-account totals in the group heading', () => {
         id: 'r-2',
         label: 'Internet',
         amount: 40,
+        createdAt: '2026-07-01T00:00:00.000Z',
         history: [{ month: '2026-07', amount: 40, transactionId: 'tx-1', occurrence: '2026-07-01' }],
       }),
     ]);
@@ -209,6 +210,7 @@ describe('an item logged mid-month, then given a due day of 30', () => {
       recurring({
         label: 'Loyer',
         dueDay: 30,
+        createdAt: '2026-07-01T00:00:00.000Z',
         history: [{ month: '2026-07', amount: 42, transactionId: 'tx-old' }],
       }),
     );
@@ -254,11 +256,37 @@ describe('a due day that has not arrived yet', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0));
 
-    await db.recurrings.add(recurring({ label: 'Loyer', dueDay: 30 }));
+    await db.recurrings.add(
+      recurring({ label: 'Loyer', dueDay: 30, createdAt: '2026-07-01T00:00:00.000Z' }),
+    );
     renderScreen();
 
     await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
     expect(document.body.textContent).toMatch(/Jul 30/);
+  });
+});
+
+describe('a yearly expense', () => {
+  it('is not listed as owed outside its anniversary month', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 6, 28, 10, 0, 0)); // 28 Jul 2026
+
+    // Taken out in March: it is owed every March, never in July.
+    await db.recurrings.bulkAdd([
+      recurring({ id: 'r-1', label: 'Loyer' }),
+      recurring({
+        id: 'r-2',
+        label: 'Assurance annuelle',
+        cadence: 'annuel',
+        createdAt: '2026-03-10T12:00:00',
+      }),
+    ]);
+
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Loyer')).toBeInTheDocument());
+    expect(screen.queryByText('Assurance annuelle')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /log/i })).toHaveLength(1);
   });
 });
 

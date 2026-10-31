@@ -74,12 +74,14 @@ export default function App() {
   // History entries written before instalments were tracked record the month a
   // payment was logged, not the instalment it settled. Recover that from each
   // transaction's date once on start; the pass is additive and idempotent.
-  // Then collapse any month left holding more than one instalment of a template
-  // back to the single instalment it owes — the damage done while repeated
-  // due-day edits could reopen a settled month, and each re-log added a real
-  // charge to the balance. Chained rather than run alongside: both passes
-  // read-modify-write the same `history` array, so overlapping them would let
-  // one silently drop the other's writes.
+  // Then collapse any PAY CYCLE left holding more than one instalment of a
+  // monthly template back to the single instalment it owes (the calendar month
+  // is the unit only before the first Salaire) — the damage done while repeated
+  // due-day edits could reopen a settled period, and each re-log added a real
+  // charge to the balance. Two entries of one expense in different cycles of the
+  // same calendar month are legitimate and survive. Chained rather than run
+  // alongside: both passes read-modify-write the same `history` array, so
+  // overlapping them would let one silently drop the other's writes.
   useEffect(() => {
     backfillOccurrences()
       .then(() => dedupeRecurringMonths())

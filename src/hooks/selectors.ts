@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
 import { monthOf, todayISO } from '@/lib/date';
 import { periodBounds, periodOf, salaryDatesFrom } from '@/lib/period';
+import { nextUnpaidOccurrence, paidMonths, periodKeyFor } from '@/lib/recurringSchedule';
 import { sumExpenses, sumIncome } from '@/lib/calc';
 import { computeAutoBudget, variableExpenses, type AutoBudget } from '@/lib/budget';
 import type {
@@ -265,6 +266,78 @@ export function useBudgetPeriod(): {
   const salaries = useSalaryDates();
   const month = periodOf(todayISO(), salaries);
   return { month, salaries, ...periodBounds(month, salaries) };
+}
+
+/** One template read against the schedule: the instalment a press of "Log"
+ *  would settle, and whether that instalment is still owed. */
+export interface OwedRecurring {
+  recurring: Recurring;
+  /** 'YYYY-MM-DD' the template's next unpaid instalment falls on — the very
+   *  date `confirmRecurring` will give the transaction. */
+  occurrence: string;
+  /** 'idle': nothing is owed at all (a yearly expense outside its anniversary
+   *  month). 'owed': the instalment is unpaid. 'settled': its period holds one. */
+  status: 'owed' | 'settled' | 'idle';
+}
+
+/** 'YYYY-MM-DD' of an ISO instant on the LOCAL calendar, the basis of `todayISO`. */
+function localDateOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/**
+ * What is owed, decided once. Monthly templates follow pay cycles (calendar
+ * months before the first Salaire); weekly ones keep their calendar months; a
+ * yearly one is owed only in the calendar month of its creation anniversary.
+ *
+ * The instalment is the one `confirmRecurring` would settle, so a row and its
+ * Log action always name the same date, and that date lies in the period owed.
+ */
+export function resolveOwed(
+  recurrings: Recurring[],
+  today: string,
+  salaries: string[],
+): OwedRecurring[] {
+  return recurrings.map((recurring) => {
+    const occurrence = nextUnpaidOccurrence(recurring, today, salaries);
+    if (recurring.cadence === 'annuel') {
+      const born = localDateOf(recurring.createdAt).slice(0, 7);
+      const month = today.slice(0, 7);
+      if (month < born || month.slice(5, 7) !== born.slice(5, 7)) {
+        return { recurring, occurrence, status: 'idle' as const };
+      }
+    }
+    const paid = paidMonths(recurring, salaries).has(periodKeyFor(recurring, occurrence, salaries));
+    return { recurring, occurrence, status: paid ? ('settled' as const) : ('owed' as const) };
+  });
+}
+
+/**
+ * Which recurring templates are owed, for every screen that asks. The Dashboard
+ * list, the Recurring page and the Settings count all read this, so they cannot
+ * disagree. Pay cycles come from ALL transactions (see useSalaryDates), the
+ * templates from `scope`.
+ */
+export function useOwedRecurrings(scope: AccountScope): {
+  entries: OwedRecurring[];
+  owed: OwedRecurring[];
+  settled: OwedRecurring[];
+} {
+  const scoped = useScopedRecurrings(scope);
+  const salaries = useSalaryDates();
+  const today = todayISO();
+  return useMemo(() => {
+    const entries = resolveOwed(scoped, today, salaries);
+    return {
+      entries,
+      owed: entries.filter((e) => e.status === 'owed'),
+      settled: entries.filter((e) => e.status === 'settled'),
+    };
+  }, [scoped, salaries, today]);
 }
 
 /** The budget for a single account (undefined until the user sets one). */
